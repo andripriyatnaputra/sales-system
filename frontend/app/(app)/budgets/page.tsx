@@ -45,6 +45,11 @@ type TrendPoint = {
   realization: number;
 };
 
+type Me = {
+  role: string;
+  division: string;
+};
+
 // ---------- Main Page ----------
 
 export default function BudgetsPage() {
@@ -70,6 +75,7 @@ export default function BudgetsPage() {
   const [trend, setTrend] = useState<TrendPoint[]>([]);
   const [trendLoading, setTrendLoading] = useState(false);
   const [trendError, setTrendError] = useState<string | null>(null);
+  const [me, setMe] = useState<Me | null>(null);
 
   // ---------- Load Budgets ----------
 
@@ -89,6 +95,14 @@ export default function BudgetsPage() {
 
   useEffect(() => {
     loadBudgets();
+    apiGet<Me>("/me")
+      .then((res) => {
+        setMe({
+          role: String(res?.role || ""),
+          division: String(res?.division || ""),
+        });
+      })
+      .catch(() => setMe(null));
   }, []);
 
   // Reset page ketika filter/search berubah
@@ -522,6 +536,7 @@ export default function BudgetsPage() {
         <CreateBudgetModal
           onClose={() => setCreateModalOpen(false)}
           onCreated={loadBudgets}
+          me={me}
         />
       )}
     </div>
@@ -640,15 +655,27 @@ function EditBudgetModal({ budget, onClose, onSaved }: EditBudgetModalProps) {
 function CreateBudgetModal({
   onClose,
   onCreated,
+  me,
 }: {
   onClose: () => void;
   onCreated: () => Promise<void>;
+  me: Me | null;
 }) {
-  const [division, setDivision] = useState("IT Solutions");
+  const meRole = me?.role || "";
+  const meDiv = me?.division || "";
+  const lockedDivision = meRole === "user" && meDiv ? meDiv : null;
+
+  const [division, setDivision] = useState(lockedDivision || "IT Solutions");
   const [month, setMonth] = useState("");
   const [amount, setAmount] = useState("");
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (lockedDivision) {
+      setDivision(lockedDivision);
+    }
+  }, [lockedDivision]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -702,11 +729,17 @@ function CreateBudgetModal({
               className="border rounded-lg w-full px-3 py-2 mt-1"
               value={division}
               onChange={(e) => setDivision(e.target.value)}
+              disabled={!!lockedDivision}
             >
               {DIVISIONS.filter((d) => d !== "All").map((d) => (
                 <option key={d}>{d}</option>
               ))}
             </select>
+            {lockedDivision && (
+              <p className="text-xs text-gray-500 mt-1">
+                Division dikunci sesuai akun.
+              </p>
+            )}
           </div>
 
           <div>
