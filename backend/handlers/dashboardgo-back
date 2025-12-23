@@ -1,0 +1,617 @@
+package handlers
+
+import (
+	"fmt"
+	"log"
+	"net/http"
+	"strconv"
+	"strings"
+	"time"
+
+	"sales-system-backend/database"
+
+	"github.com/gin-gonic/gin"
+)
+
+type DashboardBreakdownItem struct {
+	Label string  `json:"label"`
+	Value float64 `json:"value"`
+}
+
+type DashboardForecastPoint struct {
+	Month       string  `json:"month"`
+	Target      float64 `json:"target"`
+	Realization float64 `json:"realization"`
+}
+
+type DashboardPipelineStage struct {
+	Stage int    `json:"stage"`
+	Label string `json:"label"`
+	Count int    `json:"count"`
+}
+
+type DashboardTopProject struct {
+	ID            int64   `json:"id"`
+	Name          string  `json:"name"`
+	TargetRevenue float64 `json:"target_revenue"`
+}
+
+type DashboardTotals struct {
+	TotalTargetRevenue float64 `json:"total_target_revenue"`
+	TotalRealization   float64 `json:"total_realization"`
+	TotalProjects      int64   `json:"total_projects"`
+}
+
+type DashboardPipeline struct {
+	Stages               []DashboardPipelineStage `json:"stages"`
+	TotalWeightedRevenue float64                  `json:"total_weighted_revenue"`
+}
+
+type DashboardBudget struct {
+	TotalBudget      float64 `json:"total_budget"`
+	TotalRealization float64 `json:"total_realization"`
+}
+
+type DashboardCustomerRow struct {
+	Customer    string  `json:"customer"`
+	TotalTarget float64 `json:"total_target"`
+	TotalReal   float64 `json:"total_real"`
+}
+
+type DashboardResponse struct {
+	Totals               DashboardTotals          `json:"totals"`
+	Pipeline             DashboardPipeline        `json:"pipeline"`
+	DivisionBreakdown    []DashboardBreakdownItem `json:"division_breakdown"`
+	TypeBreakdown        []DashboardBreakdownItem `json:"type_breakdown"`
+	CustomerContribution []DashboardBreakdownItem `json:"customer_contribution"`
+	StatusBreakdown      []DashboardBreakdownItem `json:"status_breakdown"`
+	Budget               DashboardBudget          `json:"budget"`
+	Forecast             []DashboardForecastPoint `json:"forecast"`
+	TopProjects          []DashboardTopProject    `json:"top_projects"`
+	CustomerTable        []DashboardCustomerRow   `json:"customer_table"`
+}
+
+func GetDashboard(c *gin.Context) {
+	ctx := c.Request.Context()
+
+	// ============================================
+	// ROLE + USER DIV
+	// ============================================
+	role := c.GetString("role")
+	userDiv := NormalizeDivision(c.GetString("division"))
+
+	// (opsional) paksa query param division untuk user agar FE konsisten
+	if role == "user" {
+		q := c.Request.URL.Query()
+		q.Set("division", userDiv)
+		c.Request.URL.RawQuery = q.Encode()
+	}
+
+	// ============================================
+	// SALES STAGE PROBABILITIES
+	// ============================================
+	stageProb := map[int]float64{
+		1: 0.10,
+		2: 0.20,
+		3: 0.40,
+		4: 0.60,
+		5: 0.80,
+		6: 1.00,
+	}
+	stageLabels := map[int]string{
+		1: "Prospecting",
+		2: "Qualification",
+		3: "Presales Analysis",
+		4: "Quotation",
+		5: "Negotiation",
+		6: "Closing",
+	}
+
+	// ============================================
+	// FILTERS (PROJECT vs BUDGET)
+	// ============================================
+	projectWhere, projectArgs := buildProjectDashboardFilter(c, role, userDiv)
+	budgetWhere, budgetArgs, berr := buildBudgetDashboardFilter(c, role, userDiv)
+	if berr != nil {
+		c.JSON(400, gin.H{"error": berr.Error()})
+		return
+	}
+
+	// ============================================
+	// TOTALS (PROJECT)
+	// ============================================
+	totalsQuery := fmt.Sprintf(`
+		SELECT 
+		COALESCE(SUM(r.target_revenue),0)       AS total_target_revenue,
+		COALESCE(SUM(r.target_realization),0)   AS total_realization,
+		COALESCE(COUNT(DISTINCT p.id),0)        AS total_projects
+		FROM projects p
+		LEFT JOIN customers c ON c.id = p.customer_id
+		LEFT JOIN project_revenue_plan r ON r.project_id = p.id
+		WHERE %s
+	`, projectWhere)
+
+	var totals DashboardTotals
+	if err := database.Pool.QueryRow(ctx, totalsQuery, projectArgs...).
+		Scan(&totals.TotalTargetRevenue, &totals.TotalRealization, &totals.TotalProjects); err != nil {
+		log.Println("TOTALS ERROR:", err)
+		c.JSON(500, gin.H{"error": "failed to load totals"})
+		return
+	}
+
+	// ============================================
+	// PIPELINE (PROJECT)
+	// ============================================
+	pipelineQuery := fmt.Sprintf(`
+		SELECT 
+			p.sales_stage,
+			COUNT(*) AS cnt,
+			COALESCE(SUM(r.target_revenue),0)
+		FROM projects p
+		LEFT JOIN customers c ON c.id = p.customer_id
+		LEFT JOIN project_revenue_plan r ON r.project_id = p.id
+		WHERE %s
+		GROUP BY p.sales_stage
+		ORDER BY p.sales_stage
+	`, projectWhere)
+
+	rowsStage, err := database.Pool.Query(ctx, pipelineQuery, projectArgs...)
+	if err != nil {
+		log.Println("PIPELINE ERROR:", err)
+		c.JSON(500, gin.H{"error": "failed to load pipeline"})
+		return
+	}
+	defer rowsStage.Close()
+
+	pipelineStages := make([]DashboardPipelineStage, 6)
+	for i := 1; i <= 6; i++ {
+		pipelineStages[i-1] = DashboardPipelineStage{Stage: i, Label: stageLabels[i], Count: 0}
+	}
+
+	var totalWeighted float64
+	for rowsStage.Next() {
+		var stage, count int
+		var sumRev float64
+		if err := rowsStage.Scan(&stage, &count, &sumRev); err != nil {
+			continue
+		}
+		if stage >= 1 && stage <= 6 {
+			pipelineStages[stage-1].Count = count
+			totalWeighted += sumRev * stageProb[stage]
+		}
+	}
+
+	// ============================================
+	// DIVISION BREAKDOWN (PROJECT)
+	// ============================================
+	divQuery := fmt.Sprintf(`
+		SELECT 
+			p.division,
+			COALESCE(SUM(r.target_revenue),0)
+		FROM projects p
+		LEFT JOIN customers c ON c.id = p.customer_id
+		LEFT JOIN project_revenue_plan r ON r.project_id = p.id
+		WHERE %s
+		GROUP BY p.division
+		ORDER BY p.division
+	`, projectWhere)
+
+	rowsDiv, err := database.Pool.Query(ctx, divQuery, projectArgs...)
+	if err != nil {
+		log.Println("DIV BREAKDOWN ERROR:", err)
+		c.JSON(500, gin.H{"error": "failed to load division breakdown"})
+		return
+	}
+	defer rowsDiv.Close()
+
+	var divisions []DashboardBreakdownItem
+	for rowsDiv.Next() {
+		var label string
+		var val float64
+		_ = rowsDiv.Scan(&label, &val)
+		divisions = append(divisions, DashboardBreakdownItem{Label: label, Value: val})
+	}
+
+	// ============================================
+	// STATUS BREAKDOWN (PROJECT)
+	// ============================================
+	statusQuery := fmt.Sprintf(`
+		SELECT 
+			p.status,
+			COALESCE(SUM(r.target_revenue),0)
+		FROM projects p
+		LEFT JOIN customers c ON c.id = p.customer_id
+		LEFT JOIN project_revenue_plan r ON r.project_id = p.id
+		WHERE %s
+		GROUP BY p.status
+		ORDER BY p.status
+	`, projectWhere)
+
+	rowsStatus, err := database.Pool.Query(ctx, statusQuery, projectArgs...)
+	if err != nil {
+		log.Println("STATUS BREAKDOWN ERROR:", err)
+		c.JSON(500, gin.H{"error": "failed to load status breakdown"})
+		return
+	}
+	defer rowsStatus.Close()
+
+	var statuses []DashboardBreakdownItem
+	for rowsStatus.Next() {
+		var label string
+		var val float64
+		_ = rowsStatus.Scan(&label, &val)
+		statuses = append(statuses, DashboardBreakdownItem{Label: label, Value: val})
+	}
+
+	// ============================================
+	// TYPE BREAKDOWN (PROJECT)
+	// ============================================
+	typeQuery := fmt.Sprintf(`
+		SELECT 
+			p.project_type,
+			COALESCE(SUM(r.target_revenue),0)
+		FROM projects p
+		LEFT JOIN customers c ON c.id = p.customer_id
+		LEFT JOIN project_revenue_plan r ON r.project_id = p.id
+		WHERE %s
+		GROUP BY p.project_type
+		ORDER BY p.project_type
+	`, projectWhere)
+
+	rowsType, err := database.Pool.Query(ctx, typeQuery, projectArgs...)
+	if err != nil {
+		log.Println("TYPE BREAKDOWN ERROR:", err)
+		c.JSON(500, gin.H{"error": "failed to load type breakdown"})
+		return
+	}
+	defer rowsType.Close()
+
+	var types []DashboardBreakdownItem
+	for rowsType.Next() {
+		var label string
+		var val float64
+		_ = rowsType.Scan(&label, &val)
+		types = append(types, DashboardBreakdownItem{Label: label, Value: val})
+	}
+
+	// ============================================
+	// CUSTOMER CONTRIBUTION (PROJECT)
+	// ============================================
+	custQuery := fmt.Sprintf(`
+		SELECT 
+			COALESCE(c.name,'Unknown'),
+			COALESCE(SUM(r.target_realization),0)
+		FROM projects p
+		LEFT JOIN customers c ON c.id = p.customer_id
+		LEFT JOIN project_revenue_plan r ON r.project_id = p.id
+		WHERE %s
+		GROUP BY c.name
+		ORDER BY SUM(r.target_realization) DESC
+		LIMIT 6
+	`, projectWhere)
+
+	rowsCust, err := database.Pool.Query(ctx, custQuery, projectArgs...)
+	if err != nil {
+		log.Println("CUST CONTRIB ERROR:", err)
+		c.JSON(500, gin.H{"error": "failed to load customer contribution"})
+		return
+	}
+	defer rowsCust.Close()
+
+	var customers []DashboardBreakdownItem
+	for rowsCust.Next() {
+		var label string
+		var val float64
+		_ = rowsCust.Scan(&label, &val)
+		customers = append(customers, DashboardBreakdownItem{Label: label, Value: val})
+	}
+
+	// ============================================
+	// FORECAST (PROJECT) - monthly
+	// ============================================
+	forecastQuery := fmt.Sprintf(`
+		SELECT 
+			to_char(r.month, 'YYYY-MM') AS m,
+			COALESCE(
+				SUM(
+					CASE 
+						WHEN p.status IN ('Carry Over', 'Prospect')
+						THEN r.target_revenue
+						ELSE 0
+					END
+				), 0
+			) AS target,
+			COALESCE(SUM(r.target_realization), 0) AS realization
+		FROM project_revenue_plan r
+		JOIN projects p ON p.id = r.project_id
+		LEFT JOIN customers c ON c.id = p.customer_id
+		WHERE %s
+		GROUP BY m
+		ORDER BY m
+	`, projectWhere)
+
+	rowsForecast, err := database.Pool.Query(ctx, forecastQuery, projectArgs...)
+	if err != nil {
+		log.Println("FORECAST ERROR:", err)
+		c.JSON(500, gin.H{"error": "failed to load forecast"})
+		return
+	}
+	defer rowsForecast.Close()
+
+	var forecast []DashboardForecastPoint
+	for rowsForecast.Next() {
+		var m string
+		var t, real float64
+		_ = rowsForecast.Scan(&m, &t, &real)
+		forecast = append(forecast, DashboardForecastPoint{Month: m, Target: t, Realization: real})
+	}
+
+	// ============================================
+	// TOP PROJECTS (PROJECT)
+	// ============================================
+	topQuery := fmt.Sprintf(`
+		SELECT 
+			p.id,
+			p.description,
+			COALESCE(SUM(r.target_revenue),0)
+		FROM projects p
+		LEFT JOIN customers c ON c.id = p.customer_id
+		LEFT JOIN project_revenue_plan r ON r.project_id = p.id
+		WHERE %s
+		GROUP BY p.id, p.description
+		ORDER BY SUM(r.target_revenue) DESC
+		LIMIT 5
+	`, projectWhere)
+
+	rowsTop, err := database.Pool.Query(ctx, topQuery, projectArgs...)
+	if err != nil {
+		log.Println("TOP PROJECTS ERROR:", err)
+		c.JSON(500, gin.H{"error": "failed to load top projects"})
+		return
+	}
+	defer rowsTop.Close()
+
+	var topProjects []DashboardTopProject
+	for rowsTop.Next() {
+		var tp DashboardTopProject
+		_ = rowsTop.Scan(&tp.ID, &tp.Name, &tp.TargetRevenue)
+		topProjects = append(topProjects, tp)
+	}
+
+	// ============================================
+	// BUDGET SUMMARY (BUDGET)
+	// ============================================
+	budgetQuery := fmt.Sprintf(`
+		SELECT
+			COALESCE(SUM(b.budget_amount), 0) AS total_budget,
+			COALESCE(SUM(r.total_realization), 0) AS total_realization
+		FROM budgets b
+		LEFT JOIN (
+			SELECT budget_id, SUM(amount) AS total_realization
+			FROM budget_realization
+			GROUP BY budget_id
+		) r ON r.budget_id = b.id
+		WHERE %s
+	`, budgetWhere)
+
+	var totalBudget, totalBudgetReal float64
+	if err := database.Pool.QueryRow(ctx, budgetQuery, budgetArgs...).Scan(&totalBudget, &totalBudgetReal); err != nil {
+		log.Println("BUDGET SUMMARY ERROR:", err)
+		log.Println("QUERY:", budgetQuery)
+		log.Println("ARGS:", budgetArgs)
+		c.JSON(500, gin.H{"error": "failed to load budget summary"})
+		return
+	}
+
+	// ============================================
+	// CUSTOMER TABLE (PROJECT)
+	// ============================================
+	customerTableQuery := fmt.Sprintf(`
+		SELECT 
+			COALESCE(c.name, 'Unknown') AS customer,
+			COALESCE(SUM(r.target_revenue), 0) AS total_target,
+			COALESCE(SUM(r.target_realization), 0) AS total_real
+		FROM projects p
+		LEFT JOIN customers c ON c.id = p.customer_id
+		LEFT JOIN project_revenue_plan r ON r.project_id = p.id
+		WHERE %s
+		GROUP BY c.name
+		ORDER BY total_real DESC
+	`, projectWhere)
+
+	rowsCT, err := database.Pool.Query(ctx, customerTableQuery, projectArgs...)
+	if err != nil {
+		log.Println("CUSTOMER TABLE ERROR:", err)
+		c.JSON(500, gin.H{"error": "failed to load customer table"})
+		return
+	}
+	defer rowsCT.Close()
+
+	var customerTable []DashboardCustomerRow
+	for rowsCT.Next() {
+		var row DashboardCustomerRow
+		if err := rowsCT.Scan(&row.Customer, &row.TotalTarget, &row.TotalReal); err == nil {
+			customerTable = append(customerTable, row)
+		}
+	}
+
+	// ============================================
+	// SEND RESPONSE
+	// ============================================
+	resp := DashboardResponse{
+		Totals: totals,
+		Pipeline: DashboardPipeline{
+			Stages:               pipelineStages,
+			TotalWeightedRevenue: totalWeighted,
+		},
+		DivisionBreakdown:    divisions,
+		TypeBreakdown:        types,
+		CustomerContribution: customers,
+		StatusBreakdown:      statuses,
+		Budget: DashboardBudget{
+			TotalBudget:      totalBudget,
+			TotalRealization: totalBudgetReal,
+		},
+		Forecast:      forecast,
+		TopProjects:   topProjects,
+		CustomerTable: customerTable,
+	}
+
+	c.JSON(http.StatusOK, resp)
+}
+
+// ======================================================================
+// FILTER: PROJECT DASHBOARD (alias: p, r, c)
+// ======================================================================
+func buildProjectDashboardFilter(c *gin.Context, role, userDiv string) (string, []any) {
+	conds := []string{}
+	args := []any{}
+	i := 1
+
+	// MULTI VALUE
+	statuses := c.QueryArray("status")
+	stages := c.QueryArray("sales_stage")
+	projectTypes := c.QueryArray("project_type")
+
+	// SINGLE VALUE (tetap)
+	division := NormalizeDivision(strings.TrimSpace(c.Query("division")))
+	customer := strings.TrimSpace(c.Query("customer"))
+	from := strings.TrimSpace(c.Query("from")) // YYYY-MM
+	to := strings.TrimSpace(c.Query("to"))     // YYYY-MM
+
+	if role == "user" {
+		division = userDiv
+	}
+
+	// STATUS (MULTI)
+	if len(statuses) > 0 && !(len(statuses) == 1 && strings.ToUpper(statuses[0]) == "ALL") {
+		holders := []string{}
+		for _, s := range statuses {
+			holders = append(holders, fmt.Sprintf("$%d", i))
+			args = append(args, s)
+			i++
+		}
+		conds = append(conds, fmt.Sprintf("p.status IN (%s)", strings.Join(holders, ",")))
+	}
+
+	// SALES STAGE (MULTI INT)
+	if len(stages) > 0 && !(len(stages) == 1 && strings.ToUpper(stages[0]) == "ALL") {
+		holders := []string{}
+		for _, s := range stages {
+			if _, err := strconv.Atoi(s); err == nil {
+				holders = append(holders, fmt.Sprintf("$%d", i))
+				args = append(args, s)
+				i++
+			}
+		}
+		if len(holders) > 0 {
+			conds = append(conds, fmt.Sprintf("p.sales_stage IN (%s)", strings.Join(holders, ",")))
+		}
+	}
+
+	// PROJECT TYPE (MULTI)
+	if len(projectTypes) > 0 && !(len(projectTypes) == 1 && strings.ToUpper(projectTypes[0]) == "ALL") {
+		holders := []string{}
+		for _, t := range projectTypes {
+			holders = append(holders, fmt.Sprintf("$%d", i))
+			args = append(args, t)
+			i++
+		}
+		conds = append(conds, fmt.Sprintf("p.project_type IN (%s)", strings.Join(holders, ",")))
+	}
+
+	// DIVISION (SINGLE)
+	if division != "" && strings.ToUpper(division) != "ALL" {
+		conds = append(conds, fmt.Sprintf("p.division = $%d", i))
+		args = append(args, division)
+		i++
+	}
+
+	// CUSTOMER (SINGLE)
+	if customer != "" && strings.ToUpper(customer) != "ALL" {
+		conds = append(conds, fmt.Sprintf("COALESCE(c.name,'') = $%d", i))
+		args = append(args, customer)
+		i++
+	}
+
+	// DATE RANGE (PROJECT)
+	if from != "" {
+		if t, err := time.Parse("2006-01", from); err == nil {
+			fromDate := time.Date(t.Year(), t.Month(), 1, 0, 0, 0, 0, time.UTC)
+			conds = append(conds, fmt.Sprintf("r.month >= $%d", i))
+			args = append(args, fromDate)
+			i++
+		}
+	}
+	if to != "" {
+		if t, err := time.Parse("2006-01", to); err == nil {
+			firstNext := time.Date(t.Year(), t.Month(), 1, 0, 0, 0, 0, time.UTC).AddDate(0, 1, 0)
+			toDate := firstNext.Add(-time.Nanosecond)
+			conds = append(conds, fmt.Sprintf("r.month <= $%d", i))
+			args = append(args, toDate)
+			i++
+		}
+	}
+
+	if len(conds) == 0 {
+		return "1=1", nil
+	}
+	return strings.Join(conds, " AND "), args
+}
+
+// ======================================================================
+// FILTER: BUDGET DASHBOARD (alias: b)
+// - division + month range on b.month (DATE)
+// ======================================================================
+func buildBudgetDashboardFilter(c *gin.Context, role, userDiv string) (string, []any, error) {
+	var (
+		conds []string
+		args  []any
+		i     = 1
+	)
+
+	divFilter := strings.TrimSpace(c.Query("division"))
+	from := strings.TrimSpace(c.Query("from")) // "YYYY-MM"
+	to := strings.TrimSpace(c.Query("to"))     // "YYYY-MM"
+
+	if role == "user" {
+		divFilter = userDiv
+	}
+	divFilter = NormalizeDivision(divFilter)
+
+	if divFilter != "" && strings.ToUpper(divFilter) != "ALL" {
+		conds = append(conds, fmt.Sprintf("b.division = $%d", i))
+		args = append(args, divFilter)
+		i++
+	}
+
+	if from != "" {
+		t, err := time.Parse("2006-01", from)
+		if err != nil {
+			return "", nil, fmt.Errorf("invalid from (use YYYY-MM)")
+		}
+		fromDate := time.Date(t.Year(), t.Month(), 1, 0, 0, 0, 0, time.UTC)
+		conds = append(conds, fmt.Sprintf("b.month >= $%d", i))
+		args = append(args, fromDate)
+		i++
+	}
+
+	if to != "" {
+		t, err := time.Parse("2006-01", to)
+		if err != nil {
+			return "", nil, fmt.Errorf("invalid to (use YYYY-MM)")
+		}
+		// b.month is DATE, so use last day of month
+		firstNext := time.Date(t.Year(), t.Month(), 1, 0, 0, 0, 0, time.UTC).AddDate(0, 1, 0)
+		toDate := firstNext.AddDate(0, 0, -1)
+		conds = append(conds, fmt.Sprintf("b.month <= $%d", i))
+		args = append(args, toDate)
+		i++
+	}
+
+	if len(conds) == 0 {
+		return "1=1", nil, nil
+	}
+
+	return strings.Join(conds, " AND "), args, nil
+}
