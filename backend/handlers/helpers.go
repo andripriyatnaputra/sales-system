@@ -120,7 +120,7 @@ func GetTotalRealization(ctx context.Context, budgetID int64) (float64, error) {
 	return total, err
 }
 
-func BudgetExists(ctx context.Context, division, month string) (bool, error) {
+func BudgetExists(ctx context.Context, division string, month time.Time) (bool, error) {
 	var exists bool
 	err := database.Pool.QueryRow(
 		ctx,
@@ -130,7 +130,7 @@ func BudgetExists(ctx context.Context, division, month string) (bool, error) {
               AND month = $2
         )`,
 		NormalizeDivision(division),
-		month+"-01",
+		month,
 	).Scan(&exists)
 
 	return exists, err

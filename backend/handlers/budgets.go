@@ -38,8 +38,14 @@ func CreateBudget(c *gin.Context) {
 		return
 	}
 
+	monthDate, err := time.Parse("2006-01", req.Month)
+	if err != nil {
+		c.JSON(400, gin.H{"error": "invalid month format"})
+		return
+	}
+
 	// cek duplicate budget (division + month)
-	exists, _ := BudgetExists(c, req.Division, req.Month)
+	exists, _ := BudgetExists(c, req.Division, monthDate)
 	if exists {
 		c.JSON(409, gin.H{"error": "Budget for this month & division already exists"})
 		return
@@ -52,7 +58,7 @@ func CreateBudget(c *gin.Context) {
 		`INSERT INTO budgets (division, month, budget_amount)
 		 VALUES ($1, $2, $3) RETURNING id`,
 		req.Division,
-		req.Month+"-01",
+		monthDate,
 		req.BudgetAmount,
 	).Scan(&id)
 
