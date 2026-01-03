@@ -7,36 +7,32 @@ services:
       POSTGRES_PASSWORD: sales123
       POSTGRES_DB: salesdb
     ports:
-      - "5432:5432"
+      - "5433:5432"   # ⬅ host 5433, container tetap 5432
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
       - sales-net
 
   backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
+    image: andriputra/sales-system:backend-latest
     restart: always
     depends_on:
       - postgres
     environment:
-      APP_PORT: 8080
+      APP_PORT: 8081
       DB_DSN: postgres://sales:sales123@postgres:5432/salesdb?sslmode=disable
     ports:
-      - "8080:8080"
+      - "8081:8081"
     networks:
       - sales-net
 
   frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
+    image: andriputra/sales-system:frontend-latest
     restart: always
     depends_on:
       - backend
     environment:
-      NEXT_PUBLIC_API_BASE_URL: http://backend:8080
+      NEXT_PUBLIC_API_BASE_URL: http://backend:8081
     ports:
       - "3000:3000"
     networks:

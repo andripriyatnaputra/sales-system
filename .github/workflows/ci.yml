@@ -53,8 +53,7 @@ jobs:
     needs: backend-test
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -72,8 +71,8 @@ jobs:
           file: ./backend/Dockerfile
           push: true
           tags: |
-            ${{ secrets.DOCKERHUB_USERNAME }}/sales-system-backend:latest
-            ${{ secrets.DOCKERHUB_USERNAME }}/sales-system-backend:${{ github.sha }}
+            andriputra/sales-system:backend-latest
+            andriputra/sales-system:backend-${{ github.sha }}
 
   # =========================
   # 3️⃣ FRONTEND BUILD & PUSH
@@ -82,8 +81,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -101,5 +99,5 @@ jobs:
           file: ./frontend/Dockerfile
           push: true
           tags: |
-            ${{ secrets.DOCKERHUB_USERNAME }}/sales-system-frontend:latest
-            ${{ secrets.DOCKERHUB_USERNAME }}/sales-system-frontend:${{ github.sha }}
+            andriputra/sales-system:frontend-latest
+            andriputra/sales-system:frontend-${{ github.sha }}
