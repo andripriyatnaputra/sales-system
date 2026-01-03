@@ -10,6 +10,9 @@ RUN go mod download
 # Copy semua source code
 COPY . .
 
+# 🔑 PENTING: pastikan module clean
+RUN go mod tidy
+
 # Build binary
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o server main.go
 
