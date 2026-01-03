@@ -1,8 +1,8 @@
 module sales-system-backend
 
-go 1.23.0
+go 1.22
 
-toolchain go1.24.11
+toolchain go1.22.10
 
 require (
 	github.com/bytedance/sonic v1.14.0 // indirect
