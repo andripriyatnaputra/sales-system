@@ -53,7 +53,7 @@ func CreateBudget(c *gin.Context) {
 
 	// insert budget
 	var id int64
-	err := database.Pool.QueryRow(
+	err = database.Pool.QueryRow(
 		c,
 		`INSERT INTO budgets (division, month, budget_amount)
 		 VALUES ($1, $2, $3) RETURNING id`,

@@ -28,7 +28,7 @@ export const SALES_STAGES = [
   { value: 6, label: "6 - Closing" },
 ];
 
-export const SPH_STATUSES = ["Open", "Hold", "Drop", "Win"] as const;
+export const SPH_STATUSES = ["Open", "Hold", "Drop", "Win", "Loss"] as const;
 
 
 // ------------------ SALES STAGE PROBABILITY (optional) ------------------
