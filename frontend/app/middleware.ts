@@ -4,20 +4,16 @@ import type { NextRequest } from "next/server";
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
+  // ❌ JANGAN sentuh API sama sekali
+  if (pathname.startsWith("/api")) {
+    return NextResponse.next();
+  }
+
   const res = NextResponse.next();
   res.cookies.set("current-path", pathname);
 
-  // ✅ ALLOW PUBLIC ROUTES
-  if (
-    pathname.startsWith("/login") ||
-    pathname.startsWith("/api/login") ||
-    pathname.startsWith("/api/health")
-  ) {
-    return res;
-  }
-
-  // ❌ JANGAN proteksi semua /api
-  if (pathname.startsWith("/api")) {
+  // allow login page
+  if (pathname.startsWith("/login")) {
     return res;
   }
 
@@ -32,8 +28,13 @@ export function middleware(req: NextRequest) {
   return res;
 }
 
+/**
+ * 🔥 PALING PENTING
+ * Middleware HANYA untuk PAGE
+ * BUKAN API
+ */
 export const config = {
   matcher: [
-    "/((?!_next|static|favicon.ico).*)",
+    "/((?!_next|static|favicon.ico|api).*)",
   ],
 };
