@@ -4,17 +4,14 @@ import type { NextRequest } from "next/server";
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  // ❌ JANGAN sentuh API sama sekali
+  // 🔥 API JANGAN PERNAH DISENTUH MIDDLEWARE
   if (pathname.startsWith("/api")) {
     return NextResponse.next();
   }
 
-  const res = NextResponse.next();
-  res.cookies.set("current-path", pathname);
-
   // allow login page
   if (pathname.startsWith("/login")) {
-    return res;
+    return NextResponse.next();
   }
 
   const token =
@@ -25,16 +22,12 @@ export function middleware(req: NextRequest) {
     return NextResponse.redirect(new URL("/login", req.url));
   }
 
-  return res;
+  return NextResponse.next();
 }
 
-/**
- * 🔥 PALING PENTING
- * Middleware HANYA untuk PAGE
- * BUKAN API
- */
 export const config = {
   matcher: [
+    // ❗❗❗ API DI-EXCLUDE SECARA TOTAL
     "/((?!_next|static|favicon.ico|api).*)",
   ],
 };
