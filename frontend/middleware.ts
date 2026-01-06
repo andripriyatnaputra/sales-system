@@ -1,34 +1,42 @@
-// frontend/middleware.ts
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  // 🔥 API JANGAN PERNAH DISENTUH MIDDLEWARE
-  if (pathname.startsWith("/api")) {
+  // 🔴 JANGAN SENTUH API & STATIC ASSET
+  if (
+    pathname.startsWith("/api") ||
+    pathname.startsWith("/_next") ||
+    pathname === "/favicon.ico" ||
+    pathname.startsWith("/icons") ||
+    pathname.startsWith("/images") ||
+    pathname.startsWith("/assets") ||
+    pathname.startsWith("/public")
+  ) {
     return NextResponse.next();
   }
 
-  // allow login page
+  // 🟢 HALAMAN LOGIN SELALU BOLEH DIAKSES
   if (pathname.startsWith("/login")) {
     return NextResponse.next();
   }
 
-  const token =
-    req.cookies.get("token")?.value ||
-    req.headers.get("Authorization")?.replace("Bearer ", "");
-
-  if (!token) {
-    return NextResponse.redirect(new URL("/login", req.url));
-  }
-
+  /**
+   * 🔵 TIDAK ADA AUTH LOGIC DI MIDDLEWARE
+   * Auth ditangani oleh:
+   * - Backend (401)
+   * - AuthGuard di client
+   */
   return NextResponse.next();
 }
 
+/**
+ * 🔥 Middleware HANYA UNTUK PAGE
+ * API & STATIC EXCLUDED TOTAL
+ */
 export const config = {
   matcher: [
-    // ❗ EXCLUDE API SECARA TOTAL
-    "/((?!_next|static|favicon.ico|api).*)",
+    "/((?!api|_next|favicon.ico|icons|images|assets|public).*)",
   ],
 };
