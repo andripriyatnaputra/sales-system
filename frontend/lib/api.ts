@@ -37,7 +37,7 @@ async function request<T>(
     "Content-Type": "application/json",
   };
 
-  if (token) {
+  if (token && url !== "/login") {
     headers["Authorization"] = `Bearer ${token}`;
   }
 
@@ -114,6 +114,7 @@ export async function login(
   username: string,
   password: string
 ): Promise<LoginResponse> {
+  clearToken();
   const res = await apiPost<LoginResponse>("/login", { username, password });
 
   setToken(res.token);
