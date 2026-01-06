@@ -1,3 +1,4 @@
+// frontend/middleware.ts
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
@@ -27,7 +28,7 @@ export function middleware(req: NextRequest) {
 
 export const config = {
   matcher: [
-    // ❗❗❗ API DI-EXCLUDE SECARA TOTAL
+    // ❗ EXCLUDE API SECARA TOTAL
     "/((?!_next|static|favicon.ico|api).*)",
   ],
 };
