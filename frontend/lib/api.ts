@@ -4,8 +4,10 @@
 export type HttpMethod = "GET" | "POST" | "PUT" | "DELETE";
 
 const API_BASE = "/api";
+//const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL;
 
 // --- TOKEN HANDLER ---
+
 export function getToken(): string | null {
   if (typeof window === "undefined") return null;
   return localStorage.getItem("token");

@@ -25,6 +25,6 @@ COPY --from=builder /app/server .
 # kalau pakai .env untuk runtime, bisa di-copy juga (opsional)
 # COPY .env .
 
-EXPOSE 8080
+EXPOSE 8081
 
 CMD ["./server"]
