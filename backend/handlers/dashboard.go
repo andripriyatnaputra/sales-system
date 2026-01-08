@@ -322,14 +322,24 @@ func GetDashboard(c *gin.Context) {
 	// ============================================
 	// PIPELINE (PROJECT)
 	// ============================================
-	pipelineQuery := fmt.Sprintf(`
-		SELECT 
+	/*pipelineQuery := fmt.Sprintf(`
+		SELECT
 			p.sales_stage,
 			COUNT(*) AS cnt,
 			COALESCE(SUM(COALESCE(r.target_revenue,0)),0)
 		FROM projects p
 		LEFT JOIN customers c ON c.id = p.customer_id
 		LEFT JOIN project_revenue_plan r ON r.project_id = p.id
+		WHERE %s
+		GROUP BY p.sales_stage
+		ORDER BY p.sales_stage
+	`, projectWhere)*/
+	pipelineQuery := fmt.Sprintf(`
+		SELECT 
+			p.sales_stage,
+			COUNT(DISTINCT p.id) AS cnt
+		FROM projects p
+		LEFT JOIN customers c ON c.id = p.customer_id
 		WHERE %s
 		GROUP BY p.sales_stage
 		ORDER BY p.sales_stage
