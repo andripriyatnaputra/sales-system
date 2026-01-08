@@ -264,11 +264,13 @@ function toggle(arr: string[], value: string) {
 export default function DashboardPage() {
   const [filters, setFilters] = useState<Filters>(INITIAL_FILTERS);
   const [data, setData] = useState<DashboardResponse | null>(null);
+  
 
   // Fetch data with filters
   useEffect(() => {
     const fetchData = async () => {
       const params = new URLSearchParams();
+      
 
       filters.status.forEach(v => params.append("status", v));
       filters.salesStage.forEach(v => params.append("sales_stage", v));
@@ -346,12 +348,23 @@ export default function DashboardPage() {
   const cumReal = cumulative(normalizedForecast.map((f) => f.realization));
 
   // ===== Funnel (always 6 stages) =====
-  const stageCounts = safePipeline.map(s => s.count || 0);
-  const stageCumulative = [];
-  let run = 0;
+  const orderedPipeline = [1, 2, 3, 4, 5, 6].map((stage) => {
+    console.log("PIPELINE RAW FROM API:", data.pipeline?.stages);
+  const hit = safePipeline.find((s) => s.stage === stage);
+    return {
+      stage,
+      label: hit?.label ?? `Stage ${stage}`,
+      count: Number(hit?.count ?? 0),
+    };
+  });
+
+  const stageCounts = orderedPipeline.map(s => s.count);
+  const stageCumulative: number[] = new Array(stageCounts.length).fill(0);
+  let running = 0;
+  // hitung dari belakang (Closing → Prospecting)
   for (let i = stageCounts.length - 1; i >= 0; i--) {
-    run += stageCounts[i];
-    stageCumulative[i] = run;
+    running += stageCounts[i];
+    stageCumulative[i] = running;
   }
 
   // ===== UI =====
@@ -780,31 +793,54 @@ export default function DashboardPage() {
 
         {/* FUNNEL (small) */}
         <Card className="xl:col-span-2 p-4 flex flex-col">
-          <h2 className="text-sm font-semibold mb-2">Sales Staging Funnel</h2>
+        <h2 className="text-sm font-semibold mb-1">
+          Sales Funnel (Cumulative)
+        </h2>
+        <p className="text-[10px] text-muted-foreground mb-2">
+          Total deals that have reached this stage or beyond
+        </p>
 
-          <div className="flex-1">
-            <Bar
-              data={{
-                labels: safePipeline.map(s => s.label),
-                datasets: [
-                  {
-                    data: stageCumulative,
-                    backgroundColor: "rgba(37,99,235,0.9)",
-                  },
-                ],
-              }}
-              options={{
-                indexAxis: "y",
-                maintainAspectRatio: false,
-                plugins: { legend: { display: false } },
-                scales: {
-                  x: { ticks: { stepSize: 1 } },
-                  y: { ticks: { font: { size: 10 } } },
+        <div className="flex-1">
+          <Bar
+            data={{
+              labels: orderedPipeline.map(s => s.label),
+              datasets: [
+                {
+                  data: stageCumulative,
+                  backgroundColor: "rgba(37,99,235,0.9)",
                 },
-              }}
-            />
-          </div>
-        </Card>
+              ],
+            }}
+            options={{
+              indexAxis: "y",
+              maintainAspectRatio: false,
+              plugins: {
+                legend: { display: false },
+                tooltip: {
+                  callbacks: {
+                    label: (ctx) =>
+                      `Cumulative deals: ${ctx.raw}`,
+                  },
+                },
+              },
+              scales: {
+                x: {
+                  ticks: { stepSize: 1 },
+                  title: {
+                    display: true,
+                    text: "Number of deals",
+                    font: { size: 10 },
+                  },
+                },
+                y: {
+                  ticks: { font: { size: 10 } },
+                },
+              },
+            }}
+          />
+        </div>
+      </Card>
+
       </div>
 
 

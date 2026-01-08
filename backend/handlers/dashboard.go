@@ -175,14 +175,14 @@ func GetDashboard(c *gin.Context) {
 	// ============================================
 	// SALES STAGE PROBABILITIES
 	// ============================================
-	stageProb := map[int]float64{
+	/*stageProb := map[int]float64{
 		1: 0.10,
 		2: 0.20,
 		3: 0.40,
 		4: 0.60,
 		5: 0.80,
 		6: 1.00,
-	}
+	}*/
 	stageLabels := map[int]string{
 		1: "Prospecting",
 		2: "Qualification",
@@ -195,7 +195,9 @@ func GetDashboard(c *gin.Context) {
 	// ============================================
 	// FILTERS (PROJECT vs BUDGET)
 	// ============================================
-	projectWhere, projectArgs := buildProjectDashboardFilter(c, role, userDiv)
+	projectWhere, projectArgs :=
+		buildProjectDashboardFilter(c, role, userDiv, true)
+	pipelineWhere, pipelineArgs := buildPipelineFilter(c, role, userDiv)
 	budgetWhere, budgetArgs, berr := buildBudgetDashboardFilter(c, role, userDiv)
 	if berr != nil {
 		c.JSON(400, gin.H{"error": berr.Error()})
@@ -322,30 +324,22 @@ func GetDashboard(c *gin.Context) {
 	// ============================================
 	// PIPELINE (PROJECT)
 	// ============================================
-	/*pipelineQuery := fmt.Sprintf(`
+	log.Println("PROJECT WHERE:", projectWhere)
+	log.Println("PROJECT ARGS:", projectArgs)
+	log.Println("PIPELINE WHERE:", pipelineWhere)
+	log.Println("PIPELINE ARGS:", pipelineArgs)
+	pipelineQuery := fmt.Sprintf(`
 		SELECT
 			p.sales_stage,
-			COUNT(*) AS cnt,
-			COALESCE(SUM(COALESCE(r.target_revenue,0)),0)
-		FROM projects p
-		LEFT JOIN customers c ON c.id = p.customer_id
-		LEFT JOIN project_revenue_plan r ON r.project_id = p.id
-		WHERE %s
-		GROUP BY p.sales_stage
-		ORDER BY p.sales_stage
-	`, projectWhere)*/
-	pipelineQuery := fmt.Sprintf(`
-		SELECT 
-			p.sales_stage,
-			COUNT(DISTINCT p.id) AS cnt
+			COUNT(DISTINCT p.id)
 		FROM projects p
 		LEFT JOIN customers c ON c.id = p.customer_id
 		WHERE %s
 		GROUP BY p.sales_stage
 		ORDER BY p.sales_stage
-	`, projectWhere)
+	`, pipelineWhere)
 
-	rowsStage, err := database.Pool.Query(ctx, pipelineQuery, projectArgs...)
+	rowsStage, err := database.Pool.Query(ctx, pipelineQuery, pipelineArgs...)
 	if err != nil {
 		log.Println("PIPELINE ERROR:", err)
 		c.JSON(500, gin.H{"error": "failed to load pipeline"})
@@ -361,13 +355,14 @@ func GetDashboard(c *gin.Context) {
 	var totalWeighted float64
 	for rowsStage.Next() {
 		var stage, count int
-		var sumRev float64
-		if err := rowsStage.Scan(&stage, &count, &sumRev); err != nil {
+
+		if err := rowsStage.Scan(&stage, &count); err != nil {
+			log.Println("PIPELINE SCAN ERROR:", err)
 			continue
 		}
+
 		if stage >= 1 && stage <= 6 {
 			pipelineStages[stage-1].Count = count
-			totalWeighted += sumRev * stageProb[stage]
 		}
 	}
 
@@ -656,7 +651,12 @@ func GetDashboard(c *gin.Context) {
 // - support multi status/stage/type
 // - default 1 tahun anggaran jika from/to kosong
 // ======================================================================
-func buildProjectDashboardFilter(c *gin.Context, role, userDiv string) (string, []any) {
+func buildProjectDashboardFilter(
+	c *gin.Context,
+	role, userDiv string,
+	applyRevenueDate bool, // TRUE = revenue, FALSE = pipeline/project
+) (string, []any) {
+
 	conds := []string{}
 	args := []any{}
 	i := 1
@@ -670,21 +670,16 @@ func buildProjectDashboardFilter(c *gin.Context, role, userDiv string) (string, 
 	division := NormalizeDivision(strings.TrimSpace(c.Query("division")))
 	customer := strings.TrimSpace(c.Query("customer"))
 
-	fromStr := strings.TrimSpace(c.Query("from")) // "YYYY-MM" or "YYYY-MM-DD"
-	toStr := strings.TrimSpace(c.Query("to"))     // "YYYY-MM" or "YYYY-MM-DD"
+	fromStr := strings.TrimSpace(c.Query("from"))
+	toStr := strings.TrimSpace(c.Query("to"))
 
 	if role == "user" {
 		division = userDiv
 	}
 
-	// timezone for fiscal year default
 	loc := mustLoadLocation("Asia/Jakarta")
 
-	// DEFAULT fiscal year if empty
-	var (
-		fromDate time.Time
-		toDate   time.Time
-	)
+	var fromDate, toDate time.Time
 	if fromStr == "" && toStr == "" {
 		df, dt := defaultFiscalYearRange(loc)
 		fromDate, toDate = df, dt
@@ -699,18 +694,9 @@ func buildProjectDashboardFilter(c *gin.Context, role, userDiv string) (string, 
 				toDate = endOfMonth(t, loc)
 			}
 		}
-		// if only one side exists, clamp to fiscal year of that side
-		if !fromDate.IsZero() && toDate.IsZero() {
-			y := fromDate.In(loc).Year()
-			toDate = time.Date(y, time.December, 31, 23, 59, 59, 999999999, loc)
-		}
-		if fromDate.IsZero() && !toDate.IsZero() {
-			y := toDate.In(loc).Year()
-			fromDate = time.Date(y, time.January, 1, 0, 0, 0, 0, loc)
-		}
 	}
 
-	// STATUS (multi)
+	// STATUS
 	if len(statuses) > 0 && !(len(statuses) == 1 && strings.ToUpper(statuses[0]) == "ALL") {
 		holders := []string{}
 		for _, s := range statuses {
@@ -721,7 +707,7 @@ func buildProjectDashboardFilter(c *gin.Context, role, userDiv string) (string, 
 		conds = append(conds, fmt.Sprintf("p.status IN (%s)", strings.Join(holders, ",")))
 	}
 
-	// STAGE (multi int)
+	// SALES STAGE
 	if len(stages) > 0 && !(len(stages) == 1 && strings.ToUpper(stages[0]) == "ALL") {
 		holders := []string{}
 		for _, s := range stages {
@@ -736,7 +722,7 @@ func buildProjectDashboardFilter(c *gin.Context, role, userDiv string) (string, 
 		}
 	}
 
-	// TYPE (multi)
+	// PROJECT TYPE
 	if len(projectTypes) > 0 && !(len(projectTypes) == 1 && strings.ToUpper(projectTypes[0]) == "ALL") {
 		holders := []string{}
 		for _, t := range projectTypes {
@@ -759,14 +745,23 @@ func buildProjectDashboardFilter(c *gin.Context, role, userDiv string) (string, 
 		i++
 	}
 
-	// date range always applied (1 fiscal year)
+	// DATE FILTER (IMPORTANT FIX)
 	if !fromDate.IsZero() {
-		conds = append(conds, fmt.Sprintf("r.month >= $%d", i))
+		if applyRevenueDate {
+			conds = append(conds, fmt.Sprintf("r.month >= $%d", i))
+		} else {
+			conds = append(conds, fmt.Sprintf("p.created_at >= $%d", i))
+		}
 		args = append(args, fromDate.UTC())
 		i++
 	}
+
 	if !toDate.IsZero() {
-		conds = append(conds, fmt.Sprintf("r.month <= $%d", i))
+		if applyRevenueDate {
+			conds = append(conds, fmt.Sprintf("r.month <= $%d", i))
+		} else {
+			conds = append(conds, fmt.Sprintf("p.created_at <= $%d", i))
+		}
 		args = append(args, toDate.UTC())
 		i++
 	}
@@ -774,6 +769,7 @@ func buildProjectDashboardFilter(c *gin.Context, role, userDiv string) (string, 
 	if len(conds) == 0 {
 		return "1=1", nil
 	}
+
 	return strings.Join(conds, " AND "), args
 }
 
@@ -858,4 +854,152 @@ func buildBudgetDashboardFilter(c *gin.Context, role, userDiv string) (string, [
 	}
 
 	return strings.Join(conds, " AND "), args, nil
+}
+
+func buildPipelineFilter(
+	c *gin.Context,
+	role, userDiv string,
+) (string, []any) {
+
+	conds := []string{}
+	args := []any{}
+	i := 1
+
+	statuses := c.QueryArray("status")
+	stages := c.QueryArray("sales_stage")
+	projectTypes := c.QueryArray("project_type")
+
+	division := NormalizeDivision(strings.TrimSpace(c.Query("division")))
+	customer := strings.TrimSpace(c.Query("customer"))
+
+	fromStr := strings.TrimSpace(c.Query("from"))
+	toStr := strings.TrimSpace(c.Query("to"))
+
+	if role == "user" {
+		division = userDiv
+	}
+
+	// ---- FILTERS (CONTEXT ONLY) ----
+
+	if len(statuses) > 0 && !(len(statuses) == 1 && strings.ToUpper(statuses[0]) == "ALL") {
+		holders := []string{}
+		for _, s := range statuses {
+			holders = append(holders, fmt.Sprintf("$%d", i))
+			args = append(args, s)
+			i++
+		}
+		conds = append(conds, fmt.Sprintf("p.status IN (%s)", strings.Join(holders, ",")))
+	}
+
+	if len(stages) > 0 && !(len(stages) == 1 && strings.ToUpper(stages[0]) == "ALL") {
+		holders := []string{}
+		for _, s := range stages {
+			if _, err := strconv.Atoi(s); err == nil {
+				holders = append(holders, fmt.Sprintf("$%d", i))
+				args = append(args, s)
+				i++
+			}
+		}
+		if len(holders) > 0 {
+			conds = append(conds, fmt.Sprintf("p.sales_stage IN (%s)", strings.Join(holders, ",")))
+		}
+	}
+
+	if len(projectTypes) > 0 && !(len(projectTypes) == 1 && strings.ToUpper(projectTypes[0]) == "ALL") {
+		holders := []string{}
+		for _, t := range projectTypes {
+			holders = append(holders, fmt.Sprintf("$%d", i))
+			args = append(args, t)
+			i++
+		}
+		conds = append(conds, fmt.Sprintf("p.project_type IN (%s)", strings.Join(holders, ",")))
+	}
+
+	if division != "" && strings.ToUpper(division) != "ALL" {
+		conds = append(conds, fmt.Sprintf("p.division = $%d", i))
+		args = append(args, division)
+		i++
+	}
+
+	if customer != "" && strings.ToUpper(customer) != "ALL" {
+		conds = append(conds, fmt.Sprintf("COALESCE(c.name,'') = $%d", i))
+		args = append(args, customer)
+		i++
+	}
+
+	// ---- TIME FILTER (FIX) ----
+	// Pipeline harus konsisten dengan filter bulan (r.month) seperti KPI/forecast,
+	// tapi tanpa join yang bikin duplikasi -> pakai EXISTS.
+	loc := mustLoadLocation("Asia/Jakarta")
+
+	var fromDate, toDate time.Time
+	if fromStr == "" && toStr == "" {
+		// samakan perilaku dengan dashboard filter lain: default 1 tahun berjalan
+		df, dt := defaultFiscalYearRange(loc)
+		fromDate, toDate = df, dt
+	} else {
+		if fromStr != "" {
+			if t, err := parseYearMonthOrDate(fromStr); err == nil {
+				fromDate = startOfMonth(t, loc)
+			}
+		}
+		if toStr != "" {
+			if t, err := parseYearMonthOrDate(toStr); err == nil {
+				toDate = endOfMonth(t, loc)
+			}
+		}
+
+		// kalau user isi salah satu saja, lengkapi satu tahun yang sama
+		if !fromDate.IsZero() && toDate.IsZero() {
+			y := fromDate.In(loc).Year()
+			toDate = time.Date(y, time.December, 31, 23, 59, 59, 999999999, loc)
+		}
+		if fromDate.IsZero() && !toDate.IsZero() {
+			y := toDate.In(loc).Year()
+			fromDate = time.Date(y, time.January, 1, 0, 0, 0, 0, loc)
+		}
+	}
+
+	// hanya apply kalau range valid
+	if !fromDate.IsZero() && !toDate.IsZero() {
+		conds = append(conds, fmt.Sprintf(`
+			EXISTS (
+				SELECT 1
+				FROM project_revenue_plan r
+				WHERE r.project_id = p.id
+				  AND r.month >= $%d
+				  AND r.month <= $%d
+			)
+		`, i, i+1))
+		args = append(args, fromDate.UTC())
+		args = append(args, toDate.UTC())
+		i += 2
+	}
+
+	if len(conds) == 0 {
+		return "1=1", nil
+	}
+
+	return strings.Join(conds, " AND "), args
+}
+
+func buildPipelineWhere(
+	c *gin.Context,
+	role, userDiv string,
+) (string, []any) {
+
+	// clone query TANPA from / to (bulan)
+	q := c.Request.URL.Query()
+	q.Del("from")
+	q.Del("to")
+
+	cloneReq := *c.Request
+	cloneReq.URL = &(*c.Request.URL)
+	cloneReq.URL.RawQuery = q.Encode()
+
+	cloneCtx := c.Copy()
+	cloneCtx.Request = &cloneReq
+
+	// reuse builder tapi TANPA revenue date
+	return buildProjectDashboardFilter(cloneCtx, role, userDiv, false)
 }
