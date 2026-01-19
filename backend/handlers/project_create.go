@@ -73,6 +73,8 @@ func CreateProject(c *gin.Context) {
 		return
 	}
 
+	fmt.Println("GENERATED projectCode:", projectCode)
+
 	var id int64
 	err = tx.QueryRow(ctx, `
         INSERT INTO projects (
