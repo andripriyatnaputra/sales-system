@@ -74,7 +74,6 @@ func CreateProject(c *gin.Context) {
 	}
 
 	fmt.Println("GENERATED projectCode:", projectCode)
-	fmt.Sprintf("GENERATED projectCode:", projectCode)
 
 	var id int64
 	err = tx.QueryRow(ctx, `
