@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"sales-system-backend/database"
+
+	"github.com/jackc/pgx/v5"
 )
 
 // =====================================================
@@ -100,6 +102,26 @@ func generateProjectCode(division string) string {
 
 	// Format final: PRJ-ITS-2025-0001
 	return fmt.Sprintf("PRJ-%s-%d-%04d", code, year, seq)
+}
+
+func generateProjectCodeTx(ctx context.Context, tx pgx.Tx, division string) (string, error) {
+	year := time.Now().In(mustLoadLocation("Asia/Jakarta")).Year()
+	divCode := divisionCode(division)
+
+	var seq int
+	err := tx.QueryRow(ctx, `
+    INSERT INTO project_code_counters (year, division_code, last_seq)
+    VALUES ($1, $2, 1)
+    ON CONFLICT (year, division_code)
+    DO UPDATE SET last_seq = project_code_counters.last_seq + 1
+    RETURNING last_seq
+  `, year, divCode).Scan(&seq)
+	if err != nil {
+		return "", err
+	}
+
+	// Format final: PRJ-ITS-2025-0001
+	return fmt.Sprintf("PRJ-%s-%d-%04d", divCode, year, seq), nil
 }
 
 // =====================================================

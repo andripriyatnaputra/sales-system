@@ -66,7 +66,12 @@ func CreateProject(c *gin.Context) {
 	defer tx.Rollback(ctx)
 
 	// --- Generate project code AFTER division finalized ---
-	projectCode := generateProjectCode(body.Division)
+	//projectCode := generateProjectCode(body.Division)
+	projectCode, err := generateProjectCodeTx(ctx, tx, body.Division)
+	if err != nil {
+		c.JSON(500, gin.H{"error": fmt.Sprintf("failed generate project code: %v", err)})
+		return
+	}
 
 	var id int64
 	err = tx.QueryRow(ctx, `
