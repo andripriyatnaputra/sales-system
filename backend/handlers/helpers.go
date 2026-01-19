@@ -105,29 +105,22 @@ func generateProjectCode(division string) string {
 }
 
 func generateProjectCodeTx(ctx context.Context, tx pgx.Tx, division string) (string, error) {
-	year := time.Now().In(mustLoadLocation("Asia/Jakarta")).Year()
+	loc := mustLoadLocation("Asia/Jakarta")
+	year := time.Now().In(loc).Year()
 	code := divisionCode(division)
 
-	// Lock per (year, divisionCode) supaya request paralel antri
-	// 2026 * 100 + hash kecil; atau bikin 2 key int64.
-	// Cara aman: pakai hashtext di SQL -> int4, tapi advisory lock butuh int8/int4 pasangan.
-	// Paling simpel: lock 2-arg (year, hash division).
-	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock($1, hashtext($2))`, year, code); err != nil {
+	var seq int
+	err := tx.QueryRow(ctx, `
+		INSERT INTO project_code_counters (year, division_code, last_seq)
+		VALUES ($1, $2, 1)
+		ON CONFLICT (year, division_code)
+		DO UPDATE SET last_seq = project_code_counters.last_seq + 1
+		RETURNING last_seq
+	`, year, code).Scan(&seq)
+	if err != nil {
 		return "", err
 	}
 
-	// Hitung ulang SETELAH lock didapat (aman)
-	var count int
-	if err := tx.QueryRow(ctx, `
-    SELECT COUNT(*)
-    FROM projects
-    WHERE EXTRACT(YEAR FROM created_at) = $1
-      AND project_code LIKE 'PRJ-' || $2 || '-' || $1::text || '-%'
-  `, year, code).Scan(&count); err != nil {
-		return "", err
-	}
-
-	seq := count + 1
 	return fmt.Sprintf("PRJ-%s-%d-%04d", code, year, seq), nil
 }
 
