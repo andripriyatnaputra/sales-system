@@ -19,7 +19,7 @@ import (
 // dan mengembalikan
 //
 //	→ "NetCo"
-//	→ "Oil Gas & Mining"
+//	→ "Oil Mining & Goverments"
 //	→ "IT Solutions"
 func NormalizeDivision(d string) string {
 	d = strings.TrimSpace(strings.ToLower(d))
@@ -31,12 +31,16 @@ func NormalizeDivision(d string) string {
 		"nc", "network-communications":
 		return "NetCo"
 
-	// --- OIL GAS & MINING ---
+	// --- OIL MINING & GOVERMENTS (NEW CANONICAL) ---
 	case "oil gas & mining", "oil gas mining", "oil & gas mining",
 		"oil & gas", "oil gas", "oil and gas", "oil & mining",
-		"oil mining & governments", "oil gas & governments", "oil gas & government",
-		"oil gas & goverments", "omg", "oil-mining-governments":
-		return "Oil Gas & Mining"
+		"oil mining & governments", "oil mining & goverments",
+		"oil mining and governments", "oil mining and goverments",
+		"oil mining governments", "oil mining goverments",
+		"oil gas & governments", "oil gas & goverments",
+		"oil gas & government", "oil gas & goverment",
+		"omg", "oil-mining-governments", "oil-mining-goverments":
+		return "Oil Mining & Goverments"
 
 	// --- IT SOLUTIONS ---
 	case "it solutions", "it solution", "it-solutions", "it-solution",
@@ -44,13 +48,12 @@ func NormalizeDivision(d string) string {
 		return "IT Solutions"
 	}
 
-	// default fallback → Title-case
 	return strings.Title(d)
 }
 
 func isValidDivision(d string) bool {
 	switch d {
-	case "NetCo", "Oil Gas & Mining", "IT Solutions":
+	case "NetCo", "Oil Mining & Goverments", "IT Solutions":
 		return true
 	default:
 		return false
@@ -67,8 +70,8 @@ func divisionCode(div string) string {
 	switch normalized {
 	case "NetCo":
 		return "NetCo"
-	case "Oil Gas & Mining":
-		return "OGM"
+	case "Oil Mining & Goverments":
+		return "OMG" // biar konsisten dengan akronimnya
 	case "IT Solutions":
 		return "ITS"
 	default:

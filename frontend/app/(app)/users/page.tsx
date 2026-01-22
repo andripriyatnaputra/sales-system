@@ -226,7 +226,7 @@ function UserModal({
             onChange={(e) => setDivision(e.target.value)}
           >
             <option value="NetCo">Network Communications</option>
-            <option value="Oil Gas & Mining">Oil Mining & Goverments</option>
+            <option value="Oil Mining & Goverments">Oil Mining & Goverments</option>
             <option value="IT Solutions">IT Solutions</option>
           </select>
         </div>
