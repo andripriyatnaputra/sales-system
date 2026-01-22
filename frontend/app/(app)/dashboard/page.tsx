@@ -260,6 +260,37 @@ function toggle(arr: string[], value: string) {
     : [...arr, value];
 }
 
+function truncateLabel(s: string, max = 10) {
+  if (!s) return "";
+  return s.length > max ? s.slice(0, max - 1) + "…" : s;
+}
+
+const compactAxisCommon = {
+  ticks: {
+    font: { size: 9 },
+    maxRotation: 0,
+    minRotation: 0,
+    autoSkip: true,
+    padding: 2,
+  },
+  grid: {
+    display: false,
+    drawBorder: false,
+  },
+} as const;
+
+const compactYAxisCommon = {
+  ticks: {
+    font: { size: 9 },
+    padding: 2,
+    maxTicksLimit: 4,
+  },
+  grid: {
+    drawBorder: false,
+    color: "rgba(0,0,0,0.06)",
+  },
+} as const;
+
 
 export default function DashboardPage() {
   const [filters, setFilters] = useState<Filters>(INITIAL_FILTERS);
@@ -784,7 +815,11 @@ export default function DashboardPage() {
                 maintainAspectRatio: false,
                 scales: {
                   x: { ticks: { font: { size: 10 } } },
-                  y: { ticks: { callback: v => String(v) } },
+                  y: {
+                    ticks: {
+                      callback: (v: any) => compactIDR(Number(v)),
+                    },
+                  },
                 },
               }}
             />
@@ -867,7 +902,11 @@ export default function DashboardPage() {
                 plugins: { legend: { display: false } },
                 scales: {
                   x: { ticks: { font: { size: 10 } } },
-                  y: { ticks: { callback: v => String(v) } },
+                  y: {
+                    ticks: {
+                      callback: (v: any) => compactIDR(Number(v)),
+                    },
+                  },
                 },
               }}
             />
@@ -920,7 +959,11 @@ export default function DashboardPage() {
                 plugins: { legend: { display: false } },
                 scales: {
                   x: { ticks: { font: { size: 10 } } },
-                  y: { ticks: { callback: v => String(v) } },
+                  y: {
+                    ticks: {
+                      callback: (v: any) => compactIDR(Number(v)),
+                    },
+                  },
                 },
               }}
             />
