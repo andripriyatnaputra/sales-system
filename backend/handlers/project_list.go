@@ -14,7 +14,7 @@ func ListProjects(c *gin.Context) {
 
 	// --- Sorting Support ---
 	sortBy := c.DefaultQuery("sort_by", "id")
-	sortDir := c.DefaultQuery("sort_dir", "desc")
+	sortDir := strings.ToLower(c.DefaultQuery("sort_dir", "desc"))
 
 	allowed := map[string]string{
 		"id":          "p.id",
@@ -34,18 +34,27 @@ func ListProjects(c *gin.Context) {
 		sortDir = "desc"
 	}
 
-	// --- ACL FILTER (user hanya lihat divisinya) ---
+	// --- ACL + FILTERS ---
 	role := c.GetString("role")
-	userDiv := c.GetString("division")
+	userDiv := NormalizeDivision(c.GetString("division"))
 
 	whereParts := []string{}
 	args := []any{}
 	i := 1
 
+	// Sama dengan dashboard: user selalu dibatasi divisinya
 	if role == "user" {
 		whereParts = append(whereParts, fmt.Sprintf("p.division = $%d", i))
 		args = append(args, userDiv)
 		i++
+	} else {
+		// (Opsional) admin/manager boleh filter division via query
+		divQ := NormalizeDivision(strings.TrimSpace(c.Query("division")))
+		if divQ != "" && strings.ToUpper(divQ) != "ALL" {
+			whereParts = append(whereParts, fmt.Sprintf("p.division = $%d", i))
+			args = append(args, divQ)
+			i++
+		}
 	}
 
 	whereClause := ""
@@ -115,11 +124,9 @@ func ListProjects(c *gin.Context) {
 	}
 
 	var list []ProjectResponse
-
 	for rows.Next() {
 		var p ProjectResponse
-
-		err := rows.Scan(
+		if err := rows.Scan(
 			&p.ID,
 			&p.ProjectCode,
 			&p.Description,
@@ -134,12 +141,10 @@ func ListProjects(c *gin.Context) {
 			&p.TotalRealization,
 			&p.StartMonth,
 			&p.EndMonth,
-		)
-		if err != nil {
+		); err != nil {
 			fmt.Println("SCAN ERROR:", err)
 			continue
 		}
-
 		list = append(list, p)
 	}
 
@@ -149,29 +154,44 @@ func ListProjects(c *gin.Context) {
 func GetProjectsSummary(c *gin.Context) {
 	ctx := c.Request.Context()
 
+	role := c.GetString("role")
+	userDiv := NormalizeDivision(c.GetString("division"))
+
+	// ACL where (konsisten dengan dashboard)
+	where := "1=1"
+	args := []any{}
+	if role == "user" {
+		where = "p.division = $1"
+		args = append(args, userDiv)
+	}
+
 	var resp models.ProjectSummaryResponse
 
 	// Total Projects
 	_ = database.Pool.QueryRow(ctx,
-		`SELECT COUNT(*) FROM projects`,
+		fmt.Sprintf(`SELECT COUNT(*) FROM projects p WHERE %s`, where),
+		args...,
 	).Scan(&resp.TotalProjects)
 
 	// Prospect / Pipeline
 	_ = database.Pool.QueryRow(ctx,
-		`SELECT COUNT(*) FROM projects WHERE sales_stage < 6`,
+		fmt.Sprintf(`SELECT COUNT(*) FROM projects p WHERE %s AND p.sales_stage < 6`, where),
+		args...,
 	).Scan(&resp.ProspectProjects)
 
 	// Closing
 	_ = database.Pool.QueryRow(ctx,
-		`SELECT COUNT(*) FROM projects WHERE sales_stage = 6`,
+		fmt.Sprintf(`SELECT COUNT(*) FROM projects p WHERE %s AND p.sales_stage = 6`, where),
+		args...,
 	).Scan(&resp.ClosingProjects)
 
 	// In Execution (Post-PO started but not completed)
-	_ = database.Pool.QueryRow(ctx, `
+	_ = database.Pool.QueryRow(ctx, fmt.Sprintf(`
 		SELECT COUNT(*)
 		FROM project_postpo_monitoring m
 		JOIN projects p ON p.id = m.project_id
-		WHERE p.sales_stage = 6
+		WHERE %s
+		  AND p.sales_stage = 6
 		  AND NOT (
 		    m.stage1_status='Done' AND
 		    m.stage2_status='Done' AND
@@ -179,24 +199,28 @@ func GetProjectsSummary(c *gin.Context) {
 		    m.stage4_status='Done' AND
 		    m.stage5_status='Done'
 		  )
-	`).Scan(&resp.InExecutionProjects)
+	`, where), args...).Scan(&resp.InExecutionProjects)
 
-	// Completed Projects
-	_ = database.Pool.QueryRow(ctx, `
+	// Completed Projects (harus join ke projects supaya bisa filter division)
+	_ = database.Pool.QueryRow(ctx, fmt.Sprintf(`
 		SELECT COUNT(*)
-		FROM project_postpo_monitoring
-		WHERE stage1_status='Done'
-		  AND stage2_status='Done'
-		  AND stage3_status='Done'
-		  AND stage4_status='Done'
-		  AND stage5_status='Done'
-	`).Scan(&resp.CompletedProjects)
+		FROM project_postpo_monitoring m
+		JOIN projects p ON p.id = m.project_id
+		WHERE %s
+		  AND m.stage1_status='Done'
+		  AND m.stage2_status='Done'
+		  AND m.stage3_status='Done'
+		  AND m.stage4_status='Done'
+		  AND m.stage5_status='Done'
+	`, where), args...).Scan(&resp.CompletedProjects)
 
-	// Total Target Revenue
-	_ = database.Pool.QueryRow(ctx, `
-		SELECT COALESCE(SUM(target_revenue),0)
-		FROM project_revenue_plan
-	`).Scan(&resp.TotalTargetRevenue)
+	// Total Target Revenue (filter divisi harus lewat join ke projects)
+	_ = database.Pool.QueryRow(ctx, fmt.Sprintf(`
+		SELECT COALESCE(SUM(rp.target_revenue),0)
+		FROM project_revenue_plan rp
+		JOIN projects p ON p.id = rp.project_id
+		WHERE %s
+	`, where), args...).Scan(&resp.TotalTargetRevenue)
 
 	c.JSON(200, resp)
 }
