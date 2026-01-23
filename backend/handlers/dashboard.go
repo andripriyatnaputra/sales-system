@@ -58,6 +58,16 @@ type DashboardCustomerRow struct {
 	TotalReal   float64 `json:"total_real"`
 }
 
+type DashboardProjectRow struct {
+	ID          int64   `json:"id"`
+	ProjectCode string  `json:"project_code"`
+	Name        string  `json:"name"`
+	Customer    string  `json:"customer"`
+	Division    string  `json:"division"`
+	TotalTarget float64 `json:"total_target"`
+	TotalReal   float64 `json:"total_real"`
+}
+
 // ===================== KPI TYPES (NEW) =====================
 
 type KPIBlock struct {
@@ -94,6 +104,7 @@ type DashboardResponse struct {
 	Forecast             []DashboardForecastPoint `json:"forecast"`
 	TopProjects          []DashboardTopProject    `json:"top_projects"`
 	CustomerTable        []DashboardCustomerRow   `json:"customer_table"`
+	ProjectTable         []DashboardProjectRow    `json:"project_table"`
 }
 
 // ===================== Helpers (NEW) =====================
@@ -621,6 +632,51 @@ func GetDashboard(c *gin.Context) {
 	}
 
 	// ============================================
+	// PROJECT TABLE (PROJECT) — NEW
+	// ============================================
+	projectTableQuery := fmt.Sprintf(`
+	SELECT
+		p.id,
+		p.project_code,
+		COALESCE(p.description,'-') AS name,
+		COALESCE(c.name,'Unknown')  AS customer,
+		p.division,
+		COALESCE(SUM(COALESCE(r.target_revenue,0)), 0)      AS total_target,
+		COALESCE(SUM(COALESCE(r.target_realization,0)), 0)  AS total_real
+	FROM projects p
+	LEFT JOIN customers c ON c.id = p.customer_id
+	LEFT JOIN project_revenue_plan r ON r.project_id = p.id
+	WHERE %s
+	GROUP BY p.id, p.project_code, p.description, c.name, p.division
+	ORDER BY total_real DESC
+	LIMIT 50
+`, projectWhere)
+
+	rowsPT, err := database.Pool.Query(ctx, projectTableQuery, projectArgs...)
+	if err != nil {
+		log.Println("PROJECT TABLE ERROR:", err)
+		c.JSON(500, gin.H{"error": "failed to load project table"})
+		return
+	}
+	defer rowsPT.Close()
+
+	var projectTable []DashboardProjectRow
+	for rowsPT.Next() {
+		var row DashboardProjectRow
+		if err := rowsPT.Scan(
+			&row.ID,
+			&row.ProjectCode,
+			&row.Name,
+			&row.Customer,
+			&row.Division,
+			&row.TotalTarget,
+			&row.TotalReal,
+		); err == nil {
+			projectTable = append(projectTable, row)
+		}
+	}
+
+	// ============================================
 	// SEND RESPONSE
 	// ============================================
 	resp := DashboardResponse{
@@ -641,6 +697,7 @@ func GetDashboard(c *gin.Context) {
 		Forecast:      forecast,
 		TopProjects:   topProjects,
 		CustomerTable: customerTable,
+		ProjectTable:  projectTable,
 	}
 
 	c.JSON(http.StatusOK, resp)
