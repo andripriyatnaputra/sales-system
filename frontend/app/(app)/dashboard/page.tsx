@@ -80,6 +80,16 @@ type DashboardCustomerRow = {
   total_real: number;
 };
 
+type DashboardProjectRow = {
+  id: number;
+  project_code: string;
+  name: string;
+  customer: string;
+  division: string;
+  total_target: number;
+  total_real: number;
+};
+
 type KPIBlock = { value: number; target: number; pct: number };
 type OpportunityBlock = { target: number; conversion: number };
 
@@ -106,6 +116,7 @@ type DashboardResponse = {
   forecast: ForecastPoint[];
   top_projects: DashboardTopProject[];
   customer_table: DashboardCustomerRow[];
+  project_table: DashboardProjectRow[];
 };
 
 type Filters = {
@@ -333,6 +344,7 @@ export default function DashboardPage() {
   const safeCustomer = Array.isArray(data.customer_contribution) ? data.customer_contribution : [];
   const safeStatus = Array.isArray(data.status_breakdown) ? data.status_breakdown : [];
   const safeCustomerTable = Array.isArray(data.customer_table) ? data.customer_table : [];
+  const safeProjectTable = Array.isArray(data.project_table) ? data.project_table : [];
 
   // customerNames harus pakai safeCustomer!
   //const customerNames = [...new Set(safeCustomer.map(c => c.label))];
@@ -975,32 +987,68 @@ export default function DashboardPage() {
       <Separator />
 
       {/* ROW 4 – TOP PROJECTS */}
-      <Card className="p-4">
-      <h2 className="text-sm font-semibold mb-3">Customer Performance (Sorted by Realization)</h2>
+      {/* ROW 4 – PROJECT REALIZATION */}
+    <Card className="p-4">
+      <h2 className="text-sm font-semibold mb-3">
+        Project Realization (Sorted by Realization)
+      </h2>
 
       <div className="max-h-64 overflow-auto border rounded">
         <table className="w-full text-sm">
           <thead className="bg-muted/60">
             <tr>
+              <th className="px-3 py-2 text-left text-[11px] uppercase tracking-wider">Project</th>
               <th className="px-3 py-2 text-left text-[11px] uppercase tracking-wider">Customer</th>
-              <th className="px-3 py-2 text-right text-[11px] uppercase tracking-wider">Target Revenue</th>
+              <th className="px-3 py-2 text-left text-[11px] uppercase tracking-wider">Division</th>
+              <th className="px-3 py-2 text-right text-[11px] uppercase tracking-wider">Target</th>
               <th className="px-3 py-2 text-right text-[11px] uppercase tracking-wider">Realization</th>
+              <th className="px-3 py-2 text-right text-[11px] uppercase tracking-wider">%</th>
             </tr>
           </thead>
+
           <tbody>
-            {safeCustomerTable.map((row, i) => (
-              <tr key={i} className={i % 2 ? "bg-muted/40" : ""}>
-                <td className="px-3 py-2 text-xs">{row.customer}</td>
-                <td className="px-3 py-2 text-xs text-right">{formatIDR(row.total_target)}</td>
-                <td className="px-3 py-2 text-xs text-right font-semibold">
-                  {formatIDR(row.total_real)}
+            {safeProjectTable.map((row, i) => {
+              const pct = row.total_target ? (row.total_real / row.total_target) * 100 : 0;
+
+              return (
+                <tr key={row.id ?? i} className={i % 2 ? "bg-muted/40" : ""}>
+                  <td className="px-3 py-2 text-xs">
+                    <div className="font-medium">{row.project_code}</div>
+                    <div className="text-muted-foreground truncate max-w-[280px]">
+                      {row.name}
+                    </div>
+                  </td>
+
+                  <td className="px-3 py-2 text-xs">{row.customer}</td>
+                  <td className="px-3 py-2 text-xs">{row.division}</td>
+
+                  <td className="px-3 py-2 text-xs text-right">
+                    {formatIDR(row.total_target)}
+                  </td>
+
+                  <td className="px-3 py-2 text-xs text-right font-semibold">
+                    {formatIDR(row.total_real)}
+                  </td>
+
+                  <td className="px-3 py-2 text-xs text-right">
+                    {pct.toFixed(1)}%
+                  </td>
+                </tr>
+              );
+            })}
+
+            {safeProjectTable.length === 0 && (
+              <tr>
+                <td colSpan={6} className="px-3 py-6 text-center text-xs text-muted-foreground">
+                  No data
                 </td>
               </tr>
-            ))}
+            )}
           </tbody>
         </table>
       </div>
     </Card>
+
 
 
     </div>
