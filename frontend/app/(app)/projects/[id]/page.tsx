@@ -121,6 +121,8 @@ export default function ProjectDetailPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [selected, setSelected] = useState<RevenueItem | null>(null);
   const [realizationInput, setRealizationInput] = useState("");
+  const [applyMonth, setApplyMonth] = useState<string>("");
+  const [moveMonth, setMoveMonth] = useState<boolean>(false);
 
   const chartRef = useRef<any>(null);
 
@@ -198,6 +200,8 @@ export default function ProjectDetailPage() {
     setSelected(item);
     setRealizationInput(String(item.target_realization || 0));
     setModalOpen(true);
+    setApplyMonth(item.month);
+    setMoveMonth(false);
   };
 
   const saveRealization = async () => {
@@ -208,16 +212,37 @@ export default function ProjectDetailPage() {
     try {
       await apiPut(`/projects/${id}/realization/${selected.month}`, {
         realization: Number(realizationInput),
+        apply_month: applyMonth || selected.month,
+        move: moveMonth && (applyMonth || selected.month) !== selected.month,
       });
 
       // Update UI
-      setRevenue((prev) =>
-        prev.map((r) =>
-          r.month === selected.month
-            ? { ...r, target_realization: Number(realizationInput) }
-            : r
-        )
-      );
+      const targetMonth = (applyMonth || selected.month);
+      const realization = Number(realizationInput);
+
+      setRevenue((prev) => {
+        const next = [...prev];
+
+        // Clear source jika pindah bulan (agar tidak double)
+        if (moveMonth && targetMonth !== selected.month) {
+          const srcIdx = next.findIndex((x) => x.month === selected.month);
+          if (srcIdx >= 0) {
+            next[srcIdx] = { ...next[srcIdx], target_realization: 0 };
+          }
+        }
+
+        // Upsert destination month
+        const dstIdx = next.findIndex((x) => x.month === targetMonth);
+        if (dstIdx >= 0) {
+          next[dstIdx] = { ...next[dstIdx], target_realization: realization };
+        } else {
+          next.push({ month: targetMonth, target_revenue: 0, target_realization: realization });
+        }
+
+        next.sort((a, b) => a.month.localeCompare(b.month));
+        return next;
+      });
+
 
       setModalOpen(false);
     } catch (err) {
@@ -448,7 +473,8 @@ export default function ProjectDetailPage() {
               const percent =
                 r.target_revenue > 0
                   ? Math.round((r.target_realization / r.target_revenue) * 100)
-                  : 0;
+                  : null;
+
 
               return (
                 <tr key={r.month} className="border-b">
@@ -468,7 +494,11 @@ export default function ProjectDetailPage() {
                   </td>
 
                   <td className="py-2 text-right">
-                    <span className={getColor(percent)}>{percent}%</span>
+                    {percent === null ? (
+                      <span className="text-muted-foreground">N/A</span>
+                    ) : (
+                      <span className={getColor(percent)}>{percent}%</span>
+                    )}
                   </td>
 
                   <td className="py-2 text-right">
@@ -495,6 +525,36 @@ export default function ProjectDetailPage() {
               <div className="text-sm text-muted-foreground">Month</div>
               <div className="font-medium">{selected?.month}</div>
             </div>
+
+            <div>
+              <div className="text-sm mb-1 font-medium">Apply realization to month</div>
+              <Input
+                type="month"
+                value={applyMonth}
+                onChange={(e) => {
+                  const v = e.target.value; // YYYY-MM
+                  setApplyMonth(v);
+
+                  // Jika bulan beda → otomatis move
+                  if (selected?.month && v && v !== selected.month) setMoveMonth(true);
+                  if (selected?.month && v === selected.month) setMoveMonth(false);
+                }}
+              />
+
+              <div className="mt-2 flex items-center gap-2">
+                <input
+                  id="move-month"
+                  type="checkbox"
+                  checked={moveMonth}
+                  disabled={!!selected?.month && !!applyMonth && applyMonth !== selected.month}
+                  onChange={(e) => setMoveMonth(e.target.checked)}
+                />
+                <label htmlFor="move-month" className="text-sm text-muted-foreground">
+                  Move (hapus dari bulan asal) — otomatis aktif jika bulan berbeda
+                </label>
+              </div>
+            </div>
+
 
             <div>
               <div className="text-sm text-muted-foreground">Target</div>
