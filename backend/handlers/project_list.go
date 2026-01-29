@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"database/sql"
 	"fmt"
 	"sales-system-backend/database"
 	"sales-system-backend/models"
@@ -8,6 +9,14 @@ import (
 
 	"github.com/gin-gonic/gin"
 )
+
+type PostPOMonitoringResponse struct {
+	Stage1Status string `json:"stage1_status"`
+	Stage2Status string `json:"stage2_status"`
+	Stage3Status string `json:"stage3_status"`
+	Stage4Status string `json:"stage4_status"`
+	Stage5Status string `json:"stage5_status"`
+}
 
 func ListProjects(c *gin.Context) {
 	ctx := c.Request.Context()
@@ -63,40 +72,54 @@ func ListProjects(c *gin.Context) {
 	}
 
 	query := fmt.Sprintf(`
-		SELECT 
-			p.id,
-			p.project_code,
-			p.description,
-			p.customer_id,
-			COALESCE(cu.name, '') AS customer_name,
-			p.division,
-			p.status,
-			p.project_type,
-			p.sales_stage,
-			p.sph_release_status,
+	SELECT 
+		p.id,
+		p.project_code,
+		p.description,
+		p.customer_id,
+		COALESCE(cu.name, '') AS customer_name,
+		p.division,
+		p.status,
+		p.project_type,
+		p.sales_stage,
+		p.sph_release_status,
 
-			COALESCE(SUM(rp.target_revenue), 0)::float8     AS total_revenue,
-			COALESCE(SUM(rp.target_realization), 0)::float8 AS total_realization,
+		COALESCE(SUM(rp.target_revenue), 0)::float8     AS total_revenue,
+		COALESCE(SUM(rp.target_realization), 0)::float8 AS total_realization,
 
-			MIN(rp.month)::text AS start_month,
-			MAX(rp.month)::text AS end_month
+		MIN(rp.month)::text AS start_month,
+		MAX(rp.month)::text AS end_month,
 
-		FROM projects p
-		LEFT JOIN customers cu ON cu.id = p.customer_id
-		LEFT JOIN project_revenue_plan rp ON rp.project_id = p.id
-		%s
-		GROUP BY 
-			p.id,
-			p.project_code,
-			p.description,
-			p.customer_id,
-			cu.name,
-			p.division,
-			p.status,
-			p.project_type,
-			p.sales_stage,
-			p.sph_release_status
-		ORDER BY %s %s
+		-- ✅ postpo monitoring (nullable)
+		m.stage1_status,
+		m.stage2_status,
+		m.stage3_status,
+		m.stage4_status,
+		m.stage5_status
+
+	FROM projects p
+	LEFT JOIN customers cu ON cu.id = p.customer_id
+	LEFT JOIN project_revenue_plan rp ON rp.project_id = p.id
+	LEFT JOIN project_postpo_monitoring m ON m.project_id = p.id
+	%s
+	GROUP BY 
+		p.id,
+		p.project_code,
+		p.description,
+		p.customer_id,
+		cu.name,
+		p.division,
+		p.status,
+		p.project_type,
+		p.sales_stage,
+		p.sph_release_status,
+		-- ✅ wajib masuk GROUP BY karena ada agregasi SUM
+		m.stage1_status,
+		m.stage2_status,
+		m.stage3_status,
+		m.stage4_status,
+		m.stage5_status
+	ORDER BY %s %s
 	`, whereClause, col, sortDir)
 
 	rows, err := database.Pool.Query(ctx, query, args...)
@@ -107,26 +130,30 @@ func ListProjects(c *gin.Context) {
 	defer rows.Close()
 
 	type ProjectResponse struct {
-		ID               int64   `json:"id"`
-		ProjectCode      string  `json:"project_code"`
-		Description      string  `json:"description"`
-		CustomerID       *int64  `json:"customer_id"`
-		CustomerName     string  `json:"customer_name"`
-		Division         string  `json:"division"`
-		Status           string  `json:"status"`
-		ProjectType      string  `json:"project_type"`
-		SalesStage       int     `json:"sales_stage"`
-		SphReleaseStatus string  `json:"sph_release_status"`
-		TotalRevenue     float64 `json:"total_revenue"`
-		TotalRealization float64 `json:"total_realization"`
-		StartMonth       *string `json:"start_month"`
-		EndMonth         *string `json:"end_month"`
+		ID               int64                     `json:"id"`
+		ProjectCode      string                    `json:"project_code"`
+		Description      string                    `json:"description"`
+		CustomerID       *int64                    `json:"customer_id"`
+		CustomerName     string                    `json:"customer_name"`
+		Division         string                    `json:"division"`
+		Status           string                    `json:"status"`
+		ProjectType      string                    `json:"project_type"`
+		SalesStage       int                       `json:"sales_stage"`
+		SphReleaseStatus string                    `json:"sph_release_status"`
+		TotalRevenue     float64                   `json:"total_revenue"`
+		TotalRealization float64                   `json:"total_realization"`
+		StartMonth       *string                   `json:"start_month"`
+		EndMonth         *string                   `json:"end_month"`
+		PostPOMonitoring *PostPOMonitoringResponse `json:"postpo_monitoring,omitempty"`
 	}
 
 	var list []ProjectResponse
 	for rows.Next() {
 		var p ProjectResponse
-		if err := rows.Scan(
+
+		var s1, s2, s3, s4, s5 sql.NullString
+
+		err := rows.Scan(
 			&p.ID,
 			&p.ProjectCode,
 			&p.Description,
@@ -141,10 +168,24 @@ func ListProjects(c *gin.Context) {
 			&p.TotalRealization,
 			&p.StartMonth,
 			&p.EndMonth,
-		); err != nil {
+			&s1, &s2, &s3, &s4, &s5, // ✅ added
+		)
+		if err != nil {
 			fmt.Println("SCAN ERROR:", err)
 			continue
 		}
+
+		// ✅ set monitoring hanya kalau ada row monitoringnya
+		if s1.Valid || s2.Valid || s3.Valid || s4.Valid || s5.Valid {
+			p.PostPOMonitoring = &PostPOMonitoringResponse{
+				Stage1Status: s1.String,
+				Stage2Status: s2.String,
+				Stage3Status: s3.String,
+				Stage4Status: s4.String,
+				Stage5Status: s5.String,
+			}
+		}
+
 		list = append(list, p)
 	}
 
@@ -157,7 +198,7 @@ func GetProjectsSummary(c *gin.Context) {
 	role := c.GetString("role")
 	userDiv := NormalizeDivision(c.GetString("division"))
 
-	// ACL where (konsisten dengan dashboard)
+	// ACL where (konsisten dengan dashboard & project list)
 	where := "1=1"
 	args := []any{}
 	if role == "user" {
@@ -167,60 +208,109 @@ func GetProjectsSummary(c *gin.Context) {
 
 	var resp models.ProjectSummaryResponse
 
-	// Total Projects
+	// =============================
+	// TOTAL PROJECTS
+	// =============================
 	_ = database.Pool.QueryRow(ctx,
-		fmt.Sprintf(`SELECT COUNT(*) FROM projects p WHERE %s`, where),
+		fmt.Sprintf(`
+			SELECT COUNT(*)
+			FROM projects p
+			WHERE %s
+		`, where),
 		args...,
 	).Scan(&resp.TotalProjects)
 
-	// Prospect / Pipeline
+	// =============================
+	// PIPELINE / PROSPECT
+	// sales_stage < 6
+	// =============================
 	_ = database.Pool.QueryRow(ctx,
-		fmt.Sprintf(`SELECT COUNT(*) FROM projects p WHERE %s AND p.sales_stage < 6`, where),
+		fmt.Sprintf(`
+			SELECT COUNT(*)
+			FROM projects p
+			WHERE %s
+			  AND p.sales_stage < 6
+		`, where),
 		args...,
 	).Scan(&resp.ProspectProjects)
 
-	// Closing
+	// =============================
+	// CLOSING
+	// sales_stage = 6
+	// =============================
 	_ = database.Pool.QueryRow(ctx,
-		fmt.Sprintf(`SELECT COUNT(*) FROM projects p WHERE %s AND p.sales_stage = 6`, where),
+		fmt.Sprintf(`
+			SELECT COUNT(*)
+			FROM projects p
+			WHERE %s
+			  AND p.sales_stage = 6
+		`, where),
 		args...,
 	).Scan(&resp.ClosingProjects)
 
-	// In Execution (Post-PO started but not completed)
-	_ = database.Pool.QueryRow(ctx, fmt.Sprintf(`
-		SELECT COUNT(*)
-		FROM project_postpo_monitoring m
-		JOIN projects p ON p.id = m.project_id
-		WHERE %s
-		  AND p.sales_stage = 6
-		  AND NOT (
-		    m.stage1_status='Done' AND
-		    m.stage2_status='Done' AND
-		    m.stage3_status='Done' AND
-		    m.stage4_status='Done' AND
-		    m.stage5_status='Done'
-		  )
-	`, where), args...).Scan(&resp.InExecutionProjects)
+	// =============================
+	// IN EXECUTION
+	// - sales_stage = 6
+	// - BELUM completed
+	// - termasuk yang BELUM ada postPO monitoring
+	// =============================
+	_ = database.Pool.QueryRow(ctx,
+		fmt.Sprintf(`
+			SELECT COUNT(*)
+			FROM projects p
+			LEFT JOIN project_postpo_monitoring m
+			       ON m.project_id = p.id
+			WHERE %s
+			  AND p.sales_stage = 6
+			  AND (
+			    m.project_id IS NULL
+			    OR NOT (
+			      m.stage1_status = 'Done' AND
+			      m.stage2_status = 'Done' AND
+			      m.stage3_status = 'Done' AND
+			      m.stage4_status = 'Done' AND
+			      m.stage5_status = 'Done'
+			    )
+			  )
+		`, where),
+		args...,
+	).Scan(&resp.InExecutionProjects)
 
-	// Completed Projects (harus join ke projects supaya bisa filter division)
-	_ = database.Pool.QueryRow(ctx, fmt.Sprintf(`
-		SELECT COUNT(*)
-		FROM project_postpo_monitoring m
-		JOIN projects p ON p.id = m.project_id
-		WHERE %s
-		  AND m.stage1_status='Done'
-		  AND m.stage2_status='Done'
-		  AND m.stage3_status='Done'
-		  AND m.stage4_status='Done'
-		  AND m.stage5_status='Done'
-	`, where), args...).Scan(&resp.CompletedProjects)
+	// =============================
+	// COMPLETED
+	// - sales_stage = 6
+	// - SEMUA postPO stage = Done
+	// =============================
+	_ = database.Pool.QueryRow(ctx,
+		fmt.Sprintf(`
+			SELECT COUNT(*)
+			FROM projects p
+			JOIN project_postpo_monitoring m
+			      ON m.project_id = p.id
+			WHERE %s
+			  AND p.sales_stage = 6
+			  AND m.stage1_status = 'Done'
+			  AND m.stage2_status = 'Done'
+			  AND m.stage3_status = 'Done'
+			  AND m.stage4_status = 'Done'
+			  AND m.stage5_status = 'Done'
+		`, where),
+		args...,
+	).Scan(&resp.CompletedProjects)
 
-	// Total Target Revenue (filter divisi harus lewat join ke projects)
-	_ = database.Pool.QueryRow(ctx, fmt.Sprintf(`
-		SELECT COALESCE(SUM(rp.target_revenue),0)
-		FROM project_revenue_plan rp
-		JOIN projects p ON p.id = rp.project_id
-		WHERE %s
-	`, where), args...).Scan(&resp.TotalTargetRevenue)
+	// =============================
+	// TOTAL TARGET REVENUE
+	// (harus join ke projects agar terfilter divisi)
+	// =============================
+	_ = database.Pool.QueryRow(ctx,
+		fmt.Sprintf(`
+			SELECT COALESCE(SUM(rp.target_revenue), 0)
+			FROM project_revenue_plan rp
+			JOIN projects p ON p.id = rp.project_id
+			WHERE %s
+		`, where),
+		args...,
+	).Scan(&resp.TotalTargetRevenue)
 
 	c.JSON(200, resp)
 }

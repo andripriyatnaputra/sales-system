@@ -133,6 +133,9 @@ export default function ProjectsPage() {
   const [executionFilter, setExecutionFilter] =
     useState<"all" | "in_execution" | "completed">("all");
 
+  type CardMode = "all" | "pipeline" | "closing" | "in_execution" | "completed";
+  const [cardMode, setCardMode] = useState<CardMode>("all");
+
   // Sorting
   const [sortKey, setSortKey] =
     useState<
@@ -234,6 +237,8 @@ export default function ProjectsPage() {
     startMonth,
     endMonth,
     search,
+    executionFilter,
+    cardMode,  
   ]);
 
   const [summary, setSummary] = useState<ProjectSummary | null>(null);
@@ -275,6 +280,13 @@ export default function ProjectsPage() {
     // 6️⃣ Sales Stage
     if (salesStageFilter !== "All") {
       data = data.filter((p) => String(p.sales_stage ?? "") === salesStageFilter);
+    }
+
+    if (cardMode === "pipeline") {
+      data = data.filter((p) => {
+        const st = Number(p.sales_stage || 0);
+        return st > 0 && st < 6;
+      });
     }
 
     if (executionFilter !== "all") {
@@ -361,6 +373,8 @@ export default function ProjectsPage() {
     search,
     sortKey,
     sortDir,
+    executionFilter,
+    cardMode,
   ]);
 
   const totalPages = Math.max(1, Math.ceil(filteredSorted.length / pageSize));
@@ -512,40 +526,49 @@ export default function ProjectsPage() {
     setStartMonth("");
     setEndMonth("");
     setSearch("");
+
+    setExecutionFilter("all"); // ✅ penting (biar ga nyangkut)
+    setCardMode("all");        // ✅ penting
   };
 
-  const applyCardFilter = (type: 
-    | "pipeline"
-    | "closing"
-    | "in_execution"
-    | "completed"
+
+  const applyCardFilter = (
+    type: "pipeline" | "closing" | "in_execution" | "completed"
   ) => {
     resetAllFilters();
 
-    // tunggu 1 tick agar reset ke-apply dulu
+    // setTimeout menjaga urutan state reset -> apply
     setTimeout(() => {
-      switch (type) {
-        case "pipeline":
-          // semua yang belum closing
-          setSalesStageFilter("1"); // optional, bisa dihapus
-          break;
+      if (type === "pipeline") {
+        // ✅ Pipeline = sales_stage < 6 (bukan stage 1)
+        setCardMode("pipeline");
+        return;
+      }
 
-        case "closing":
-          setSalesStageFilter("6");
-          break;
+     if (type === "closing") {
+        setCardMode("closing");
+        setSalesStageFilter("6");
+        setExecutionFilter("all"); // ✅ pastikan closing = all closing
+        return;
+      }
 
-        case "in_execution":
-          setSalesStageFilter("6");
-          setExecutionFilter("in_execution");
-          break;
 
-        case "completed":
-          setSalesStageFilter("6");
-          setExecutionFilter("completed");
-          break;
+      if (type === "in_execution") {
+        setCardMode("in_execution");
+        setSalesStageFilter("6");            // execution hanya untuk stage 6
+        setExecutionFilter("in_execution");  // filter postPO not done
+        return;
+      }
+
+      if (type === "completed") {
+        setCardMode("completed");
+        setSalesStageFilter("6");           // completed juga stage 6
+        setExecutionFilter("completed");    // postPO done
+        return;
       }
     }, 0);
   };
+
 
   /* -------- Render -------- */
 
@@ -755,7 +778,6 @@ export default function ProjectsPage() {
             type="button"
             onClick={() => {
               resetAllFilters();
-              setExecutionFilter("all");
             }}
             className="px-3 py-2 border rounded-lg text-sm hover:bg-gray-50"
           >
