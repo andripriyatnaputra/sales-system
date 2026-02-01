@@ -711,7 +711,7 @@ func GetDashboard(c *gin.Context) {
 func buildProjectDashboardFilter(
 	c *gin.Context,
 	role, userDiv string,
-	applyRevenueDate bool, // TRUE = revenue, FALSE = pipeline/project
+	applyRevenueDate bool, // TRUE = revenue date (r.month), FALSE = project date (p.created_at)
 ) (string, []any) {
 
 	conds := []string{}
@@ -736,6 +736,7 @@ func buildProjectDashboardFilter(
 
 	loc := mustLoadLocation("Asia/Jakarta")
 
+	// DEFAULT fiscal year if empty
 	var fromDate, toDate time.Time
 	if fromStr == "" && toStr == "" {
 		df, dt := defaultFiscalYearRange(loc)
@@ -751,6 +752,16 @@ func buildProjectDashboardFilter(
 				toDate = endOfMonth(t, loc)
 			}
 		}
+
+		// clamp kalau cuma salah satu side
+		if !fromDate.IsZero() && toDate.IsZero() {
+			y := fromDate.In(loc).Year()
+			toDate = time.Date(y, time.December, 31, 23, 59, 59, 999999999, loc)
+		}
+		if fromDate.IsZero() && !toDate.IsZero() {
+			y := toDate.In(loc).Year()
+			fromDate = time.Date(y, time.January, 1, 0, 0, 0, 0, loc)
+		}
 	}
 
 	// STATUS
@@ -764,15 +775,17 @@ func buildProjectDashboardFilter(
 		conds = append(conds, fmt.Sprintf("p.status IN (%s)", strings.Join(holders, ",")))
 	}
 
-	// SALES STAGE
+	// ✅ SALES STAGE (INT, bukan string)
 	if len(stages) > 0 && !(len(stages) == 1 && strings.ToUpper(stages[0]) == "ALL") {
 		holders := []string{}
 		for _, s := range stages {
-			if _, err := strconv.Atoi(s); err == nil {
-				holders = append(holders, fmt.Sprintf("$%d", i))
-				args = append(args, s)
-				i++
+			st, err := strconv.Atoi(strings.TrimSpace(s))
+			if err != nil {
+				continue
 			}
+			holders = append(holders, fmt.Sprintf("$%d", i))
+			args = append(args, st) // ✅ int
+			i++
 		}
 		if len(holders) > 0 {
 			conds = append(conds, fmt.Sprintf("p.sales_stage IN (%s)", strings.Join(holders, ",")))
@@ -802,7 +815,7 @@ func buildProjectDashboardFilter(
 		i++
 	}
 
-	// DATE FILTER (IMPORTANT FIX)
+	// DATE FILTER
 	if !fromDate.IsZero() {
 		if applyRevenueDate {
 			conds = append(conds, fmt.Sprintf("r.month >= $%d", i))
@@ -936,8 +949,36 @@ func buildPipelineFilter(
 		division = userDiv
 	}
 
-	// ---- FILTERS (CONTEXT ONLY) ----
+	loc := mustLoadLocation("Asia/Jakarta")
 
+	// default fiscal year (biar konsisten: filter waktu tetap ada)
+	var fromDate, toDate time.Time
+	if fromStr == "" && toStr == "" {
+		df, dt := defaultFiscalYearRange(loc)
+		fromDate, toDate = df, dt
+	} else {
+		if fromStr != "" {
+			if t, err := parseYearMonthOrDate(fromStr); err == nil {
+				fromDate = startOfMonth(t, loc)
+			}
+		}
+		if toStr != "" {
+			if t, err := parseYearMonthOrDate(toStr); err == nil {
+				toDate = endOfMonth(t, loc)
+			}
+		}
+
+		if !fromDate.IsZero() && toDate.IsZero() {
+			y := fromDate.In(loc).Year()
+			toDate = time.Date(y, time.December, 31, 23, 59, 59, 999999999, loc)
+		}
+		if fromDate.IsZero() && !toDate.IsZero() {
+			y := toDate.In(loc).Year()
+			fromDate = time.Date(y, time.January, 1, 0, 0, 0, 0, loc)
+		}
+	}
+
+	// STATUS
 	if len(statuses) > 0 && !(len(statuses) == 1 && strings.ToUpper(statuses[0]) == "ALL") {
 		holders := []string{}
 		for _, s := range statuses {
@@ -948,20 +989,24 @@ func buildPipelineFilter(
 		conds = append(conds, fmt.Sprintf("p.status IN (%s)", strings.Join(holders, ",")))
 	}
 
+	// ✅ SALES STAGE (INT)
 	if len(stages) > 0 && !(len(stages) == 1 && strings.ToUpper(stages[0]) == "ALL") {
 		holders := []string{}
 		for _, s := range stages {
-			if _, err := strconv.Atoi(s); err == nil {
-				holders = append(holders, fmt.Sprintf("$%d", i))
-				args = append(args, s)
-				i++
+			st, err := strconv.Atoi(strings.TrimSpace(s))
+			if err != nil {
+				continue
 			}
+			holders = append(holders, fmt.Sprintf("$%d", i))
+			args = append(args, st) // ✅ int
+			i++
 		}
 		if len(holders) > 0 {
 			conds = append(conds, fmt.Sprintf("p.sales_stage IN (%s)", strings.Join(holders, ",")))
 		}
 	}
 
+	// PROJECT TYPE
 	if len(projectTypes) > 0 && !(len(projectTypes) == 1 && strings.ToUpper(projectTypes[0]) == "ALL") {
 		holders := []string{}
 		for _, t := range projectTypes {
@@ -984,52 +1029,19 @@ func buildPipelineFilter(
 		i++
 	}
 
-	// ---- TIME FILTER (FIX) ----
-	// Pipeline harus konsisten dengan filter bulan (r.month) seperti KPI/forecast,
-	// tapi tanpa join yang bikin duplikasi -> pakai EXISTS.
-	loc := mustLoadLocation("Asia/Jakarta")
-
-	var fromDate, toDate time.Time
-	if fromStr == "" && toStr == "" {
-		// samakan perilaku dengan dashboard filter lain: default 1 tahun berjalan
-		df, dt := defaultFiscalYearRange(loc)
-		fromDate, toDate = df, dt
-	} else {
-		if fromStr != "" {
-			if t, err := parseYearMonthOrDate(fromStr); err == nil {
-				fromDate = startOfMonth(t, loc)
-			}
-		}
-		if toStr != "" {
-			if t, err := parseYearMonthOrDate(toStr); err == nil {
-				toDate = endOfMonth(t, loc)
-			}
-		}
-
-		// kalau user isi salah satu saja, lengkapi satu tahun yang sama
-		if !fromDate.IsZero() && toDate.IsZero() {
-			y := fromDate.In(loc).Year()
-			toDate = time.Date(y, time.December, 31, 23, 59, 59, 999999999, loc)
-		}
-		if fromDate.IsZero() && !toDate.IsZero() {
-			y := toDate.In(loc).Year()
-			fromDate = time.Date(y, time.January, 1, 0, 0, 0, 0, loc)
-		}
-	}
-
-	// hanya apply kalau range valid
+	// ✅ FILTER WAKTU TETAP ADA, tapi 1 project = 1 pipeline:
+	// pakai EXISTS ke revenue_plan (overlap range)
 	if !fromDate.IsZero() && !toDate.IsZero() {
 		conds = append(conds, fmt.Sprintf(`
 			EXISTS (
 				SELECT 1
-				FROM project_revenue_plan r
-				WHERE r.project_id = p.id
-				  AND r.month >= $%d
-				  AND r.month <= $%d
+				FROM project_revenue_plan rp
+				WHERE rp.project_id = p.id
+				  AND rp.month >= $%d
+				  AND rp.month <= $%d
 			)
 		`, i, i+1))
-		args = append(args, fromDate.UTC())
-		args = append(args, toDate.UTC())
+		args = append(args, fromDate.UTC(), toDate.UTC())
 		i += 2
 	}
 
