@@ -232,15 +232,16 @@ func GetDashboard(c *gin.Context) {
 			COALESCE(SUM(CASE WHEN p.status='Carry Over' THEN COALESCE(r.target_realization,0) ELSE 0 END),0) AS carry_real,
 			COALESCE(SUM(CASE WHEN p.status='Carry Over' THEN COALESCE(r.target_revenue,0) ELSE 0 END),0) AS carry_target,
 
-			COALESCE(SUM(CASE WHEN p.status IN ('Prospect','Carry Over') AND p.project_type='Project Based'
+			COALESCE(SUM(CASE WHEN p.project_type='Project Based'
 				THEN COALESCE(r.target_realization,0) ELSE 0 END),0) AS pb_real,
-			COALESCE(SUM(CASE WHEN p.status IN ('Prospect','Carry Over') AND p.project_type='Project Based'
+			COALESCE(SUM(CASE WHEN p.project_type='Project Based'
 				THEN COALESCE(r.target_revenue,0) ELSE 0 END),0) AS pb_target,
 
-			COALESCE(SUM(CASE WHEN p.status IN ('Prospect','Carry Over') AND p.project_type='Recurring'
+			COALESCE(SUM(CASE WHEN p.project_type='Recurring'
 				THEN COALESCE(r.target_realization,0) ELSE 0 END),0) AS rec_real,
-			COALESCE(SUM(CASE WHEN p.status IN ('Prospect','Carry Over') AND p.project_type='Recurring'
+			COALESCE(SUM(CASE WHEN p.project_type='Recurring'
 				THEN COALESCE(r.target_revenue,0) ELSE 0 END),0) AS rec_target,
+
 
 			COALESCE(SUM(CASE WHEN p.status='New Prospect' AND p.project_type='New Recurring'
 				THEN COALESCE(r.target_realization,0) ELSE 0 END),0) AS newrec_real,
