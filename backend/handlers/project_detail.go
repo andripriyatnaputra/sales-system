@@ -62,6 +62,8 @@ func GetProject(c *gin.Context) {
 			p.sales_stage,
 			p.sph_release_status,
 			p.sph_number,
+			p.sph_status_reason_category,
+			p.sph_status_reason_note,
 			p.created_at,
 			p.updated_at
 		FROM projects p
@@ -81,6 +83,8 @@ func GetProject(c *gin.Context) {
 		&p.SalesStage,
 		&p.SPHReleaseStatus,
 		&p.SPHNumber,
+		&p.SPHStatusReasonCategory,
+		&p.SPHStatusReasonNote,
 		&p.CreatedAt,
 		&p.UpdatedAt,
 	)

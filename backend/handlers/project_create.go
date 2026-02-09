@@ -51,6 +51,40 @@ func CreateProject(c *gin.Context) {
 		return
 	}
 
+	//
+	// SPH STatus
+	//
+	// --- SPH Status validation + reason rules ---
+	if body.SPHStatus != nil && *body.SPHStatus != "" {
+		st := *body.SPHStatus
+		if st != "Open" && st != "Win" && st != "Hold" && st != "Loss" && st != "Drop" {
+			c.JSON(400, gin.H{"error": "invalid sph_status"})
+			return
+		}
+
+		if st == "Loss" || st == "Drop" {
+			if body.SPHStatusReasonCategory == nil || *body.SPHStatusReasonCategory == "" {
+				c.JSON(400, gin.H{"error": "sph_status_reason_category required for Loss/Drop"})
+				return
+			}
+			cat := *body.SPHStatusReasonCategory
+			if cat != "Administrasi" && cat != "Teknis" && cat != "Other" {
+				c.JSON(400, gin.H{"error": "invalid sph_status_reason_category"})
+				return
+			}
+			if cat == "Other" {
+				if body.SPHStatusReasonNote == nil || *body.SPHStatusReasonNote == "" {
+					c.JSON(400, gin.H{"error": "sph_status_reason_note required when category=Other"})
+					return
+				}
+			}
+		} else {
+			// Open/Win/Hold -> clear reason
+			body.SPHStatusReasonCategory = nil
+			body.SPHStatusReasonNote = nil
+		}
+	}
+
 	// --- Final division validation ---
 	if !isValidDivision(body.Division) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid division"})
@@ -78,11 +112,12 @@ func CreateProject(c *gin.Context) {
 	var id int64
 	err = tx.QueryRow(ctx, `
         INSERT INTO projects (
-            project_code, description, customer_id, division, status,
-            project_type, sph_status, sph_release_date, sales_stage,
-            sph_release_status, sph_number
-        )
-        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+			project_code, description, customer_id, division, status,
+			project_type, sph_status, sph_release_date, sales_stage,
+			sph_release_status, sph_number,
+			sph_status_reason_category, sph_status_reason_note
+			)
+			VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
         RETURNING id
     `,
 		projectCode,
@@ -96,6 +131,8 @@ func CreateProject(c *gin.Context) {
 		body.SalesStage,
 		body.SphReleaseStatus,
 		body.SphNumber,
+		body.SPHStatusReasonCategory,
+		body.SPHStatusReasonNote,
 	).Scan(&id)
 
 	if err != nil {

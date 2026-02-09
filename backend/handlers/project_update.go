@@ -75,6 +75,30 @@ func UpdateProject(c *gin.Context) {
 		return
 	}
 
+	if body.SPHStatus != nil {
+		st := *body.SPHStatus
+		if st == "Loss" || st == "Drop" {
+			// wajib reason category
+			if body.SPHStatusReasonCategory == nil || *body.SPHStatusReasonCategory == "" {
+				c.JSON(400, gin.H{"error": "sph_status_reason_category required for Loss/Drop"})
+				return
+			}
+			cat := *body.SPHStatusReasonCategory
+			if cat != "Administrasi" && cat != "Teknis" && cat != "Other" {
+				c.JSON(400, gin.H{"error": "invalid sph_status_reason_category"})
+				return
+			}
+			if cat == "Other" && (body.SPHStatusReasonNote == nil || *body.SPHStatusReasonNote == "") {
+				c.JSON(400, gin.H{"error": "sph_status_reason_note required when category=Other"})
+				return
+			}
+		} else {
+			// Open/Win/Hold -> clear
+			body.SPHStatusReasonCategory = nil
+			body.SPHStatusReasonNote = nil
+		}
+	}
+
 	// --- Validate division ---
 	if !isValidDivision(body.Division) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid division"})
@@ -91,19 +115,21 @@ func UpdateProject(c *gin.Context) {
 
 	// --- Update Project ---
 	_, err = tx.Exec(ctx, `
-		UPDATE projects
-		   SET description        = $1,
-		       customer_id        = $2,
-		       division           = $3,
-		       status             = $4,
-		       project_type       = $5,
-		       sph_status         = $6,
-		       sph_release_date   = $7,
-		       sales_stage        = $8,
-		       sph_release_status = $9,
-  		       sph_number         = $10,
-		       updated_at         = NOW()
-		 WHERE id = $11
+	UPDATE projects
+		SET description              = $1,
+			customer_id              = $2,
+			division                 = $3,
+			status                   = $4,
+			project_type             = $5,
+			sph_status               = $6,
+			sph_release_date         = $7,
+			sales_stage              = $8,
+			sph_release_status       = $9,
+			sph_number               = $10,
+			sph_status_reason_category = $11,
+			sph_status_reason_note     = $12,
+			updated_at               = NOW()
+	WHERE id = $13
 	`,
 		body.Description,
 		body.CustomerID,
@@ -115,14 +141,15 @@ func UpdateProject(c *gin.Context) {
 		body.SalesStage,
 		body.SphReleaseStatus,
 		body.SphNumber,
+		body.SPHStatusReasonCategory,
+		body.SPHStatusReasonNote,
 		id,
 	)
 
 	if err != nil {
-		c.JSON(500, gin.H{"error": "failed update project"})
+		c.JSON(500, gin.H{"error": err.Error()})
 		return
 	}
-
 	// --- Replace revenue plans ---
 	_, err = tx.Exec(ctx,
 		`DELETE FROM project_revenue_plan WHERE project_id = $1`, id,

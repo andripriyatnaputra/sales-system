@@ -6,6 +6,7 @@ import (
 	"sales-system-backend/database"
 	"sales-system-backend/models"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -73,29 +74,38 @@ func ListProjects(c *gin.Context) {
 
 	query := fmt.Sprintf(`
 	SELECT 
-		p.id,
-		p.project_code,
-		p.description,
-		p.customer_id,
-		COALESCE(cu.name, '') AS customer_name,
-		p.division,
-		p.status,
-		p.project_type,
-		p.sales_stage,
-		p.sph_release_status,
+	p.id,
+	p.project_code,
+	p.description,
+	p.customer_id,
+	COALESCE(cu.name, '') AS customer_name,
+	p.division,
+	p.status,
+	p.project_type,
+	p.sales_stage,
+	p.sph_release_status,
 
-		COALESCE(SUM(rp.target_revenue), 0)::float8     AS total_revenue,
-		COALESCE(SUM(rp.target_realization), 0)::float8 AS total_realization,
+	-- ✅ SPH fields untuk list
+	p.sph_status,
+	p.sph_number,
+	p.sph_release_date,
 
-		MIN(rp.month)::text AS start_month,
-		MAX(rp.month)::text AS end_month,
+	-- ✅ reason fields
+	p.sph_status_reason_category,
+	p.sph_status_reason_note,
 
-		-- ✅ postpo monitoring (nullable)
-		m.stage1_status,
-		m.stage2_status,
-		m.stage3_status,
-		m.stage4_status,
-		m.stage5_status
+	COALESCE(SUM(rp.target_revenue), 0)::float8     AS total_revenue,
+	COALESCE(SUM(rp.target_realization), 0)::float8 AS total_realization,
+
+	MIN(rp.month)::text AS start_month,
+	MAX(rp.month)::text AS end_month,
+
+	-- ✅ postpo monitoring (nullable)
+	m.stage1_status,
+	m.stage2_status,
+	m.stage3_status,
+	m.stage4_status,
+	m.stage5_status
 
 	FROM projects p
 	LEFT JOIN customers cu ON cu.id = p.customer_id
@@ -103,22 +113,30 @@ func ListProjects(c *gin.Context) {
 	LEFT JOIN project_postpo_monitoring m ON m.project_id = p.id
 	%s
 	GROUP BY 
-		p.id,
-		p.project_code,
-		p.description,
-		p.customer_id,
-		cu.name,
-		p.division,
-		p.status,
-		p.project_type,
-		p.sales_stage,
-		p.sph_release_status,
-		-- ✅ wajib masuk GROUP BY karena ada agregasi SUM
-		m.stage1_status,
-		m.stage2_status,
-		m.stage3_status,
-		m.stage4_status,
-		m.stage5_status
+	p.id,
+	p.project_code,
+	p.description,
+	p.customer_id,
+	cu.name,
+	p.division,
+	p.status,
+	p.project_type,
+	p.sales_stage,
+	p.sph_release_status,
+
+	-- ✅ wajib masuk GROUP BY (non-aggregated fields)
+	p.sph_status,
+	p.sph_number,
+	p.sph_release_date,
+	p.sph_status_reason_category,
+	p.sph_status_reason_note,
+
+	-- monitoring fields (non-aggregated)
+	m.stage1_status,
+	m.stage2_status,
+	m.stage3_status,
+	m.stage4_status,
+	m.stage5_status
 	ORDER BY %s %s
 	`, whereClause, col, sortDir)
 
@@ -130,21 +148,26 @@ func ListProjects(c *gin.Context) {
 	defer rows.Close()
 
 	type ProjectResponse struct {
-		ID               int64                     `json:"id"`
-		ProjectCode      string                    `json:"project_code"`
-		Description      string                    `json:"description"`
-		CustomerID       *int64                    `json:"customer_id"`
-		CustomerName     string                    `json:"customer_name"`
-		Division         string                    `json:"division"`
-		Status           string                    `json:"status"`
-		ProjectType      string                    `json:"project_type"`
-		SalesStage       int                       `json:"sales_stage"`
-		SphReleaseStatus string                    `json:"sph_release_status"`
-		TotalRevenue     float64                   `json:"total_revenue"`
-		TotalRealization float64                   `json:"total_realization"`
-		StartMonth       *string                   `json:"start_month"`
-		EndMonth         *string                   `json:"end_month"`
-		PostPOMonitoring *PostPOMonitoringResponse `json:"postpo_monitoring,omitempty"`
+		ID                      int64                     `json:"id"`
+		ProjectCode             string                    `json:"project_code"`
+		Description             string                    `json:"description"`
+		CustomerID              *int64                    `json:"customer_id"`
+		CustomerName            string                    `json:"customer_name"`
+		Division                string                    `json:"division"`
+		Status                  string                    `json:"status"`
+		ProjectType             string                    `json:"project_type"`
+		SalesStage              int                       `json:"sales_stage"`
+		SphReleaseStatus        string                    `json:"sph_release_status"`
+		SPHStatus               *string                   `json:"sph_status,omitempty"`
+		SPHNumber               *string                   `json:"sph_number,omitempty"`
+		SPHRelease              *time.Time                `json:"sph_release_date,omitempty"`
+		SPHStatusReasonCategory *string                   `json:"sph_status_reason_category,omitempty"`
+		SPHStatusReasonNote     *string                   `json:"sph_status_reason_note,omitempty"`
+		TotalRevenue            float64                   `json:"total_revenue"`
+		TotalRealization        float64                   `json:"total_realization"`
+		StartMonth              *string                   `json:"start_month"`
+		EndMonth                *string                   `json:"end_month"`
+		PostPOMonitoring        *PostPOMonitoringResponse `json:"postpo_monitoring,omitempty"`
 	}
 
 	var list []ProjectResponse
@@ -164,6 +187,11 @@ func ListProjects(c *gin.Context) {
 			&p.ProjectType,
 			&p.SalesStage,
 			&p.SphReleaseStatus,
+			&p.SPHStatus,
+			&p.SPHNumber,
+			&p.SPHRelease,
+			&p.SPHStatusReasonCategory,
+			&p.SPHStatusReasonNote,
 			&p.TotalRevenue,
 			&p.TotalRealization,
 			&p.StartMonth,

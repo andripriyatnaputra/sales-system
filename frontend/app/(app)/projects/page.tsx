@@ -72,6 +72,9 @@ type Project = {
   sph_release_status?: "Yes" | "No";
   sph_number?: string | null;
 
+  sph_status_reason_category?: string | null;
+  sph_status_reason_note?: string | null;
+
   // For month filtering (if backend includes it)
   revenue_plans?: RevenuePlanItem[];
 
@@ -109,6 +112,17 @@ const normalizeSPH = (v: any): "Yes" | "No" => {
   return String(v).toLowerCase() === "yes" ? "Yes" : "No";
 };
 
+const normalizeSPHStatus = (
+  v: any
+): "Open" | "Win" | "Hold" | "Loss" | "Drop" => {
+  const s = String(v ?? "").trim().toLowerCase();
+  if (s === "win") return "Win";
+  if (s === "hold") return "Hold";
+  if (s === "loss") return "Loss";
+  if (s === "drop") return "Drop";
+  return "Open";
+};
+
 /* ------------- Main Page ------------- */
 
 export default function ProjectsPage() {
@@ -125,6 +139,9 @@ export default function ProjectsPage() {
   const [customerFilter, setCustomerFilter] = useState<string>("All");
   const [statusFilter, setStatusFilter] = useState<string>("All");
   const [sphFilter, setSphFilter] = useState<string>("All");
+  const [sphStatusFilter, setSphStatusFilter] = useState<
+    "All" | "Open" | "Win" | "Hold" | "Loss" | "Drop"
+  >("All");
   const [projectTypeFilter, setProjectTypeFilter] = useState<string>("All");
   const [salesStageFilter, setSalesStageFilter] = useState<string>("All");
   const [startMonth, setStartMonth] = useState("");
@@ -239,6 +256,7 @@ export default function ProjectsPage() {
     search,
     executionFilter,
     cardMode,  
+    sphStatusFilter,
   ]);
 
   const [summary, setSummary] = useState<ProjectSummary | null>(null);
@@ -248,6 +266,105 @@ export default function ProjectsPage() {
   }, []);
 
   /* -------- Filtering & Sorting -------- */
+
+
+  // Untuk kebutuhan kartu SPH Status: hitung berdasarkan filter lain (tanpa filter SPH Status)
+  const filteredSortedBaseForSphCards = useMemo(() => {
+    let data = [...projects];
+
+    // 1️⃣ Division
+    if (divisionFilter !== "All") data = data.filter((p) => p.division === divisionFilter);
+
+    // 2️⃣ Customer
+    if (customerFilter !== "All") data = data.filter((p) => String(p.customer_id ?? "") === customerFilter);
+
+    // 3️⃣ Status
+    if (statusFilter !== "All") data = data.filter((p) => p.status === statusFilter);
+
+    // 4️⃣ SPH Released
+    if (sphFilter !== "All") data = data.filter((p) => normalizeSPH(p.sph_release_status) === sphFilter);
+
+    // 5️⃣ Project Type
+    if (projectTypeFilter !== "All") data = data.filter((p) => p.project_type === projectTypeFilter);
+
+    // 6️⃣ Sales Stage
+    if (salesStageFilter !== "All") data = data.filter((p) => String(p.sales_stage ?? "") === salesStageFilter);
+
+    if (cardMode === "pipeline") {
+      data = data.filter((p) => {
+        const st = Number(p.sales_stage || 0);
+        return st > 0 && st < 6;
+      });
+    }
+
+    if (executionFilter !== "all") {
+      data = data.filter((p) => {
+        const m = p.postpo_monitoring;
+        if (!m) return false;
+
+        const done =
+          m.stage1_status === "Done" &&
+          m.stage2_status === "Done" &&
+          m.stage3_status === "Done" &&
+          m.stage4_status === "Done" &&
+          m.stage5_status === "Done";
+
+        return executionFilter === "completed" ? done : !done;
+      });
+    }
+
+    // 7️⃣ Month Filter (Revenue Plan)
+    if (startMonth || endMonth) {
+      data = data.filter((p) => {
+        const s = p.start_month?.slice(0, 7);
+        const e = p.end_month?.slice(0, 7);
+
+        if (!s || !e) return false;
+
+        if (startMonth && endMonth) return !(e < startMonth || s > endMonth);
+        if (startMonth) return e >= startMonth;
+        if (endMonth) return s <= endMonth;
+        return true;
+      });
+    }
+
+    // 8️⃣ Search
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      data = data.filter(
+        (p) =>
+          p.project_code.toLowerCase().includes(q) ||
+          safeString(p.description).toLowerCase().includes(q)
+      );
+    }
+
+    return data;
+  }, [
+    projects,
+    divisionFilter,
+    customerFilter,
+    statusFilter,
+    sphFilter,
+    projectTypeFilter,
+    salesStageFilter,
+    startMonth,
+    endMonth,
+    search,
+    executionFilter,
+    cardMode,
+    sphStatusFilter,
+  ]);
+
+  const sphCounts = useMemo(() => {
+    const base = filteredSortedBaseForSphCards;
+    const statuses = ["Open", "Win", "Hold", "Loss", "Drop"] as const;
+
+    const counts: Record<string, number> = {};
+    for (const st of statuses) {
+      counts[st] = base.filter((p) => normalizeSPHStatus(p.sph_status) === st).length;
+    }
+    return counts;
+  }, [filteredSortedBaseForSphCards]);
 
   const filteredSorted = useMemo(() => {
     let data = [...projects];
@@ -270,6 +387,11 @@ export default function ProjectsPage() {
     // 4️⃣ SPH Released
     if (sphFilter !== "All") {
       data = data.filter((p) => normalizeSPH(p.sph_release_status) === sphFilter);
+    }
+    
+    // 4️⃣b SPH Status (Open/Win/Hold/Loss/Drop)
+    if (sphStatusFilter !== "All") {
+      data = data.filter((p) => normalizeSPHStatus(p.sph_status) === sphStatusFilter);
     }
 
     // 5️⃣ Project Type
@@ -375,6 +497,7 @@ export default function ProjectsPage() {
     sortDir,
     executionFilter,
     cardMode,
+    sphStatusFilter,
   ]);
 
   const totalPages = Math.max(1, Math.ceil(filteredSorted.length / pageSize));
@@ -407,16 +530,24 @@ export default function ProjectsPage() {
 
       const merged: ProjectWithPlans = {
         ...p,
-        sph_status: detail.sph_status,
+        sph_status: normalizeSPHStatus(detail.sph_status ?? p.sph_status),
         sph_release_date: detail.sph_release_date,
         sales_stage: detail.sales_stage,
         sph_release_status: detail.sph_release_status ?? p.sph_release_status,
         sph_number: detail.sph_number ?? p.sph_number,
+
+        // ✅ TAMBAH INI
+        sph_status_reason_category:
+          detail.sph_status_reason_category ?? p.sph_status_reason_category,
+        sph_status_reason_note:
+          detail.sph_status_reason_note ?? p.sph_status_reason_note,
+
         revenue_plans: revenue.map((x: any) => ({
           month: x.month,
           target_revenue: x.target_revenue,
         })),
       };
+
 
       setEditingProject(merged);
 
@@ -521,12 +652,13 @@ export default function ProjectsPage() {
     setCustomerFilter("All");
     setStatusFilter("All");
     setSphFilter("All");
+    setSphStatusFilter("All");
     setProjectTypeFilter("All");
     setSalesStageFilter("All");
     setStartMonth("");
     setEndMonth("");
     setSearch("");
-
+    setSphStatusFilter("All");
     setExecutionFilter("all"); // ✅ penting (biar ga nyangkut)
     setCardMode("all");        // ✅ penting
   };
@@ -666,7 +798,40 @@ export default function ProjectsPage() {
       )}
 
 
-      {/* FILTERS */}
+      
+      {/* SPH STATUS CARDS */}
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+        {(["Open", "Win", "Hold", "Loss", "Drop"] as const).map((st) => {
+          const count = filteredSortedBaseForSphCards.filter(
+            (p) => normalizeSPHStatus(p.sph_status) === st
+          ).length;
+
+          const active = sphStatusFilter === st;
+
+          return (
+            <Card
+              key={st}
+              className={`p-4 cursor-pointer hover:shadow-md transition ${
+                active ? "ring-2 ring-blue-500" : ""
+              }`}
+              onClick={() => setSphStatusFilter((prev) => (prev === st ? "All" : st))}
+            >
+              <div className="text-xs text-muted-foreground">SPH Status</div>
+              <div className="flex items-end justify-between">
+                <div className="text-lg font-semibold">{st}</div>
+                <div className="text-xl font-semibold">{count}</div>
+              </div>
+              {active && (
+                <div className="text-[11px] text-muted-foreground mt-1">
+                  Click again to clear
+                </div>
+              )}
+            </Card>
+          );
+        })}
+      </div>
+
+{/* FILTERS */}
       <div className="bg-white p-4 border rounded-xl shadow-sm space-y-3">
         <input
           placeholder="Search project..."
@@ -838,6 +1003,8 @@ export default function ProjectsPage() {
                 <th className="px-3 py-2 text-left">Status</th>
                 <th className="px-3 py-2 text-left">Stage</th>
                 <th className="px-3 py-2 text-left">SPH Released?</th>
+                <th className="px-3 py-2 text-left">SPH Status</th>
+                <th className="px-3 py-2 text-left">Reason</th>
                 <th className="px-3 py-2 text-right">Total Revenue</th>
                 <th className="px-3 py-2 text-right">Total Realization</th>
                 <th className="px-3 py-2 text-right">Actions</th>
@@ -846,7 +1013,7 @@ export default function ProjectsPage() {
             <tbody>
               {paged.length === 0 ? (
                 <tr>
-                  <td colSpan={11} className="p-4 text-center text-gray-500">
+                  <td colSpan={13} className="p-4 text-center text-gray-500">
                     No projects found.
                   </td>
                 </tr>
@@ -879,6 +1046,29 @@ export default function ProjectsPage() {
                         <span className="px-2 py-1 text-xs bg-gray-200 text-gray-600 rounded">
                           No
                         </span>
+                      )}
+                    </td>
+
+                    <td className="px-3 py-2">
+                      <span className="px-2 py-1 text-xs bg-slate-100 text-slate-700 rounded">
+                        {normalizeSPHStatus(p.sph_status)}
+                      </span>
+                    </td>
+                    <td className="px-3 py-2">
+                      {normalizeSPHStatus(p.sph_status) === "Loss" ||
+                      normalizeSPHStatus(p.sph_status) === "Drop" ? (
+                        <div className="text-xs">
+                          <div className="font-medium">
+                            {p.sph_status_reason_category || "-"}
+                          </div>
+                          {p.sph_status_reason_note ? (
+                            <div className="text-muted-foreground line-clamp-2">
+                              {p.sph_status_reason_note}
+                            </div>
+                          ) : null}
+                        </div>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">-</span>
                       )}
                     </td>
                     <td className="px-3 py-2 text-right">
@@ -961,6 +1151,8 @@ type ModalProps = {
     sph_release_date?: string;
     sph_release_status?: "Yes" | "No";
     sph_number?: string | null;
+    sph_status_reason_category?: string;
+    sph_status_reason_note?: string;
     sales_stage: number;
     revenue_plans: RevenuePlanItem[];
   }) => Promise<void>;
@@ -1019,6 +1211,14 @@ function ProjectModal({
   }, [status]);
 
   const [sphStatus, setSphStatus] = useState(project?.sph_status || "");
+
+  const [sphReasonCategory, setSphReasonCategory] = useState(
+    project?.sph_status_reason_category || ""
+  );
+
+  const [sphReasonNote, setSphReasonNote] = useState(
+    project?.sph_status_reason_note || ""
+  );
 
   const [sphReleaseDate, setSphReleaseDate] = useState(project?.sph_release_date || "");
 
@@ -1128,6 +1328,19 @@ function ProjectModal({
     }
   }, [sphReleaseStatus]);
 
+  useEffect(() => {
+    // Open/Win/Hold -> clear alasan
+    if (sphStatus !== "Loss" && sphStatus !== "Drop") {
+      setSphReasonCategory("");
+      setSphReasonNote("");
+    }
+  }, [sphStatus]);
+
+useEffect(() => {
+  // kalau bukan Other, kosongkan note biar tidak nyangkut
+  if (sphReasonCategory !== "Other") setSphReasonNote("");
+}, [sphReasonCategory]);
+
   /* ---- Submit ---- */
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -1165,6 +1378,18 @@ function ProjectModal({
       setSphNumberError("");
     }
 
+    const isLossDrop = sphStatus === "Loss" || sphStatus === "Drop";
+    if (isLossDrop) {
+      if (!sphReasonCategory) {
+        setTopError("Reason Category wajib jika SPH Status = Loss/Drop.");
+        return;
+      }
+      if (sphReasonCategory === "Other" && !sphReasonNote.trim()) {
+        setTopError("Keterangan wajib jika Reason Category = Other.");
+        return;
+      }
+    }
+
     await onSave({
       customer_id: Number(customerId),
       description,
@@ -1177,6 +1402,8 @@ function ProjectModal({
       sph_number: sphNumber || undefined,
       sales_stage: salesStage,
       revenue_plans: sorted,
+      sph_status_reason_category: isLossDrop ? (sphReasonCategory || undefined) : undefined,
+      sph_status_reason_note: isLossDrop ? (sphReasonNote || undefined) : undefined,
     });
   };
 
@@ -1314,6 +1541,38 @@ function ProjectModal({
                 ))}
               </select>
             </div>
+
+            {(sphStatus === "Loss" || sphStatus === "Drop") && (
+              <>
+                <div>
+                  <label className="text-sm font-medium">Reason Category *</label>
+                  <select
+                    className="border rounded-lg w-full px-3 py-2 mt-1"
+                    value={sphReasonCategory}
+                    onChange={(e) => setSphReasonCategory(e.target.value)}
+                  >
+                    <option value="">- Select Reason -</option>
+                    <option value="Administrasi">Administrasi</option>
+                    <option value="Teknis">Teknis</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium">
+                    Keterangan {sphReasonCategory === "Other" ? "*" : ""}
+                  </label>
+                  <textarea
+                    className="border rounded-lg w-full px-3 py-2 mt-1"
+                    rows={3}
+                    value={sphReasonNote}
+                    onChange={(e) => setSphReasonNote(e.target.value)}
+                    placeholder="Isi keterangan (wajib jika Other)"
+                  />
+                </div>
+              </>
+            )}
+
 
             {/* SPH Released? */}
             <div>

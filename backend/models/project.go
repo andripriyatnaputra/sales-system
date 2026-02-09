@@ -10,21 +10,23 @@ type RevenuePlanRequest struct {
 }
 
 type Project struct {
-	ID               int64      `json:"id"`
-	ProjectCode      string     `json:"project_code"`
-	Description      string     `json:"description"`
-	CustomerID       *int64     `json:"customer_id,omitempty"`
-	CustomerName     string     `json:"customer_name,omitempty"` // baru, dipakai di list & detail
-	Division         string     `json:"division"`
-	Status           string     `json:"status"`
-	ProjectType      string     `json:"project_type"`
-	SPHStatus        *string    `json:"sph_status,omitempty"`
-	SPHRelease       *time.Time `json:"sph_release_date,omitempty"`
-	SalesStage       int        `json:"sales_stage"`
-	SPHReleaseStatus string     `json:"sph_release_status"`
-	SPHNumber        *string    `json:"sph_number"`
-	CreatedAt        time.Time  `json:"created_at"`
-	UpdatedAt        time.Time  `json:"updated_at"`
+	ID                      int64      `json:"id"`
+	ProjectCode             string     `json:"project_code"`
+	Description             string     `json:"description"`
+	CustomerID              *int64     `json:"customer_id,omitempty"`
+	CustomerName            string     `json:"customer_name,omitempty"` // baru, dipakai di list & detail
+	Division                string     `json:"division"`
+	Status                  string     `json:"status"`
+	ProjectType             string     `json:"project_type"`
+	SPHStatus               *string    `json:"sph_status,omitempty"`
+	SPHRelease              *time.Time `json:"sph_release_date,omitempty"`
+	SalesStage              int        `json:"sales_stage"`
+	SPHReleaseStatus        string     `json:"sph_release_status"`
+	SPHNumber               *string    `json:"sph_number"`
+	SPHStatusReasonCategory *string    `json:"sph_status_reason_category,omitempty"`
+	SPHStatusReasonNote     *string    `json:"sph_status_reason_note,omitempty"`
+	CreatedAt               time.Time  `json:"created_at"`
+	UpdatedAt               time.Time  `json:"updated_at"`
 }
 
 type ProjectSummaryResponse struct {
