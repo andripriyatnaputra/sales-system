@@ -21,6 +21,7 @@ import {
   formatIDR,
 } from "@/lib/utils";
 import { Card } from "@/components/ui/card";
+import { getToken, clearToken } from "@/lib/api";
 
 /* ---------------- Types ---------------- */
 
@@ -574,37 +575,67 @@ export default function ProjectsPage() {
     }
   };
 
-  const handleExportCsv = () => {
-    if (!filteredSorted.length) {
-      alert("Tidak ada data untuk diexport.");
+
+const handleExportCsv = async () => {
+  try {
+    const params = new URLSearchParams();
+
+    // ✅ year mengikuti startMonth/endMonth jika ada, kalau tidak pakai tahun sekarang
+    const inferredYear =
+      startMonth?.slice(0, 4) ||
+      endMonth?.slice(0, 4) ||
+      String(new Date().getFullYear());
+    params.set("year", inferredYear);
+
+    // Filter mengikuti FE (kecuali All => tidak dikirim)
+    if (divisionFilter !== "All") params.set("division", divisionFilter);
+    if (customerFilter !== "All") params.set("customer_id", customerFilter);
+    if (statusFilter !== "All") params.set("status", statusFilter);
+    if (sphFilter !== "All") params.set("sph_released", sphFilter);
+    if (sphStatusFilter !== "All") params.set("sph_status", sphStatusFilter);
+    if (projectTypeFilter !== "All") params.set("project_type", projectTypeFilter);
+    if (salesStageFilter !== "All") params.set("sales_stage", salesStageFilter);
+
+    if (startMonth) params.set("start_month", startMonth);
+    if (endMonth) params.set("end_month", endMonth);
+
+    if (search.trim()) params.set("q", search.trim());
+
+    if (executionFilter !== "all") params.set("execution", executionFilter);
+    if (cardMode) params.set("card_mode", cardMode);
+
+    const token = getToken();
+    if (!token) {
+      alert("Session expired: missing token");
+      window.location.href = "/login";
       return;
     }
 
-    const headers = [
-      "Project Code",
-      "Description",
-      "Customer",
-      "Division",
-      "Status",
-      "Project Type",
-      "Sales Stage",
-      "SPH Released",
-    ];
+    const res = await fetch(`/api/projects/export/csv?${params.toString()}`, {
+      method: "GET",
+      headers: { Authorization: `Bearer ${token}` },
+    });
 
-    const rows = filteredSorted.map((p) => [
-      p.project_code,
-      safeString(p.description).replace(/,/g, " "),
-      p.customer_name || "",
-      p.division,
-      p.status,
-      p.project_type,
-      p.sales_stage ?? "",
-      normalizeSPH(p.sph_release_status),
-    ]);
+    if (res.status === 401) {
+      clearToken();
+      window.location.href = "/login";
+      return;
+    }
 
-    const blob = generateCsv(headers, rows);
-    downloadBlob(blob, "projects_export.csv");
-  };
+    if (!res.ok) {
+      const msg = await res.text().catch(() => "");
+      throw new Error(msg || `Export failed: ${res.status}`);
+    }
+
+    const blob = await res.blob();
+    downloadBlob(blob, `projects_export_${params.get("year")}.csv`);
+  } catch (e: any) {
+    alert(e?.message ?? "Gagal export CSV");
+  }
+};
+
+
+
 
   const handleSave = async (payload: any) => {
     try {

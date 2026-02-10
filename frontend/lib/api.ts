@@ -144,3 +144,32 @@ export async function apiUpdateUser(id: number, payload: any) {
 export async function apiDeleteUser(id: number) {
   return apiDelete(`/users/${id}`);
 }
+
+export async function apiGetBlob(url: string): Promise<Blob> {
+  const token = getToken();
+
+  const headers: Record<string, string> = {};
+  if (token && url !== "/login") {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+
+  const res = await fetch(`${API_BASE}${url}`, {
+    method: "GET",
+    headers,
+  });
+
+  if (res.status === 401) {
+    clearToken();
+    if (typeof window !== "undefined") window.location.href = "/login";
+    throw new Error("Unauthorized");
+  }
+
+  if (!res.ok) {
+    // coba baca text error
+    const msg = await res.text();
+    throw new Error(msg || "Export failed");
+  }
+
+  return await res.blob();
+}
+

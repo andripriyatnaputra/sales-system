@@ -40,6 +40,7 @@ func Register(r *gin.Engine) {
 	auth.GET("/projects/:id", handlers.GetProject)
 	auth.PUT("/projects/:id", handlers.UpdateProject)
 	auth.DELETE("/projects/:id", handlers.DeleteProject)
+	auth.GET("/projects/export/csv", handlers.ExportProjectsCSV)
 
 	auth.GET("/projects/:id/revenue-plan", handlers.GetRevenuePlan)
 	auth.PUT("/projects/:id/realization/:month", handlers.UpdateRevenueRealization)
