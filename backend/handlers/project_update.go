@@ -150,15 +150,7 @@ func UpdateProject(c *gin.Context) {
 		c.JSON(500, gin.H{"error": err.Error()})
 		return
 	}
-	// --- Replace revenue plans ---
-	_, err = tx.Exec(ctx,
-		`DELETE FROM project_revenue_plan WHERE project_id = $1`, id,
-	)
-	if err != nil {
-		c.JSON(500, gin.H{"error": "failed clear old revenue plans"})
-		return
-	}
-
+	// --- Upsert revenue plans (preserve target_realization) ---
 	for _, rp := range body.RevenuePlans {
 		month, err := time.Parse("2006-01", rp.Month)
 		if err != nil {
@@ -167,12 +159,15 @@ func UpdateProject(c *gin.Context) {
 		}
 
 		_, err = tx.Exec(ctx, `
-			INSERT INTO project_revenue_plan (project_id, month, target_revenue)
-			VALUES ($1, $2, $3)
-		`, id, month, rp.TargetRevenue)
+		INSERT INTO project_revenue_plan (project_id, month, target_revenue)
+		VALUES ($1, $2, $3)
+		ON CONFLICT (project_id, month)
+		DO UPDATE SET
+			target_revenue = EXCLUDED.target_revenue
+	`, id, month, rp.TargetRevenue)
 
 		if err != nil {
-			c.JSON(500, gin.H{"error": "failed insert revenue plan"})
+			c.JSON(500, gin.H{"error": "failed upsert revenue plan"})
 			return
 		}
 	}
