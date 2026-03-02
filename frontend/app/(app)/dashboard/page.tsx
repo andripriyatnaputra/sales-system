@@ -182,6 +182,27 @@ function cumulative(values: number[]): number[] {
   return result;
 }
 
+function maskedCumulative(
+  values: number[],
+  labelsYM: string[],
+  fromYM: string,
+  toYM: string
+): (number | null)[] {
+  let running = 0;
+  return values.map((v, i) => {
+    running += Number(v || 0);
+
+    // kalau tidak ada filter, tampilkan full
+    if (!fromYM && !toYM) return running;
+
+    const m = labelsYM[i];
+    if (fromYM && m < fromYM) return null;
+    if (toYM && m > toYM) return null;
+
+    return running;
+  });
+}
+
 function compactIDR(value: number): string {
   const n = Math.abs(value);
   if (n >= 1_000_000_000) return (value / 1_000_000_000).toFixed(1).replace(/\.0$/, "") + " B";
@@ -383,12 +404,22 @@ export default function DashboardPage() {
   const totalOpportunity = totalTarget;
 
   // ===== Cumulative Chart =====
+  // ===== Cumulative Chart =====
   const trendYear = getYearForTrend(filters, safeForecast);
   const normalizedForecast = normalizeForecastToYear(safeForecast, trendYear);
 
-  const labels = normalizedForecast.map((f) => f.month);
-  const cumTarget = cumulative(normalizedForecast.map((f) => f.target));
-  const cumReal = cumulative(normalizedForecast.map((f) => f.realization));
+  const labels = normalizedForecast.map((f) => ym(f.month)); // pastikan "YYYY-MM"
+
+  // filter range (UI month input mengeluarkan "YYYY-MM")
+  const fromYM = ym(filters.fromMonth);
+  const toYM = ym(filters.toMonth);
+
+  const targetSeries = normalizedForecast.map((f) => Number(f.target ?? 0) || 0);
+  const realSeries = normalizedForecast.map((f) => Number(f.realization ?? 0) || 0);
+
+  // ✅ masked cumulative: di luar range => null supaya garis stop
+  const cumTarget = maskedCumulative(targetSeries, labels, fromYM, toYM);
+  const cumReal = maskedCumulative(realSeries, labels, fromYM, toYM);
 
   // ===== Funnel (always 6 stages) =====
   const orderedPipeline = [1, 2, 3, 4, 5, 6].map((stage) => {
@@ -808,6 +839,7 @@ export default function DashboardPage() {
                   {
                     label: "Target (Cumulative)",
                     data: cumTarget,
+                    spanGaps: false,
                     borderColor: "#2563EB",
                     backgroundColor: "rgba(37,99,235,0.15)",
                     fill: true,
@@ -816,6 +848,7 @@ export default function DashboardPage() {
                   {
                     label: "Realization (Cumulative)",
                     data: cumReal,
+                    spanGaps: false,
                     borderColor: "#DC2626",
                     backgroundColor: "rgba(220,38,38,0.1)",
                     fill: false,
