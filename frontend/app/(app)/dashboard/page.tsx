@@ -861,6 +861,7 @@ export default function DashboardPage() {
                 scales: {
                   x: { ticks: { font: { size: 10 } } },
                   y: {
+                    beginAtZero: true,
                     ticks: {
                       callback: (v: any) => compactIDR(Number(v)),
                     },
