@@ -37,3 +37,61 @@ type ProjectSummaryResponse struct {
 	CompletedProjects   int64 `json:"completed_projects"`
 	TotalTargetRevenue  int64 `json:"total_target_revenue"`
 }
+
+type ProjectPipelineStageSummary struct {
+	Stage            int     `json:"stage"`
+	Label            string  `json:"label"`
+	Count            int64   `json:"count"`
+	TargetValue      float64 `json:"target_value"`
+	RealizationValue float64 `json:"realization_value"`
+	AvgTargetValue   float64 `json:"avg_target_value"`
+}
+
+type ProjectPipelineSummaryResponse struct {
+	TotalProjects    int64                         `json:"total_projects"`
+	TotalTargetValue float64                       `json:"total_target_value"`
+	TotalRealization float64                       `json:"total_realization"`
+	AvgDealSize      float64                       `json:"avg_deal_size"`
+	Stages           []ProjectPipelineStageSummary `json:"stages"`
+}
+
+type ProjectPipelineDetailItem struct {
+	ID                      int64      `json:"id"`
+	ProjectCode             string     `json:"project_code"`
+	Description             string     `json:"description"`
+	CustomerName            string     `json:"customer_name"`
+	Division                string     `json:"division"`
+	Status                  string     `json:"status"`
+	ProjectType             string     `json:"project_type"`
+	SalesStage              int        `json:"sales_stage"`
+	SPHReleaseStatus        string     `json:"sph_release_status"`
+	SPHStatus               *string    `json:"sph_status,omitempty"`
+	SPHNumber               *string    `json:"sph_number,omitempty"`
+	SPHReleaseDate          *time.Time `json:"sph_release_date,omitempty"`
+	SPHStatusReasonCategory *string    `json:"sph_status_reason_category,omitempty"`
+	SPHStatusReasonNote     *string    `json:"sph_status_reason_note,omitempty"`
+	TargetValue             float64    `json:"target_value"`
+	RealizationValue        float64    `json:"realization_value"`
+	StartMonth              *string    `json:"start_month,omitempty"`
+	EndMonth                *string    `json:"end_month,omitempty"`
+}
+
+type ProjectSPHStatusSummary struct {
+	Status         string  `json:"status"`
+	Count          int64   `json:"count"`
+	TargetValue    float64 `json:"target_value"`
+	AvgTargetValue float64 `json:"avg_target_value"`
+}
+
+type ProjectSPHAgingBucket struct {
+	Label       string  `json:"label"`
+	Count       int64   `json:"count"`
+	TargetValue float64 `json:"target_value"`
+}
+
+type ProjectSPHSummaryResponse struct {
+	ReleasedCount int64                     `json:"released_count"`
+	ReleasedValue float64                   `json:"released_value"`
+	Statuses      []ProjectSPHStatusSummary `json:"statuses"`
+	Aging         []ProjectSPHAgingBucket   `json:"aging"`
+}

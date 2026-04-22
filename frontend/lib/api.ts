@@ -145,6 +145,7 @@ export async function apiDeleteUser(id: number) {
   return apiDelete(`/users/${id}`);
 }
 
+
 export async function apiGetBlob(url: string): Promise<Blob> {
   const token = getToken();
 
@@ -152,6 +153,8 @@ export async function apiGetBlob(url: string): Promise<Blob> {
   if (token && url !== "/login") {
     headers["Authorization"] = `Bearer ${token}`;
   }
+
+  console.log("[API REQUEST]", `${API_BASE}${url}`);
 
   const res = await fetch(`${API_BASE}${url}`, {
     method: "GET",
@@ -171,5 +174,22 @@ export async function apiGetBlob(url: string): Promise<Blob> {
   }
 
   return await res.blob();
+}
+
+
+export async function apiGetProjectPipelineSummary(query = "") {
+  return apiGet(`/projects/pipeline/summary${query}`);
+}
+
+export async function apiGetProjectPipelineDetails(query = "") {
+  return apiGet(`/projects/pipeline/details${query}`);
+}
+
+export async function apiGetProjectSPHSummary(query = "") {
+  return apiGet(`/projects/sph/summary${query}`);
+}
+
+export async function apiGetProjectSPHDetails(query = "") {
+  return apiGet(`/projects/sph/details${query}`);
 }
 

@@ -2,14 +2,14 @@ package handlers
 
 import (
 	"database/sql"
+	"encoding/csv"
 	"fmt"
+	"net/http"
 	"sales-system-backend/database"
 	"sales-system-backend/models"
+	"strconv"
 	"strings"
 	"time"
-	"net/http"
-	"strconv"
-	"encoding/csv"
 
 	"github.com/gin-gonic/gin"
 )
@@ -616,10 +616,10 @@ ORDER BY p.project_code ASC
 
 	for rows.Next() {
 		var (
-			code, desc, div, cust, typ, status                   string
-			stageText, postPoLast                                string
-			sphRel, sphStatus, reasonCat, reasonNote             string
-			totalRev, totalReal                                  string
+			code, desc, div, cust, typ, status                                     string
+			stageText, postPoLast                                                  string
+			sphRel, sphStatus, reasonCat, reasonNote                               string
+			totalRev, totalReal                                                    string
 			tJan, tFeb, tMar, tApr, tMay, tJun, tJul, tAug, tSep, tOct, tNov, tDec string
 			rJan, rFeb, rMar, rApr, rMay, rJun, rJul, rAug, rSep, rOct, rNov, rDec string
 		)
@@ -677,5 +677,3 @@ ORDER BY p.project_code ASC
 		return
 	}
 }
-
-

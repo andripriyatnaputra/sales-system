@@ -124,6 +124,14 @@ const normalizeSPHStatus = (
   return "Open";
 };
 
+const compactIDR = (value: number | null | undefined): string => {
+  const n = Math.abs(Number(value || 0));
+  if (n >= 1_000_000_000) return (Number(value || 0) / 1_000_000_000).toFixed(1).replace(/\.0$/, "") + " B";
+  if (n >= 1_000_000) return (Number(value || 0) / 1_000_000).toFixed(1).replace(/\.0$/, "") + " M";
+  if (n >= 1_000) return (Number(value || 0) / 1_000).toFixed(1).replace(/\.0$/, "") + " K";
+  return formatIDR(Number(value || 0));
+};
+
 /* ------------- Main Page ------------- */
 
 export default function ProjectsPage() {
@@ -732,22 +740,42 @@ const handleExportCsv = async () => {
     }, 0);
   };
 
+/* -------- Render -------- */
 
-  /* -------- Render -------- */
+return (
+  <div className="space-y-6">
+    {/* HEADER */}
+    <div className="space-y-4">
+      <div>
+        <h2 className="text-2xl font-semibold">Projects</h2>
+        <p className="text-sm text-gray-500">
+          Sales pipeline &amp; revenue tracking
+        </p>
+      </div>
 
-  return (
-    <div className="space-y-6">
-      {/* HEADER */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h2 className="text-2xl font-semibold">Projects</h2>
-          <p className="text-xs text-gray-500">
-            Sales pipeline &amp; revenue tracking
-          </p>
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between bg-white border rounded-xl shadow-sm p-3">
+        <div className="flex flex-wrap gap-2">
+          <Link
+            href="/projects"
+            className="px-3 py-2 rounded-lg border text-sm bg-gray-900 text-white"
+          >
+            Projects
+          </Link>
+          <Link
+            href="/projects/pipeline"
+            className="px-3 py-2 rounded-lg border text-sm hover:bg-gray-50"
+          >
+            Pipeline
+          </Link>
+          <Link
+            href="/projects/sph"
+            className="px-3 py-2 rounded-lg border text-sm hover:bg-gray-50"
+          >
+            SPH
+          </Link>
         </div>
 
-
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2 lg:justify-end">
           <button
             onClick={handleExportCsv}
             className="px-3 py-2 border rounded-lg text-sm hover:bg-gray-50"
@@ -763,107 +791,115 @@ const handleExportCsv = async () => {
           </button>
         </div>
       </div>
+    </div>
 
-      {summary && (
-        <div className="grid grid-cols-1 md:grid-cols-6 gap-4 mb-6">
-          
-          {/* TOTAL */}
-          <Card className="p-4">
-            <div className="text-xs text-muted-foreground">Total Projects</div>
-            <div className="text-xl font-semibold">{summary.total_projects}</div>
-          </Card>
-
-          {/* PIPELINE */}
-          <Card
-            className="p-4 cursor-pointer hover:shadow-md transition"
-            onClick={() => applyCardFilter("pipeline")}
-          >
-            <div className="text-xs text-muted-foreground">Pipeline</div>
-            <div className="text-xl font-semibold text-indigo-600">
-              {summary.prospect_projects}
-            </div>
-          </Card>
-
-          {/* CLOSING */}
-          <Card
-            className="p-4 cursor-pointer hover:shadow-md transition"
-            onClick={() => applyCardFilter("closing")}
-          >
-            <div className="text-xs text-muted-foreground">Closing</div>
-            <div className="text-xl font-semibold text-blue-600">
-              {summary.closing_projects}
-            </div>
-          </Card>
-
-          {/* IN EXECUTION */}
-          <Card
-            className="p-4 cursor-pointer hover:shadow-md transition"
-            onClick={() => applyCardFilter("in_execution")}
-          >
-            <div className="text-xs text-muted-foreground">In Execution</div>
-            <div className="text-xl font-semibold text-yellow-600">
-              {summary.in_execution_projects}
-            </div>
-          </Card>
-
-          {/* COMPLETED */}
-          <Card
-            className="p-4 cursor-pointer hover:shadow-md transition"
-            onClick={() => applyCardFilter("completed")}
-          >
-            <div className="text-xs text-muted-foreground">Completed</div>
-            <div className="text-xl font-semibold text-green-600">
-              {summary.completed_projects}
-            </div>
-          </Card>
-
-          {/* TARGET REVENUE */}
-          <Card className="p-4">
-            <div className="text-xs text-muted-foreground">Target Revenue</div>
-            <div className="text-sm font-semibold">
-              Rp {formatIDR(summary.total_target_revenue)}
-            </div>
-          </Card>
-
+    {/* SUMMARY */}
+    {summary && (
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-6 gap-4">
+        <div className="bg-slate-50 border border-slate-200 rounded-xl shadow-sm p-4">
+          <div className="text-xs text-slate-600">Total Projects</div>
+          <div className="mt-2 text-2xl font-semibold">{summary.total_projects}</div>
         </div>
-      )}
 
+        <button
+          type="button"
+          className="bg-blue-50 border border-blue-200 rounded-xl shadow-sm p-4 text-left hover:shadow-md transition"
+          onClick={() => applyCardFilter("pipeline")}
+        >
+          <div className="text-xs text-blue-700">Pipeline</div>
+          <div className="mt-2 text-2xl font-semibold text-blue-700">
+            {summary.prospect_projects}
+          </div>
+        </button>
 
-      
-      {/* SPH STATUS CARDS */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-        {(["Open", "Win", "Hold", "Loss", "Drop"] as const).map((st) => {
-          const count = filteredSortedBaseForSphCards.filter(
-            (p) => normalizeSPHStatus(p.sph_status) === st
-          ).length;
+        <button
+          type="button"
+          className="bg-amber-50 border border-amber-200 rounded-xl shadow-sm p-4 text-left hover:shadow-md transition"
+          onClick={() => applyCardFilter("closing")}
+        >
+          <div className="text-xs text-amber-700">Closing</div>
+          <div className="mt-2 text-2xl font-semibold text-amber-700">
+            {summary.closing_projects}
+          </div>
+        </button>
 
-          const active = sphStatusFilter === st;
+        <button
+          type="button"
+          className="bg-violet-50 border border-violet-200 rounded-xl shadow-sm p-4 text-left hover:shadow-md transition"
+          onClick={() => applyCardFilter("in_execution")}
+        >
+          <div className="text-xs text-violet-700">In Execution</div>
+          <div className="mt-2 text-2xl font-semibold text-violet-700">
+            {summary.in_execution_projects}
+          </div>
+        </button>
 
-          return (
-            <Card
-              key={st}
-              className={`p-4 cursor-pointer hover:shadow-md transition ${
-                active ? "ring-2 ring-blue-500" : ""
-              }`}
-              onClick={() => setSphStatusFilter((prev) => (prev === st ? "All" : st))}
-            >
-              <div className="text-xs text-muted-foreground">SPH Status</div>
-              <div className="flex items-end justify-between">
-                <div className="text-lg font-semibold">{st}</div>
-                <div className="text-xl font-semibold">{count}</div>
-              </div>
-              {active && (
-                <div className="text-[11px] text-muted-foreground mt-1">
-                  Click again to clear
-                </div>
-              )}
-            </Card>
-          );
-        })}
+        <button
+          type="button"
+          className="bg-green-50 border border-green-200 rounded-xl shadow-sm p-4 text-left hover:shadow-md transition"
+          onClick={() => applyCardFilter("completed")}
+        >
+          <div className="text-xs text-green-700">Completed</div>
+          <div className="mt-2 text-2xl font-semibold text-green-700">
+            {summary.completed_projects}
+          </div>
+        </button>
+
+        <div className="bg-cyan-50 border border-cyan-200 rounded-xl shadow-sm p-4">
+          <div className="text-xs text-cyan-700">Total Target Revenue</div>
+          <div className="mt-2 text-xl font-semibold">
+            Rp {compactIDR(summary.total_target_revenue)}
+          </div>
+        </div>
       </div>
+    )}
 
-{/* FILTERS */}
-      <div className="bg-white p-4 border rounded-xl shadow-sm space-y-3">
+    {/* SPH STATUS CARDS */}
+    <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+      {(["Open", "Win", "Hold", "Loss", "Drop"] as const).map((st) => {
+        const count = filteredSortedBaseForSphCards.filter(
+          (p) => normalizeSPHStatus(p.sph_status) === st
+        ).length;
+
+        const active = sphStatusFilter === st;
+
+        const cardStyle =
+          st === "Open"
+            ? "border-blue-200 bg-blue-50"
+            : st === "Win"
+            ? "border-green-200 bg-green-50"
+            : st === "Hold"
+            ? "border-amber-200 bg-amber-50"
+            : st === "Loss"
+            ? "border-rose-200 bg-rose-50"
+            : "border-slate-300 bg-slate-100";
+
+        return (
+          <Card
+            key={st}
+            className={`p-4 cursor-pointer hover:shadow-md transition ${cardStyle} ${
+              active ? "ring-2 ring-blue-500" : ""
+            }`}
+            onClick={() => setSphStatusFilter((prev) => (prev === st ? "All" : st))}
+          >
+            <div className="text-xs text-muted-foreground">SPH Status</div>
+            <div className="flex items-end justify-between">
+              <div className="text-lg font-semibold">{st}</div>
+              <div className="text-2xl font-semibold">{count}</div>
+            </div>
+            {active && (
+              <div className="text-[11px] text-muted-foreground mt-1">
+                Click again to clear
+              </div>
+            )}
+          </Card>
+        );
+      })}
+    </div>
+
+    {/* FILTERS */}
+    <div className="bg-white p-4 border rounded-xl shadow-sm space-y-3">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
         <input
           placeholder="Search project..."
           className="border px-3 py-2 rounded-lg w-full text-sm"
@@ -871,159 +907,159 @@ const handleExportCsv = async () => {
           onChange={(e) => setSearch(e.target.value)}
         />
 
-        <div className="flex flex-wrap gap-2">
-          {/* Division */}
-          <select
-            className="border px-3 py-2 rounded-lg text-sm"
-            value={divisionFilter}
-            onChange={(e) => setDivisionFilter(e.target.value)}
-          >
-            <option value="All">All Divisions</option>
-            {DIVISIONS.filter((d) => d !== "All").map((d) => (
-              <option key={d} value={d}>
-                {d}
-              </option>
-            ))}
-          </select>
+        <select
+          className="border px-3 py-2 rounded-lg text-sm w-full"
+          value={divisionFilter}
+          onChange={(e) => setDivisionFilter(e.target.value)}
+        >
+          <option value="All">All Divisions</option>
+          {DIVISIONS.filter((d) => d !== "All").map((d) => (
+            <option key={d} value={d}>
+              {d}
+            </option>
+          ))}
+        </select>
 
-          {/* Customer */}
-          <select
-            className="border px-3 py-2 rounded-lg text-sm"
-            value={customerFilter}
-            onChange={(e) => setCustomerFilter(e.target.value)}
-          >
-            <option value="All">All Customers</option>
-            {customers.map((c) => (
-              <option key={c.id} value={String(c.id)}>
-                {c.name}
-              </option>
-            ))}
-          </select>
+        <select
+          className="border px-3 py-2 rounded-lg text-sm w-full"
+          value={customerFilter}
+          onChange={(e) => setCustomerFilter(e.target.value)}
+        >
+          <option value="All">All Customers</option>
+          {customers.map((c) => (
+            <option key={c.id} value={String(c.id)}>
+              {c.name}
+            </option>
+          ))}
+        </select>
 
-          {/* Status */}
-          <select
-            className="border px-3 py-2 rounded-lg text-sm"
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-          >
-            <option value="All">All Status</option>
-            {STATUSES.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
-          </select>
+        <select
+          className="border px-3 py-2 rounded-lg text-sm w-full"
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+        >
+          <option value="All">All Status</option>
+          {STATUSES.map((s) => (
+            <option key={s} value={s}>
+              {s}
+            </option>
+          ))}
+        </select>
 
-          {/* SPH Released */}
-          <select
-            className="border px-3 py-2 rounded-lg text-sm"
-            value={sphFilter}
-            onChange={(e) => setSphFilter(e.target.value)}
-          >
-            <option value="All">SPH Released (All)</option>
-            <option value="Yes">SPH Released = Yes</option>
-            <option value="No">SPH Released = No</option>
-          </select>
+        <select
+          className="border px-3 py-2 rounded-lg text-sm w-full"
+          value={sphFilter}
+          onChange={(e) => setSphFilter(e.target.value)}
+        >
+          <option value="All">SPH Released (All)</option>
+          <option value="Yes">SPH Released = Yes</option>
+          <option value="No">SPH Released = No</option>
+        </select>
 
-          {/* Project Type */}
-          <select
-            className="border px-3 py-2 rounded-lg text-sm"
-            value={projectTypeFilter}
-            onChange={(e) => setProjectTypeFilter(e.target.value)}
-          >
-            <option value="All">All Project Types</option>
-            {PROJECT_TYPES.map((t) => (
-              <option key={t} value={t}>
-                {t}
-              </option>
-            ))}
-          </select>
+        <select
+          className="border px-3 py-2 rounded-lg text-sm w-full"
+          value={projectTypeFilter}
+          onChange={(e) => setProjectTypeFilter(e.target.value)}
+        >
+          <option value="All">All Project Types</option>
+          {PROJECT_TYPES.map((t) => (
+            <option key={t} value={t}>
+              {t}
+            </option>
+          ))}
+        </select>
 
-          {/* Sales Stage */}
-          <select
-            className="border px-3 py-2 rounded-lg text-sm"
-            value={salesStageFilter}
-            onChange={(e) => setSalesStageFilter(e.target.value)}
-          >
-            <option value="All">All Sales Stages</option>
-            {SALES_STAGES.map((s) => (
-              <option key={s.value} value={String(s.value)}>
-                {s.label}
-              </option>
-            ))}
-          </select>
+        <select
+          className="border px-3 py-2 rounded-lg text-sm w-full"
+          value={salesStageFilter}
+          onChange={(e) => setSalesStageFilter(e.target.value)}
+        >
+          <option value="All">All Sales Stages</option>
+          {SALES_STAGES.map((s) => (
+            <option key={s.value} value={String(s.value)}>
+              {s.label}
+            </option>
+          ))}
+        </select>
 
-          {/* Start Month */}
-          <input
-            type="month"
-            className="border px-3 py-2 rounded-lg text-sm"
-            value={startMonth}
-            onChange={(e) => setStartMonth(e.target.value)}
-          />
+        <input
+          type="month"
+          className="border px-3 py-2 rounded-lg text-sm w-full"
+          value={startMonth}
+          onChange={(e) => setStartMonth(e.target.value)}
+        />
 
-          {/* End Month */}
-          <input
-            type="month"
-            className="border px-3 py-2 rounded-lg text-sm"
-            value={endMonth}
-            onChange={(e) => setEndMonth(e.target.value)}
-          />
+        <input
+          type="month"
+          className="border px-3 py-2 rounded-lg text-sm w-full"
+          value={endMonth}
+          onChange={(e) => setEndMonth(e.target.value)}
+        />
+      </div>
 
-          {/* Reset */}
-          <button
-            type="button"
-            onClick={() => {
-              resetAllFilters();
-            }}
-            className="px-3 py-2 border rounded-lg text-sm hover:bg-gray-50"
-          >
-            Reset Filters
-          </button>
-        </div>
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={() => {
+            resetAllFilters();
+          }}
+          className="px-3 py-2 border rounded-lg text-sm hover:bg-gray-50"
+        >
+          Reset Filters
+        </button>
+      </div>
 
-        {/* Sorting Controls */}
-        <div className="flex flex-wrap gap-2 pt-2 border-t mt-2 pt-3">
-          <select
-            className="border px-3 py-2 rounded-lg text-sm"
-            value={sortKey}
-            onChange={(e) =>
-              setSortKey(
-                e.target.value as
-                  | "project_code"
-                  | "division"
-                  | "status"
-                  | "project_type"
-                  | "total_revenue"
-                  | "total_realization"
-              )
-            }
-          >
-            <option value="project_code">Sort by Code</option>
-            <option value="division">Sort by Division</option>
-            <option value="status">Sort by Status</option>
-            <option value="project_type">Sort by Type</option>
-            <option value="total_revenue">Sort by Revenue</option>
-            <option value="total_realization">Sort by Realization</option>
-          </select>
+      {/* SORTING */}
+      <div className="flex flex-wrap gap-2 pt-2 border-t mt-2">
+        <select
+          className="border px-3 py-2 rounded-lg text-sm"
+          value={sortKey}
+          onChange={(e) =>
+            setSortKey(
+              e.target.value as
+                | "project_code"
+                | "division"
+                | "status"
+                | "project_type"
+                | "total_revenue"
+                | "total_realization"
+            )
+          }
+        >
+          <option value="project_code">Sort by Code</option>
+          <option value="division">Sort by Division</option>
+          <option value="status">Sort by Status</option>
+          <option value="project_type">Sort by Type</option>
+          <option value="total_revenue">Sort by Revenue</option>
+          <option value="total_realization">Sort by Realization</option>
+        </select>
 
-          <button
-            type="button"
-            className="border px-3 py-2 rounded-lg text-sm"
-            onClick={() => setSortDir((prev) => (prev === "asc" ? "desc" : "asc"))}
-          >
-            {sortDir === "asc" ? "↑ Asc" : "↓ Desc"}
-          </button>
+        <button
+          type="button"
+          className="border px-3 py-2 rounded-lg text-sm hover:bg-gray-50"
+          onClick={() => setSortDir((prev) => (prev === "asc" ? "desc" : "asc"))}
+        >
+          {sortDir === "asc" ? "↑ Asc" : "↓ Desc"}
+        </button>
+      </div>
+    </div>
+
+    {/* TABLE */}
+    <div className="bg-white border rounded-xl shadow-sm overflow-hidden">
+      <div className="p-4 border-b">
+        <div className="font-semibold">Project List</div>
+        <div className="text-xs text-gray-500 mt-1">
+          {filteredSorted.length} project(s)
         </div>
       </div>
 
-      {/* TABLE */}
-      <div className="bg-white border rounded-xl shadow-sm overflow-auto">
+      <div className="overflow-auto">
         {loading ? (
           <div className="p-4 text-sm text-gray-500">Loading...</div>
         ) : loadingError ? (
           <div className="p-4 text-sm text-red-600">{loadingError}</div>
         ) : (
-          <table className="w-full text-sm">
+          <table className="w-full text-sm min-w-[1400px]">
             <thead className="bg-gray-100">
               <tr>
                 <th className="px-3 py-2 text-left">Code</th>
@@ -1065,43 +1101,56 @@ const handleExportCsv = async () => {
                     <td className="px-3 py-2">{p.project_type}</td>
                     <td className="px-3 py-2">{p.status}</td>
                     <td className="px-3 py-2">
-                      {SALES_STAGES.find((s) => s.value === p.sales_stage)?.label ||
-                        "-"}
+                      {SALES_STAGES.find((s) => s.value === p.sales_stage)?.label || "-"}
                     </td>
                     <td className="px-3 py-2">
                       {normalizeSPH(p.sph_release_status) === "Yes" ? (
-                        <span className="px-2 py-1 text-xs bg-green-100 text-green-700 rounded">
+                        <span className="px-2 py-1 rounded text-xs font-medium bg-green-100 text-green-700">
                           Yes
                         </span>
                       ) : (
-                        <span className="px-2 py-1 text-xs bg-gray-200 text-gray-600 rounded">
+                        <span className="px-2 py-1 rounded text-xs font-medium bg-gray-200 text-gray-600">
                           No
                         </span>
                       )}
                     </td>
 
                     <td className="px-3 py-2">
-                      <span className="px-2 py-1 text-xs bg-slate-100 text-slate-700 rounded">
+                      <span
+                        className={`px-2 py-1 rounded text-xs font-medium ${
+                          normalizeSPHStatus(p.sph_status) === "Win"
+                            ? "bg-green-100 text-green-700"
+                            : normalizeSPHStatus(p.sph_status) === "Hold"
+                            ? "bg-amber-100 text-amber-700"
+                            : normalizeSPHStatus(p.sph_status) === "Loss"
+                            ? "bg-rose-100 text-rose-700"
+                            : normalizeSPHStatus(p.sph_status) === "Drop"
+                            ? "bg-slate-200 text-slate-700"
+                            : "bg-blue-100 text-blue-700"
+                        }`}
+                      >
                         {normalizeSPHStatus(p.sph_status)}
                       </span>
                     </td>
+
                     <td className="px-3 py-2">
                       {normalizeSPHStatus(p.sph_status) === "Loss" ||
                       normalizeSPHStatus(p.sph_status) === "Drop" ? (
-                        <div className="text-xs">
-                          <div className="font-medium">
+                        <div className="text-xs rounded-lg border border-rose-100 bg-rose-50 p-2">
+                          <div className="font-medium text-rose-700">
                             {p.sph_status_reason_category || "-"}
                           </div>
                           {p.sph_status_reason_note ? (
-                            <div className="text-muted-foreground line-clamp-2">
+                            <div className="text-gray-600 line-clamp-2 mt-1">
                               {p.sph_status_reason_note}
                             </div>
                           ) : null}
                         </div>
                       ) : (
-                        <span className="text-xs text-muted-foreground">-</span>
+                        <span className="text-xs text-gray-400">-</span>
                       )}
                     </td>
+
                     <td className="px-3 py-2 text-right">
                       Rp {formatIDR(p.total_revenue || 0)}
                     </td>
@@ -1123,46 +1172,47 @@ const handleExportCsv = async () => {
           </table>
         )}
       </div>
-
-      {/* PAGINATION */}
-      <div className="flex justify-between items-center text-sm">
-        <div>
-          Page {page} of {totalPages}
-        </div>
-        <div className="space-x-2">
-          <button
-            className="px-2 py-1 border rounded"
-            disabled={page <= 1}
-            onClick={() => setPage((p) => p - 1)}
-          >
-            Prev
-          </button>
-          <button
-            className="px-2 py-1 border rounded"
-            disabled={page >= totalPages}
-            onClick={() => setPage((p) => p + 1)}
-          >
-            Next
-          </button>
-        </div>
-      </div>
-
-      {/* MODAL */}
-      {modalOpen && (
-        <ProjectModal
-          mode={modalMode}
-          project={editingProject}
-          initialRevenue={editingRevenue}
-          onClose={() => setModalOpen(false)}
-          onSave={handleSave}
-          saving={modalSaving}
-          error={modalError}
-          customers={customers}
-          me={me}
-        />
-      )}
     </div>
-  );
+
+    {/* PAGINATION */}
+    <div className="flex justify-between items-center text-sm">
+      <div>
+        Page {page} of {totalPages}
+      </div>
+      <div className="space-x-2">
+        <button
+          className="px-2 py-1 border rounded"
+          disabled={page <= 1}
+          onClick={() => setPage((p) => p - 1)}
+        >
+          Prev
+        </button>
+        <button
+          className="px-2 py-1 border rounded"
+          disabled={page >= totalPages}
+          onClick={() => setPage((p) => p + 1)}
+        >
+          Next
+        </button>
+      </div>
+    </div>
+
+    {/* MODAL */}
+    {modalOpen && (
+      <ProjectModal
+        mode={modalMode}
+        project={editingProject}
+        initialRevenue={editingRevenue}
+        onClose={() => setModalOpen(false)}
+        onSave={handleSave}
+        saving={modalSaving}
+        error={modalError}
+        customers={customers}
+        me={me}
+      />
+    )}
+  </div>
+);
 }
 
 /* ------------- Project Modal ------------- */

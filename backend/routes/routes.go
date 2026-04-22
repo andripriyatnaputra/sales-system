@@ -37,16 +37,35 @@ func Register(r *gin.Engine) {
 	// ===============================
 	auth.POST("/projects", handlers.CreateProject)
 	auth.GET("/projects", handlers.ListProjects)
-	auth.GET("/projects/:id", handlers.GetProject)
-	auth.PUT("/projects/:id", handlers.UpdateProject)
-	auth.DELETE("/projects/:id", handlers.DeleteProject)
+
 	auth.GET("/projects/export/csv", handlers.ExportProjectsCSV)
+	auth.GET("/projects/summary", handlers.GetProjectsSummary)
+
+	auth.GET("/projects/pipeline/summary", handlers.GetProjectPipelineSummary)
+	auth.GET("/projects/pipeline/details", handlers.GetProjectPipelineDetails)
+
+	auth.GET("/projects/sph/summary", handlers.GetProjectSPHSummary)
+	auth.GET("/projects/sph/details", handlers.GetProjectSPHDetails)
 
 	auth.GET("/projects/:id/revenue-plan", handlers.GetRevenuePlan)
 	auth.PUT("/projects/:id/realization/:month", handlers.UpdateRevenueRealization)
 	auth.PUT("/projects/:id/postpo-monitoring", handlers.UpdatePostPOMonitoring)
 
-	auth.GET("/projects/summary", handlers.GetProjectsSummary)
+	auth.GET("/projects/pipeline", func(c *gin.Context) {
+		c.JSON(400, gin.H{
+			"error": "wrong endpoint called: use /projects/pipeline/summary or /projects/pipeline/details",
+		})
+	})
+
+	auth.GET("/projects/sph", func(c *gin.Context) {
+		c.JSON(400, gin.H{
+			"error": "wrong endpoint called: use /projects/sph/summary or /projects/sph/details",
+		})
+	})
+
+	auth.GET("/projects/:id", handlers.GetProject)
+	auth.PUT("/projects/:id", handlers.UpdateProject)
+	auth.DELETE("/projects/:id", handlers.DeleteProject)
 
 	// ===============================
 	// CUSTOMER ROUTES
