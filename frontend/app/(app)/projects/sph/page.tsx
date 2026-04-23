@@ -560,8 +560,8 @@ export default function ProjectSPHPage() {
               </div>
               <div>
                 {criticalAging
-                  ? `${criticalAgingContribution}% nilai SPH berada pada bucket ${criticalAging.label}, perlu perhatian lebih untuk percepatan closing.`
-                  : "Belum ada data aging kritis."}
+                ? `${criticalAgingContribution}% nilai SPH aktif (Open/Hold) berada pada bucket ${criticalAging.label}, perlu perhatian lebih untuk percepatan closing.`
+                : "Belum ada aging kritis untuk SPH aktif."}
               </div>
             </div>
           </div>
@@ -622,7 +622,7 @@ export default function ProjectSPHPage() {
             <div className="p-4 border-b">
               <div className="font-semibold">SPH Aging</div>
               <div className="text-xs text-gray-500 mt-1">
-                Distribusi SPH berdasarkan umur sejak tanggal release.
+                Distribusi aging untuk SPH aktif (Open/Hold) berdasarkan umur sejak tanggal release.
               </div>
             </div>
 
@@ -718,23 +718,30 @@ export default function ProjectSPHPage() {
                               : "-"}
                           </td>
                           <td className="px-3 py-3">
-                            {agingDays === null ? (
-                              "-"
-                            ) : (
-                              <span
-                                className={`px-2 py-1 rounded text-xs font-medium ${
-                                  agingDays > 30
-                                    ? "bg-red-100 text-red-700"
-                                    : agingDays > 14
-                                    ? "bg-orange-100 text-orange-700"
-                                    : agingDays > 7
-                                    ? "bg-yellow-100 text-yellow-700"
-                                    : "bg-green-100 text-green-700"
-                                }`}
-                              >
-                                {agingDays} days
-                              </span>
-                            )}
+                            {(() => {
+                              const normalizedStatus = normalizeStatus(item.sph_status);
+                              const agingAllowed = normalizedStatus === "Open" || normalizedStatus === "Hold";
+
+                              if (!agingAllowed || agingDays === null) {
+                                return <span className="text-gray-400">-</span>;
+                              }
+
+                              return (
+                                <span
+                                  className={`px-2 py-1 rounded text-xs font-medium ${
+                                    agingDays > 30
+                                      ? "bg-red-100 text-red-700"
+                                      : agingDays > 14
+                                      ? "bg-orange-100 text-orange-700"
+                                      : agingDays > 7
+                                      ? "bg-yellow-100 text-yellow-700"
+                                      : "bg-green-100 text-green-700"
+                                  }`}
+                                >
+                                  {agingDays} days
+                                </span>
+                              );
+                            })()}
                           </td>
                           <td className="px-3 py-3">
                             <span

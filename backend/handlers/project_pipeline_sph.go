@@ -380,6 +380,7 @@ func GetProjectSPHSummary(c *gin.Context) {
 		LEFT JOIN project_revenue_plan rp ON rp.project_id = p.id
 		WHERE %s
 		  AND p.sph_release_date IS NOT NULL
+		  AND (%s) IN ('Open', 'Hold')
 		GROUP BY p.id, p.sph_release_date
 	),
 	aging_base AS (
@@ -406,7 +407,7 @@ func GetProjectSPHSummary(c *gin.Context) {
 			WHEN bucket = '15-30 days' THEN 3
 			ELSE 4
 		END
-`, where)
+`, where, normalizedSPHStatusExpr())
 
 	agingRows, err := database.Pool.Query(ctx, agingQuery, args...)
 	if err != nil {
