@@ -587,7 +587,7 @@ export default function ProjectSPHPage() {
                     <div className="text-xs text-gray-500">Projects</div>
 
                     <div className="mt-4">
-                        <div className="text-xs text-gray-500">Target Value</div>
+                        <div className="text-xs text-gray-500">Value</div>
                         <div className="font-semibold">
                         Rp {compactIDR(item.target_value || 0)}
                         </div>
