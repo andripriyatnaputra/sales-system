@@ -163,25 +163,34 @@ func GetProjectPipelineSummary(c *gin.Context) {
 			SELECT
 				p.id AS project_id,
 				p.sales_stage,
+				%s AS sph_status_norm,
 				COALESCE(SUM(rp.target_revenue), 0)::float8 AS target_value,
+				COALESCE(SUM(rp.sph_revenue), 0)::float8 AS sph_value,
 				COALESCE(SUM(rp.target_realization), 0)::float8 AS realization_value
 			FROM projects p
 			LEFT JOIN customers cu ON cu.id = p.customer_id
 			LEFT JOIN project_revenue_plan rp ON rp.project_id = p.id
 			WHERE %s
-			GROUP BY p.id, p.sales_stage
+			GROUP BY p.id, p.sales_stage, p.sph_status
 		)
 		SELECT
 			sales_stage,
 			COUNT(*)::bigint AS count,
 			COALESCE(SUM(target_value), 0)::float8 AS target_value,
+			COALESCE(SUM(sph_value), 0)::float8 AS sph_value,
 			COALESCE(SUM(realization_value), 0)::float8 AS realization_value,
-			COALESCE(AVG(target_value), 0)::float8 AS avg_target_value
+			COALESCE(AVG(target_value), 0)::float8 AS avg_target_value,
+			COUNT(*) FILTER (WHERE sph_status_norm = 'Hold')::bigint AS hold_count,
+			COALESCE(SUM(sph_value) FILTER (WHERE sph_status_norm = 'Hold'), 0)::float8 AS hold_value,
+			COUNT(*) FILTER (WHERE sph_status_norm = 'Loss')::bigint AS loss_count,
+			COALESCE(SUM(sph_value) FILTER (WHERE sph_status_norm = 'Loss'), 0)::float8 AS loss_value,
+			COUNT(*) FILTER (WHERE sph_status_norm = 'Drop')::bigint AS drop_count,
+			COALESCE(SUM(sph_value) FILTER (WHERE sph_status_norm = 'Drop'), 0)::float8 AS drop_value
 		FROM revenue_by_project
 		WHERE sales_stage BETWEEN 1 AND 6
 		GROUP BY sales_stage
 		ORDER BY sales_stage
-	`, where)
+	`, normalizedSPHStatusExpr(), where)
 
 	rows, err := database.Pool.Query(ctx, query, args...)
 	if err != nil {
@@ -200,8 +209,15 @@ func GetProjectPipelineSummary(c *gin.Context) {
 			&item.Stage,
 			&item.Count,
 			&item.TargetValue,
+			&item.SPHValue,
 			&item.RealizationValue,
 			&item.AvgTargetValue,
+			&item.HoldCount,
+			&item.HoldValue,
+			&item.LossCount,
+			&item.LossValue,
+			&item.DropCount,
+			&item.DropValue,
 		); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
@@ -311,130 +327,241 @@ func GetProjectPipelineDetails(c *gin.Context) {
 func GetProjectSPHSummary(c *gin.Context) {
 	ctx := c.Request.Context()
 
-	where, args := buildProjectAnalyticsFilter(c)
-	where = where + " AND COALESCE(p.sph_release_status,'No') = 'Yes'"
+	// optional filter
+	division := NormalizeDivision(c.Query("division"))
 
-	resp := models.ProjectSPHSummaryResponse{
-		Statuses: make([]models.ProjectSPHStatusSummary, 0, 5),
-		Aging:    make([]models.ProjectSPHAgingBucket, 0, 4),
+	where := "p.sph_release_status = 'Yes'"
+	args := []interface{}{}
+	idx := 1
+
+	if division != "" && division != "All" {
+		where += fmt.Sprintf(" AND p.division = $%d", idx)
+		args = append(args, division)
+		idx++
 	}
 
-	statusQuery := fmt.Sprintf(`
-		WITH revenue_by_project AS (
-			SELECT
-				p.id AS project_id,
-				%s AS sph_status_norm,
-				COALESCE(SUM(rp.target_revenue), 0)::float8 AS target_value
-			FROM projects p
-			LEFT JOIN customers cu ON cu.id = p.customer_id
-			LEFT JOIN project_revenue_plan rp ON rp.project_id = p.id
-			WHERE %s
-			GROUP BY p.id, sph_status_norm
-		)
+	query := fmt.Sprintf(`
 		SELECT
-			sph_status_norm,
-			COUNT(*)::bigint AS count,
-			COALESCE(SUM(target_value), 0)::float8 AS target_value,
-			COALESCE(AVG(target_value), 0)::float8 AS avg_target_value
-		FROM revenue_by_project
-		GROUP BY sph_status_norm
-		ORDER BY sph_status_norm
-	`, normalizedSPHStatusExpr(), where)
+			COUNT(DISTINCT p.id)::bigint AS released_count,
+			COALESCE(SUM(rp.target_revenue), 0)::float8 AS initial_target_value,
+			COALESCE(SUM(rp.sph_revenue), 0)::float8 AS sph_value,
+			COALESCE(SUM(rp.sph_revenue - rp.target_revenue), 0)::float8 AS variance_value,
+			COALESCE(SUM(rp.target_realization), 0)::float8 AS realization_value,
+			CASE
+				WHEN COALESCE(SUM(rp.sph_revenue), 0) = 0 THEN 0
+				ELSE (
+					COALESCE(SUM(rp.target_realization), 0)
+					/ COALESCE(SUM(rp.sph_revenue), 0)
+				) * 100
+			END::float8 AS conversion_rate
+		FROM projects p
+		LEFT JOIN project_revenue_plan rp ON rp.project_id = p.id
+		WHERE %s
+	`, where)
+
+	var res models.ProjectSPHSummaryResponse
+
+	err := database.Pool.QueryRow(ctx, query, args...).Scan(
+		&res.ReleasedCount,
+		&res.InitialTargetValue,
+		&res.SPHValue,
+		&res.VarianceValue,
+		&res.RealizationValue,
+		&res.ConversionRate,
+	)
+
+	if err != nil {
+		c.JSON(500, gin.H{"error": err.Error()})
+		return
+	}
+
+	// =========================
+	// STATUS BREAKDOWN
+	// =========================
+
+	statusQuery := fmt.Sprintf(`
+		SELECT
+			CASE
+				WHEN lower(COALESCE(p.sph_status,'')) = 'win' THEN 'Win'
+				WHEN lower(COALESCE(p.sph_status,'')) = 'hold' THEN 'Hold'
+				WHEN lower(COALESCE(p.sph_status,'')) = 'loss' THEN 'Loss'
+				WHEN lower(COALESCE(p.sph_status,'')) = 'drop' THEN 'Drop'
+				ELSE 'Open'
+			END AS status,
+			COUNT(DISTINCT p.id)::bigint AS count,
+			COALESCE(SUM(rp.sph_revenue), 0)::float8 AS target_value,
+			CASE
+				WHEN COUNT(DISTINCT p.id) = 0 THEN 0
+				ELSE COALESCE(SUM(rp.sph_revenue), 0) / COUNT(DISTINCT p.id)
+			END::float8 AS avg_target_value
+		FROM projects p
+		LEFT JOIN project_revenue_plan rp ON rp.project_id = p.id
+		WHERE %s
+		GROUP BY p.sph_status
+	`, where)
 
 	rows, err := database.Pool.Query(ctx, statusQuery, args...)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(500, gin.H{"error": err.Error()})
 		return
 	}
 	defer rows.Close()
 
+	var statuses []models.ProjectSPHStatusSummary
+
 	for rows.Next() {
-		var item models.ProjectSPHStatusSummary
+		var s models.ProjectSPHStatusSummary
 		if err := rows.Scan(
-			&item.Status,
-			&item.Count,
-			&item.TargetValue,
-			&item.AvgTargetValue,
+			&s.Status,
+			&s.Count,
+			&s.TargetValue,
+			&s.AvgTargetValue,
 		); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			c.JSON(500, gin.H{"error": err.Error()})
 			return
 		}
-		resp.ReleasedCount += item.Count
-		resp.ReleasedValue += item.TargetValue
-		resp.Statuses = append(resp.Statuses, item)
+		statuses = append(statuses, s)
 	}
 
 	if rows.Err() != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": rows.Err().Error()})
+		c.JSON(500, gin.H{"error": rows.Err().Error()})
 		return
 	}
+
+	res.Statuses = statuses
+
+	// =========================
+	// AGING - Open/Hold only
+	// =========================
 
 	agingQuery := fmt.Sprintf(`
-	WITH revenue_by_project AS (
+		WITH base AS (
+			SELECT
+				p.id,
+				p.sph_release_date,
+				COALESCE(SUM(rp.sph_revenue), 0)::float8 AS target_value,
+				CASE
+					WHEN lower(COALESCE(p.sph_status,'')) = 'win' THEN 'Win'
+					WHEN lower(COALESCE(p.sph_status,'')) = 'hold' THEN 'Hold'
+					WHEN lower(COALESCE(p.sph_status,'')) = 'loss' THEN 'Loss'
+					WHEN lower(COALESCE(p.sph_status,'')) = 'drop' THEN 'Drop'
+					ELSE 'Open'
+				END AS status
+			FROM projects p
+			LEFT JOIN project_revenue_plan rp ON rp.project_id = p.id
+			WHERE %s
+			  AND p.sph_release_date IS NOT NULL
+			GROUP BY p.id, p.sph_release_date, p.sph_status
+		),
+		filtered AS (
+			SELECT *
+			FROM base
+			WHERE status IN ('Open','Hold')
+		),
+		bucketed AS (
+			SELECT
+				CASE
+					WHEN CURRENT_DATE - sph_release_date <= 7 THEN '0-7 days'
+					WHEN CURRENT_DATE - sph_release_date <= 14 THEN '8-14 days'
+					WHEN CURRENT_DATE - sph_release_date <= 30 THEN '15-30 days'
+					ELSE '>30 days'
+				END AS bucket,
+				target_value
+			FROM filtered
+		)
 		SELECT
-			p.id AS project_id,
-			p.sph_release_date,
-			COALESCE(SUM(rp.target_revenue), 0)::float8 AS target_value
-		FROM projects p
-		LEFT JOIN customers cu ON cu.id = p.customer_id
-		LEFT JOIN project_revenue_plan rp ON rp.project_id = p.id
-		WHERE %s
-		  AND p.sph_release_date IS NOT NULL
-		  AND (%s) IN ('Open', 'Hold')
-		GROUP BY p.id, p.sph_release_date
-	),
-	aging_base AS (
-		SELECT
+			bucket,
+			COUNT(*)::bigint,
+			COALESCE(SUM(target_value), 0)::float8
+		FROM bucketed
+		GROUP BY bucket
+		ORDER BY
 			CASE
-				WHEN CURRENT_DATE - sph_release_date <= 7 THEN '0-7 days'
-				WHEN CURRENT_DATE - sph_release_date <= 14 THEN '8-14 days'
-				WHEN CURRENT_DATE - sph_release_date <= 30 THEN '15-30 days'
-				ELSE '>30 days'
-			END AS bucket,
-			target_value
-		FROM revenue_by_project
-	)
-	SELECT
-		bucket,
-		COUNT(*)::bigint AS count,
-		COALESCE(SUM(target_value), 0)::float8 AS target_value
-	FROM aging_base
-	GROUP BY bucket
-	ORDER BY
-		CASE
-			WHEN bucket = '0-7 days' THEN 1
-			WHEN bucket = '8-14 days' THEN 2
-			WHEN bucket = '15-30 days' THEN 3
-			ELSE 4
-		END
-`, where, normalizedSPHStatusExpr())
+				WHEN bucket = '0-7 days' THEN 1
+				WHEN bucket = '8-14 days' THEN 2
+				WHEN bucket = '15-30 days' THEN 3
+				ELSE 4
+			END
+	`, where)
 
-	agingRows, err := database.Pool.Query(ctx, agingQuery, args...)
+	rows2, err := database.Pool.Query(ctx, agingQuery, args...)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(500, gin.H{"error": err.Error()})
 		return
 	}
-	defer agingRows.Close()
+	defer rows2.Close()
 
-	for agingRows.Next() {
-		var item models.ProjectSPHAgingBucket
-		if err := agingRows.Scan(
-			&item.Label,
-			&item.Count,
-			&item.TargetValue,
+	var aging []models.ProjectSPHAgingBucket
+
+	for rows2.Next() {
+		var a models.ProjectSPHAgingBucket
+		if err := rows2.Scan(
+			&a.Label,
+			&a.Count,
+			&a.TargetValue,
 		); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			c.JSON(500, gin.H{"error": err.Error()})
 			return
 		}
-		resp.Aging = append(resp.Aging, item)
+		aging = append(aging, a)
 	}
 
-	if agingRows.Err() != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": agingRows.Err().Error()})
+	if rows2.Err() != nil {
+		c.JSON(500, gin.H{"error": rows2.Err().Error()})
 		return
 	}
 
-	c.JSON(http.StatusOK, resp)
+	res.Aging = aging
+
+	// =========================
+	// LOSS / DROP REASON BREAKDOWN
+	// =========================
+
+	reasonQuery := fmt.Sprintf(`
+		SELECT
+			COALESCE(NULLIF(p.sph_status_reason_category, ''), 'Unspecified') AS reason,
+			COUNT(DISTINCT p.id)::bigint AS count,
+			COALESCE(SUM(rp.sph_revenue), 0)::float8 AS sph_value,
+			COALESCE(SUM(rp.target_revenue), 0)::float8 AS target_value
+		FROM projects p
+		LEFT JOIN project_revenue_plan rp ON rp.project_id = p.id
+		WHERE %s
+		  AND lower(COALESCE(p.sph_status,'')) IN ('loss','drop')
+		GROUP BY COALESCE(NULLIF(p.sph_status_reason_category, ''), 'Unspecified')
+		ORDER BY sph_value DESC, count DESC
+	`, where)
+
+	rows3, err := database.Pool.Query(ctx, reasonQuery, args...)
+	if err != nil {
+		c.JSON(500, gin.H{"error": err.Error()})
+		return
+	}
+	defer rows3.Close()
+
+	var reasons []models.ProjectSPHReasonSummary
+
+	for rows3.Next() {
+		var r models.ProjectSPHReasonSummary
+		if err := rows3.Scan(
+			&r.Reason,
+			&r.Count,
+			&r.SPHValue,
+			&r.TargetValue,
+		); err != nil {
+			c.JSON(500, gin.H{"error": err.Error()})
+			return
+		}
+		reasons = append(reasons, r)
+	}
+
+	if rows3.Err() != nil {
+		c.JSON(500, gin.H{"error": rows3.Err().Error()})
+		return
+	}
+
+	res.Reasons = reasons
+
+	c.JSON(200, res)
 }
 
 func GetProjectSPHDetails(c *gin.Context) {
@@ -460,6 +587,7 @@ func GetProjectSPHDetails(c *gin.Context) {
 			p.sph_status_reason_category,
 			p.sph_status_reason_note,
 			COALESCE(SUM(rp.target_revenue), 0)::float8 AS target_value,
+			COALESCE(SUM(rp.sph_revenue), 0)::float8 AS sph_value,
 			COALESCE(SUM(rp.target_realization), 0)::float8 AS realization_value,
 			TO_CHAR(MIN(rp.month), 'YYYY-MM') AS start_month,
 			TO_CHAR(MAX(rp.month), 'YYYY-MM') AS end_month
@@ -501,6 +629,7 @@ func GetProjectSPHDetails(c *gin.Context) {
 			&item.SPHStatusReasonCategory,
 			&item.SPHStatusReasonNote,
 			&item.TargetValue,
+			&item.SPHValue,
 			&item.RealizationValue,
 			&item.StartMonth,
 			&item.EndMonth,

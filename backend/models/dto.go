@@ -1,8 +1,10 @@
 package models
 
 type RevenuePlanItem struct {
-	Month         string  `json:"month"`          // YYYY-MM
-	TargetRevenue float64 `json:"target_revenue"` // IDR
+	Month             string   `json:"month"`          // YYYY-MM
+	TargetRevenue     float64  `json:"target_revenue"` // IDR
+	SPHRevenue        *float64 `json:"sph_revenue,omitempty"`
+	TargetRealization float64  `json:"target_realization,omitempty"`
 }
 
 type CreateProjectRequest struct {

@@ -4,9 +4,10 @@ import "time"
 
 // Tambahkan / update struct RevenuePlanRequest
 type RevenuePlanRequest struct {
-	Month             string  `json:"month"` // format: YYYY-MM
-	TargetRevenue     float64 `json:"target_revenue"`
-	TargetRealization float64 `json:"target_realization"` // NEW, optional di JSON (default 0)
+	Month             string   `json:"month"` // format: YYYY-MM
+	TargetRevenue     float64  `json:"target_revenue"`
+	SPHRevenue        *float64 `json:"sph_revenue,omitempty"`
+	TargetRealization float64  `json:"target_realization"` // NEW, optional di JSON (default 0)
 }
 
 type Project struct {
@@ -43,8 +44,16 @@ type ProjectPipelineStageSummary struct {
 	Label            string  `json:"label"`
 	Count            int64   `json:"count"`
 	TargetValue      float64 `json:"target_value"`
+	SPHValue         float64 `json:"sph_value"`
 	RealizationValue float64 `json:"realization_value"`
 	AvgTargetValue   float64 `json:"avg_target_value"`
+
+	HoldCount int64   `json:"hold_count"`
+	HoldValue float64 `json:"hold_value"`
+	LossCount int64   `json:"loss_count"`
+	LossValue float64 `json:"loss_value"`
+	DropCount int64   `json:"drop_count"`
+	DropValue float64 `json:"drop_value"`
 }
 
 type ProjectPipelineSummaryResponse struct {
@@ -71,6 +80,7 @@ type ProjectPipelineDetailItem struct {
 	SPHStatusReasonCategory *string    `json:"sph_status_reason_category,omitempty"`
 	SPHStatusReasonNote     *string    `json:"sph_status_reason_note,omitempty"`
 	TargetValue             float64    `json:"target_value"`
+	SPHValue                float64    `json:"sph_value"`
 	RealizationValue        float64    `json:"realization_value"`
 	StartMonth              *string    `json:"start_month,omitempty"`
 	EndMonth                *string    `json:"end_month,omitempty"`
@@ -90,8 +100,20 @@ type ProjectSPHAgingBucket struct {
 }
 
 type ProjectSPHSummaryResponse struct {
-	ReleasedCount int64                     `json:"released_count"`
-	ReleasedValue float64                   `json:"released_value"`
-	Statuses      []ProjectSPHStatusSummary `json:"statuses"`
-	Aging         []ProjectSPHAgingBucket   `json:"aging"`
+	ReleasedCount      int64                     `json:"released_count"`
+	InitialTargetValue float64                   `json:"initial_target_value"`
+	SPHValue           float64                   `json:"sph_value"`
+	VarianceValue      float64                   `json:"variance_value"`
+	RealizationValue   float64                   `json:"realization_value"`
+	ConversionRate     float64                   `json:"conversion_rate"`
+	Statuses           []ProjectSPHStatusSummary `json:"statuses"`
+	Aging              []ProjectSPHAgingBucket   `json:"aging"`
+	Reasons            []ProjectSPHReasonSummary `json:"reasons"`
+}
+
+type ProjectSPHReasonSummary struct {
+	Reason      string  `json:"reason"`
+	Count       int64   `json:"count"`
+	SPHValue    float64 `json:"sph_value"`
+	TargetValue float64 `json:"target_value"`
 }

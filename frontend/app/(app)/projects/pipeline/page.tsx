@@ -25,8 +25,15 @@ type PipelineStageSummary = {
   label: string;
   count: number;
   target_value: number;
+  sph_value?: number;
   realization_value: number;
   avg_target_value: number;
+  hold_count?: number;
+  hold_value?: number;
+  loss_count?: number;
+  loss_value?: number;
+  drop_count?: number;
+  drop_value?: number;
 };
 
 type PipelineSummaryResponse = {
@@ -53,6 +60,7 @@ type PipelineDetailItem = {
   sph_status_reason_category?: string | null;
   sph_status_reason_note?: string | null;
   target_value: number;
+  sph_value?: number | null;
   realization_value: number;
   start_month?: string | null;
   end_month?: string | null;
@@ -70,6 +78,15 @@ const STAGE_LABELS: Record<number, string> = {
   5: "Negotiation",
   6: "Closing",
 };
+
+function normalizeStatus(value: string | null | undefined) {
+  const v = String(value || "").trim().toLowerCase();
+  if (v === "win") return "Win";
+  if (v === "hold") return "Hold";
+  if (v === "loss") return "Loss";
+  if (v === "drop") return "Drop";
+  return "Open";
+}
 
 function formatIDR(value: number | null | undefined) {
   const amount = Number(value || 0);
@@ -220,6 +237,13 @@ export default function ProjectPipelinePage() {
         target_value: 0,
         realization_value: 0,
         avg_target_value: 0,
+        sph_value: 0,
+        hold_count: 0,
+        hold_value: 0,
+        loss_count: 0,
+        loss_value: 0,
+        drop_count: 0,
+        drop_value: 0,
       });
     }
 
@@ -235,6 +259,12 @@ export default function ProjectPipelinePage() {
 
   const topCountStage = useMemo(() => topStageByCount(stageCards), [stageCards]);
   const topValueStage = useMemo(() => topStageByValue(stageCards), [stageCards]);
+  const totalSPHValue = useMemo(() => {
+    return stageCards.reduce(
+      (sum, stage) => sum + Number(stage.sph_value || 0),
+      0
+    );
+  }, [stageCards]);
 
   const filteredDetails = useMemo(() => {
     let data = [...details];
@@ -442,218 +472,336 @@ export default function ProjectPipelinePage() {
       ) : (
         <>
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-6 gap-4">
-            <div className="bg-slate-50 border border-slate-200 rounded-xl shadow-sm p-4">
-              <div className="text-xs text-slate-600">Total Pipeline Projects</div>
-              <div className="mt-2 text-2xl font-semibold">{summary?.total_projects || 0}</div>
-            </div>
+  <div className="bg-slate-50 border border-slate-200 rounded-xl shadow-sm p-4">
+    <div className="text-xs text-slate-600">Total Pipeline Projects</div>
+    <div className="mt-2 text-2xl font-semibold">
+      {summary?.total_projects || 0}
+    </div>
+  </div>
 
-            <div className="bg-blue-50 border border-blue-200 rounded-xl shadow-sm p-4">
-              <div className="text-xs text-blue-700">Total Target Value</div>
-              <div className="mt-2 text-xl font-semibold">
-                Rp {compactIDR(summary?.total_target_value || 0)}
-              </div>
-            </div>
+  <div className="bg-blue-50 border border-blue-200 rounded-xl shadow-sm p-4">
+    <div className="text-xs text-blue-700">Total Target Value</div>
+    <div className="mt-2 text-xl font-semibold">
+      Rp {compactIDR(summary?.total_target_value || 0)}
+    </div>
+  </div>
 
-            <div className="bg-green-50 border border-green-200 rounded-xl shadow-sm p-4">
-              <div className="text-xs text-green-700">Total Realization</div>
-              <div className="mt-2 text-xl font-semibold">
-                Rp {compactIDR(summary?.total_realization || 0)}
-              </div>
-            </div>
+  <div className="bg-green-50 border border-green-200 rounded-xl shadow-sm p-4">
+    <div className="text-xs text-green-700">Total SPH Value</div>
+    <div className="mt-2 text-xl font-semibold">
+      Rp {compactIDR(totalSPHValue)}
+    </div>
+  </div>
 
-            <div className="bg-violet-50 border border-violet-200 rounded-xl shadow-sm p-4">
-              <div className="text-xs text-violet-700">Average Deal Size</div>
-              <div className="mt-2 text-xl font-semibold">
-                Rp {compactIDR(summary?.avg_deal_size || 0)}
-              </div>
-            </div>
+  <div className="bg-violet-50 border border-violet-200 rounded-xl shadow-sm p-4">
+    <div className="text-xs text-violet-700">Average Deal Size</div>
+    <div className="mt-2 text-xl font-semibold">
+      Rp {compactIDR(summary?.avg_deal_size || 0)}
+    </div>
+  </div>
 
-            <div className="bg-amber-50 border border-amber-200 rounded-xl shadow-sm p-4">
-              <div className="text-xs text-amber-700">Top Stage by Count</div>
-              <div className="mt-2 text-base font-semibold">
-                {topCountStage ? topCountStage.label : "-"}
-              </div>
-              <div className="mt-1 text-sm text-gray-600">
-                {topCountStage ? `${topCountStage.count} projects` : "-"}
-              </div>
-            </div>
+  <div className="bg-amber-50 border border-amber-200 rounded-xl shadow-sm p-4">
+    <div className="text-xs text-amber-700">Top Stage by Count</div>
+    <div className="mt-2 text-base font-semibold">
+      {topCountStage ? topCountStage.label : "-"}
+    </div>
+    <div className="mt-1 text-sm text-gray-600">
+      {topCountStage ? `${topCountStage.count} projects` : "-"}
+    </div>
+  </div>
 
-            <div className="bg-orange-50 border border-orange-200 rounded-xl shadow-sm p-4">
-              <div className="text-xs text-orange-700">Top Stage by Value</div>
-              <div className="mt-2 text-base font-semibold">
-                {topValueStage ? topValueStage.label : "-"}
-              </div>
-              <div className="mt-1 text-sm text-gray-600">
-                {topValueStage ? `Rp ${compactIDR(topValueStage.target_value || 0)}` : "-"}
-              </div>
-            </div>
+  <div className="bg-orange-50 border border-orange-200 rounded-xl shadow-sm p-4">
+    <div className="text-xs text-orange-700">Top Stage by Value</div>
+    <div className="mt-2 text-base font-semibold">
+      {topValueStage ? topValueStage.label : "-"}
+    </div>
+    <div className="mt-1 text-sm text-gray-600">
+      {topValueStage
+        ? `Rp ${compactIDR(topValueStage.target_value || 0)}`
+        : "-"}
+    </div>
+  </div>
+</div>
+
+<div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6 gap-4">
+  {stageCards.map((stage) => {
+    const active = selectedStage === stage.stage;
+    const isClosing = stage.stage === 6;
+    const hasRisk =
+      Number(stage.hold_count || 0) > 0 ||
+      Number(stage.loss_count || 0) > 0 ||
+      Number(stage.drop_count || 0) > 0;
+
+    return (
+      <button
+        key={stage.stage}
+        type="button"
+        onClick={() =>
+          setSelectedStage((prev) =>
+            prev === stage.stage ? "All" : stage.stage
+          )
+        }
+        className={`text-left border rounded-xl shadow-sm p-3 hover:shadow-md transition h-full flex flex-col ${
+          active ? "ring-2 ring-blue-500 border-blue-500" : ""
+        } ${stageCardStyle(stage.stage)}`}
+      >
+        <div>
+          <div className="text-xs text-gray-500">Stage {stage.stage}</div>
+
+          <div className="mt-1 font-semibold leading-tight">
+            {stage.label}
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6 gap-4">
-            {stageCards.map((stage) => {
-  const active = selectedStage === stage.stage;
-  const isClosing = stage.stage === 6;
+          <div className="mt-2 text-xl font-semibold leading-none">
+            {stage.count || 0}
+          </div>
+          <div className="text-[11px] text-gray-500">Projects</div>
 
-  return (
-    <button
-      key={stage.stage}
-      type="button"
-      onClick={() =>
-        setSelectedStage((prev) => (prev === stage.stage ? "All" : stage.stage))
-      }
-      className={`text-left border rounded-xl shadow-sm p-4 hover:shadow-md transition h-full flex flex-col ${
-        active ? "ring-2 ring-blue-500 border-blue-500" : ""
-      } ${stageCardStyle(stage.stage)}`}
-    >
-      {/* TOP AREA - SAME FOR ALL */}
-      <div>
-        <div className="text-xs text-gray-500">Stage {stage.stage}</div>
-        <div className="mt-1 font-semibold leading-tight">
-          {stage.label}
-        </div>
-
-        <div className="mt-2 text-xl font-semibold leading-none">
-          {stage.count || 0}
-        </div>
-        <div className="text-[11px] text-gray-500">Projects</div>
-
-        <div className="mt-3">
-          <div className="text-[11px] text-gray-500">Value</div>
-          <div className="font-semibold leading-tight">
-            Rp {compactIDR(stage.target_value || 0)}
+          <div className="mt-3">
+            <div className="text-[11px] text-gray-500">Initial Target</div>
+            <div className="font-semibold leading-tight">
+              Rp {compactIDR(stage.target_value || 0)}
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* BOTTOM AREA */}
-      <div className="mt-auto pt-4">
-        {isClosing ? (
-          <div className="rounded-lg bg-white/60 border border-white/70 p-3 space-y-2">
-            <div className="flex items-center justify-between gap-3 text-sm">
+        <div className="mt-3 rounded-lg bg-white/60 border border-white/70 p-2 space-y-1">
+          <div className="text-[11px] text-gray-500">SPH Risk</div>
+
+          {hasRisk ? (
+            <>
+              <div className="flex items-center justify-between gap-2 text-xs">
+                <span className="text-amber-700">Hold</span>
+                <span className="font-medium">
+                  {stage.hold_count || 0} • Rp{" "}
+                  {compactIDR(stage.hold_value || 0)}
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between gap-2 text-xs">
+                <span className="text-rose-700">Loss</span>
+                <span className="font-medium">
+                  {stage.loss_count || 0} • Rp{" "}
+                  {compactIDR(stage.loss_value || 0)}
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between gap-2 text-xs">
+                <span className="text-rose-700">Drop</span>
+                <span className="font-medium">
+                  {stage.drop_count || 0} • Rp{" "}
+                  {compactIDR(stage.drop_value || 0)}
+                </span>
+              </div>
+            </>
+          ) : (
+            <div className="text-xs text-gray-400">No Hold/Loss/Drop SPH</div>
+          )}
+        </div>
+
+        {isClosing && (
+          <div className="mt-2 rounded-lg bg-white/60 border border-white/70 p-2 space-y-1">
+            <div className="flex items-center justify-between gap-2 text-xs">
               <span className="text-gray-500">% of Total</span>
               <span className="font-medium">
                 {getContribution(
                   Number(stage.target_value || 0),
                   Number(summary?.total_target_value || 0)
-                )}%
+                )}
+                %
               </span>
             </div>
 
-            <div className="flex items-center justify-between gap-3 text-sm">
+            <div className="flex items-center justify-between gap-2 text-xs">
               <span className="text-gray-500">Avg / Project</span>
               <span className="font-medium">
                 Rp {compactIDR(stage.avg_target_value || 0)}
               </span>
             </div>
-
-            <div className="flex items-center justify-between gap-3 text-sm">
-              <span className="text-gray-500">Realization</span>
-              <span className="font-medium">
-                Rp {compactIDR(stage.realization_value || 0)}
-              </span>
-            </div>
           </div>
-        ) : (
-          <div className="h-[104px]" />
         )}
+      </button>
+    );
+  })}
+</div>
+
+<div className="bg-white border rounded-xl shadow-sm overflow-hidden">
+  <div className="p-4 border-b flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+    <div>
+      <div className="font-semibold">
+        {selectedStage === "All"
+          ? "Pipeline Details"
+          : `Pipeline Details - ${stageLabel(selectedStage)}`}
       </div>
-    </button>
-  );
-})}
-          </div>
+      <div className="text-xs text-gray-500 mt-1">
+        {filteredDetails.length} project(s)
+      </div>
+    </div>
 
-          <div className="bg-white border rounded-xl shadow-sm overflow-hidden">
-            <div className="p-4 border-b flex flex-col md:flex-row md:items-center md:justify-between gap-2">
-              <div>
-                <div className="font-semibold">
-                  {selectedStage === "All"
-                    ? "Pipeline Details"
-                    : `Pipeline Details - ${stageLabel(selectedStage)}`}
-                </div>
-                <div className="text-xs text-gray-500 mt-1">
-                  {filteredDetails.length} project(s)
-                </div>
-              </div>
+    {selectedStage !== "All" && (
+      <button
+        type="button"
+        onClick={() => setSelectedStage("All")}
+        className="px-3 py-2 border rounded-lg text-sm hover:bg-gray-50"
+      >
+        Show All Stages
+      </button>
+    )}
+  </div>
 
-              {selectedStage !== "All" && (
-                <button
-                  type="button"
-                  onClick={() => setSelectedStage("All")}
-                  className="px-3 py-2 border rounded-lg text-sm hover:bg-gray-50"
-                >
-                  Show All Stages
-                </button>
-              )}
-            </div>
+  <div className="overflow-auto">
+    <table className="w-full text-sm min-w-[1200px]">
+      <thead className="bg-gray-100">
+        <tr>
+          <th className="px-3 py-3 text-left">Project Code</th>
+          <th className="px-3 py-3 text-left">Description</th>
+          <th className="px-3 py-3 text-left">Customer</th>
+          <th className="px-3 py-3 text-left">Division</th>
+          <th className="px-3 py-3 text-left">Status</th>
+          <th className="px-3 py-3 text-left">Stage</th>
+          <th className="px-3 py-3 text-left">SPH</th>
+          <th className="px-3 py-3 text-right">Initial Target</th>
+          <th className="px-3 py-3 text-right">SPH Value</th>
+          <th className="px-3 py-3 text-right">Variance</th>
+          <th className="px-3 py-3 text-left">Period</th>
+        </tr>
+      </thead>
 
-            <div className="overflow-auto">
-              <table className="w-full text-sm min-w-[1100px]">
-                <thead className="bg-gray-100">
-                  <tr>
-                    <th className="px-3 py-3 text-left">Project Code</th>
-                    <th className="px-3 py-3 text-left">Description</th>
-                    <th className="px-3 py-3 text-left">Customer</th>
-                    <th className="px-3 py-3 text-left">Division</th>
-                    <th className="px-3 py-3 text-left">Status</th>
-                    <th className="px-3 py-3 text-left">Stage</th>
-                    <th className="px-3 py-3 text-left">SPH</th>
-                    <th className="px-3 py-3 text-right">Target Value</th>
-                    <th className="px-3 py-3 text-right">Realization</th>
-                    <th className="px-3 py-3 text-left">Period</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredDetails.length === 0 ? (
-                    <tr>
-                      <td colSpan={10} className="px-4 py-8 text-center text-gray-500">
-                        No pipeline data found.
-                      </td>
-                    </tr>
+      <tbody>
+        {filteredDetails.length === 0 ? (
+          <tr>
+            <td colSpan={11} className="px-4 py-8 text-center text-gray-500">
+              No pipeline data found.
+            </td>
+          </tr>
+        ) : (
+          filteredDetails.map((item) => {
+            const normalizedSPHStatus =
+              item.sph_release_status === "Yes"
+                ? normalizeStatus(item.sph_status)
+                : "Not Released";
+
+            const periodText =
+              item.start_month && item.end_month
+                ? `${item.start_month} s/d ${item.end_month}`
+                : item.start_month || item.end_month || "-";
+
+            const variance =
+              Number(item.sph_value || 0) > 0
+                ? Number(item.sph_value || 0) -
+                  Number(item.target_value || 0)
+                : null;
+
+            const rowClass =
+              normalizedSPHStatus === "Loss"
+                ? "bg-rose-50 hover:bg-rose-100"
+                : normalizedSPHStatus === "Hold"
+                ? "bg-amber-50 hover:bg-amber-100"
+                : normalizedSPHStatus === "Drop"
+                ? "bg-slate-100 hover:bg-slate-200"
+                : "hover:bg-gray-50";
+
+            return (
+              <tr key={item.id} className={`border-t ${rowClass}`}>
+                <td className="px-3 py-3 font-mono text-xs">
+                  <Link
+                    href={`/projects/${item.id}`}
+                    className="text-blue-600 hover:underline"
+                  >
+                    {item.project_code}
+                  </Link>
+                </td>
+
+                <td className="px-3 py-3">{item.description || "-"}</td>
+                <td className="px-3 py-3">{item.customer_name || "-"}</td>
+                <td className="px-3 py-3">{item.division || "-"}</td>
+                <td className="px-3 py-3">{item.status || "-"}</td>
+
+                <td className="px-3 py-3">
+                  {item.sales_stage}. {stageLabel(item.sales_stage)}
+                </td>
+
+                <td className="px-3 py-3">
+                {(() => {
+                  let icon = "";
+                  let color = "";
+
+                  switch (normalizedSPHStatus) {
+                    case "Win":
+                      icon = "✅";
+                      color = "bg-green-100 text-green-700";
+                      break;
+                    case "Hold":
+                      icon = "⚠️";
+                      color = "bg-amber-100 text-amber-700";
+                      break;
+                    case "Loss":
+                      icon = "❌";
+                      color = "bg-rose-100 text-rose-700";
+                      break;
+                    case "Drop":
+                      icon = "⛔";
+                      color = "bg-slate-200 text-slate-700";
+                      break;
+                    case "Open":
+                      icon = "🟦";
+                      color = "bg-blue-100 text-blue-700";
+                      break;
+                    default:
+                      icon = "•";
+                      color = "bg-gray-200 text-gray-600";
+                  }
+
+                  return (
+                    <span
+                      className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium ${color}`}
+                    >
+                      <span>{icon}</span>
+                      <span>{normalizedSPHStatus}</span>
+                    </span>
+                  );
+                })()}
+              </td>
+
+                <td className="px-3 py-3 text-right">
+                  Rp {formatIDR(item.target_value || 0)}
+                </td>
+
+                <td className="px-3 py-3 text-right">
+                  {Number(item.sph_value || 0) > 0 ? (
+                    <>Rp {formatIDR(item.sph_value || 0)}</>
                   ) : (
-                    filteredDetails.map((item) => {
-                      const sphText =
-                        item.sph_release_status === "Yes"
-                          ? item.sph_status || "Open"
-                          : "Not Released";
-
-                      const periodText =
-                        item.start_month && item.end_month
-                          ? `${item.start_month} s/d ${item.end_month}`
-                          : item.start_month || item.end_month || "-";
-
-                      return (
-                        <tr key={item.id} className="border-t hover:bg-gray-50">
-                          <td className="px-3 py-3 font-mono text-xs">
-                            <Link
-                              href={`/projects/${item.id}`}
-                              className="text-blue-600 hover:underline"
-                            >
-                              {item.project_code}
-                            </Link>
-                          </td>
-                          <td className="px-3 py-3">{item.description || "-"}</td>
-                          <td className="px-3 py-3">{item.customer_name || "-"}</td>
-                          <td className="px-3 py-3">{item.division || "-"}</td>
-                          <td className="px-3 py-3">{item.status || "-"}</td>
-                          <td className="px-3 py-3">
-                            {item.sales_stage}. {stageLabel(item.sales_stage)}
-                          </td>
-                          <td className="px-3 py-3">{sphText}</td>
-                          <td className="px-3 py-3 text-right">
-                            Rp {formatIDR(item.target_value || 0)}
-                          </td>
-                          <td className="px-3 py-3 text-right">
-                            Rp {formatIDR(item.realization_value || 0)}
-                          </td>
-                          <td className="px-3 py-3">{periodText}</td>
-                        </tr>
-                      );
-                    })
+                    <span className="text-gray-400">-</span>
                   )}
-                </tbody>
-              </table>
-            </div>
-          </div>
+                </td>
+
+                <td className="px-3 py-3 text-right">
+                  {variance !== null ? (
+                    <span
+                      className={`font-semibold ${
+                        variance > 0
+                          ? "text-green-600"
+                          : variance < 0
+                          ? "text-red-600"
+                          : "text-gray-600"
+                      }`}
+                    >
+                      Rp {formatIDR(variance)}
+                    </span>
+                  ) : (
+                    <span className="text-gray-400">-</span>
+                  )}
+                </td>
+
+                <td className="px-3 py-3">{periodText}</td>
+              </tr>
+            );
+          })
+        )}
+      </tbody>
+    </table>
+  </div>
+</div>
         </>
       )}
     </div>

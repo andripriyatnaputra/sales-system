@@ -30,13 +30,15 @@ func ListProjects(c *gin.Context) {
 	sortDir := strings.ToLower(c.DefaultQuery("sort_dir", "desc"))
 
 	allowed := map[string]string{
-		"id":          "p.id",
-		"code":        "p.project_code",
-		"division":    "p.division",
-		"status":      "p.status",
-		"type":        "p.project_type",
-		"revenue":     "total_revenue",
-		"realization": "total_realization",
+		"id":           "p.id",
+		"code":         "p.project_code",
+		"division":     "p.division",
+		"status":       "p.status",
+		"type":         "p.project_type",
+		"revenue":      "total_revenue",
+		"sph_revenue":  "total_sph_revenue",
+		"sph_variance": "sph_variance",
+		"realization":  "total_realization",
 	}
 
 	col, ok := allowed[sortBy]
@@ -97,7 +99,12 @@ func ListProjects(c *gin.Context) {
 	p.sph_status_reason_category,
 	p.sph_status_reason_note,
 
-	COALESCE(SUM(rp.target_revenue), 0)::float8     AS total_revenue,
+	COALESCE(SUM(rp.target_revenue), 0)::float8 AS total_revenue,
+	COALESCE(SUM(rp.sph_revenue), 0)::float8 AS total_sph_revenue,
+	(
+		COALESCE(SUM(rp.sph_revenue), 0)
+		- COALESCE(SUM(rp.target_revenue), 0)
+	)::float8 AS sph_variance,
 	COALESCE(SUM(rp.target_realization), 0)::float8 AS total_realization,
 
 	MIN(rp.month)::text AS start_month,
@@ -166,7 +173,9 @@ func ListProjects(c *gin.Context) {
 		SPHRelease              *time.Time                `json:"sph_release_date,omitempty"`
 		SPHStatusReasonCategory *string                   `json:"sph_status_reason_category,omitempty"`
 		SPHStatusReasonNote     *string                   `json:"sph_status_reason_note,omitempty"`
-		TotalRevenue            float64                   `json:"total_revenue"`
+		TotalRevenue            float64                   `json:"total_revenue"`     // target awal
+		TotalSPHRevenue         float64                   `json:"total_sph_revenue"` // nilai sesuai SPH
+		SPHVariance             float64                   `json:"sph_variance"`      // SPH - target awal
 		TotalRealization        float64                   `json:"total_realization"`
 		StartMonth              *string                   `json:"start_month"`
 		EndMonth                *string                   `json:"end_month"`
@@ -196,6 +205,8 @@ func ListProjects(c *gin.Context) {
 			&p.SPHStatusReasonCategory,
 			&p.SPHStatusReasonNote,
 			&p.TotalRevenue,
+			&p.TotalSPHRevenue,
+			&p.SPHVariance,
 			&p.TotalRealization,
 			&p.StartMonth,
 			&p.EndMonth,
@@ -486,7 +497,9 @@ rp_year AS (
   SELECT
     project_id,
     COALESCE(SUM(target_revenue),0)::text AS total_revenue,
-    COALESCE(SUM(target_realization),0)::text AS total_realization,
+	COALESCE(SUM(sph_revenue),0)::text AS total_sph_revenue,
+	(COALESCE(SUM(sph_revenue),0) - COALESCE(SUM(target_revenue),0))::text AS sph_variance,
+	COALESCE(SUM(target_realization),0)::text AS total_realization,
 
     COALESCE(SUM(CASE WHEN EXTRACT(MONTH FROM month)=1  THEN target_revenue ELSE 0 END),0)::text AS target_jan,
     COALESCE(SUM(CASE WHEN EXTRACT(MONTH FROM month)=2  THEN target_revenue ELSE 0 END),0)::text AS target_feb,
@@ -552,7 +565,9 @@ SELECT
   COALESCE(p.sph_status_reason_note,'') AS reason_note,
 
   COALESCE(rp_year.total_revenue,'0') AS total_revenue,
-  COALESCE(rp_year.total_realization,'0') AS total_realization,
+COALESCE(rp_year.total_sph_revenue,'0') AS total_sph_revenue,
+COALESCE(rp_year.sph_variance,'0') AS sph_variance,
+COALESCE(rp_year.total_realization,'0') AS total_realization,
 
   COALESCE(rp_year.target_jan,'0') AS target_jan,
   COALESCE(rp_year.target_feb,'0') AS target_feb,
@@ -608,7 +623,7 @@ ORDER BY p.project_code ASC
 		"Code", "Descriptions", "Divisi", "Customer", "Type", "Status",
 		"Stage", "Post PO Last Status",
 		"SPH Release?", "SPH Status", "Reason",
-		"Total Revenue", "Total Realization",
+		"Initial Target Revenue", "SPH Value", "SPH Variance", "Total Realization",
 		"(Target) January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December",
 		"(Realization) January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December",
 	}
@@ -619,7 +634,7 @@ ORDER BY p.project_code ASC
 			code, desc, div, cust, typ, status                                     string
 			stageText, postPoLast                                                  string
 			sphRel, sphStatus, reasonCat, reasonNote                               string
-			totalRev, totalReal                                                    string
+			totalRev, totalSPHRev, sphVariance, totalReal                          string
 			tJan, tFeb, tMar, tApr, tMay, tJun, tJul, tAug, tSep, tOct, tNov, tDec string
 			rJan, rFeb, rMar, rApr, rMay, rJun, rJul, rAug, rSep, rOct, rNov, rDec string
 		)
@@ -628,7 +643,7 @@ ORDER BY p.project_code ASC
 			&code, &desc, &div, &cust, &typ, &status,
 			&stageText, &postPoLast,
 			&sphRel, &sphStatus, &reasonCat, &reasonNote,
-			&totalRev, &totalReal,
+			&totalRev, &totalSPHRev, &sphVariance, &totalReal,
 			&tJan, &tFeb, &tMar, &tApr, &tMay, &tJun, &tJul, &tAug, &tSep, &tOct, &tNov, &tDec,
 			&rJan, &rFeb, &rMar, &rApr, &rMay, &rJun, &rJul, &rAug, &rSep, &rOct, &rNov, &rDec,
 		); err != nil {
@@ -661,6 +676,8 @@ ORDER BY p.project_code ASC
 			strings.ReplaceAll(reason, ",", " "),
 
 			totalRev,
+			totalSPHRev,
+			sphVariance,
 			totalReal,
 
 			tJan, tFeb, tMar, tApr, tMay, tJun,

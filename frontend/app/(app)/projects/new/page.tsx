@@ -61,13 +61,13 @@ export default function NewProjectPage() {
     if (!isRecurring) {
       if (!pbMonth || !pbValue) return [];
       const val = Number(pbValue);
-      if (isNaN(val) || val <= 0) return [];
-      return [{ month: pbMonth, target_revenue: val }];
+      if (isNaN(val) || val < 0) return []; // menolak negatif
+      return [{ month: pbMonth, target_revenue: val }]; // 0 diterima
     }
 
     // Recurring dynamic monthly plan
     return dynamicPlans.filter(
-      (p) => p.month.trim() !== "" && p.target_revenue > 0
+      (p) => p.month.trim() !== "" && p.target_revenue >= 0
     );
   };
 

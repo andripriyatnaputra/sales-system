@@ -46,14 +46,15 @@ func GetRevenuePlan(c *gin.Context) {
 
 	// --- Fetch revenue rows ---
 	rows, err := database.Pool.Query(ctx, `
-        SELECT 
-            to_char(month, 'YYYY-MM') AS month,
-            target_revenue,
-            COALESCE(target_realization, 0) AS target_realization
-        FROM project_revenue_plan
-        WHERE project_id = $1
-        ORDER BY month ASC
-    `, projectID)
+		SELECT 
+			to_char(month, 'YYYY-MM') AS month,
+			target_revenue,
+			sph_revenue,
+			COALESCE(target_realization, 0) AS target_realization
+		FROM project_revenue_plan
+		WHERE project_id = $1
+		ORDER BY month ASC
+	`, projectID)
 
 	if err != nil {
 		c.JSON(500, gin.H{"error": "query error"})
@@ -68,6 +69,7 @@ func GetRevenuePlan(c *gin.Context) {
 		if err := rows.Scan(
 			&item.Month,
 			&item.TargetRevenue,
+			&item.SPHRevenue,
 			&item.TargetRealization,
 		); err == nil {
 			result = append(result, item)

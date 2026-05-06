@@ -68,7 +68,7 @@ func CreateProject(c *gin.Context) {
 				return
 			}
 			cat := *body.SPHStatusReasonCategory
-			if cat != "Administrasi" && cat != "Teknis" && cat != "Other" {
+			if cat != "Administrasi" && cat != "Teknis" && cat != "Pricing" && cat != "Other" {
 				c.JSON(400, gin.H{"error": "invalid sph_status_reason_category"})
 				return
 			}
@@ -89,6 +89,17 @@ func CreateProject(c *gin.Context) {
 	if !isValidDivision(body.Division) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid division"})
 		return
+	}
+
+	if body.SphReleaseStatus == "Yes" {
+		for _, rp := range body.RevenuePlans {
+			if rp.SPHRevenue == nil || *rp.SPHRevenue <= 0 {
+				c.JSON(http.StatusBadRequest, gin.H{
+					"error": "sph_revenue is required and must be greater than 0 when SPH Released = Yes",
+				})
+				return
+			}
+		}
 	}
 
 	// --- Begin transaction ---
@@ -148,17 +159,24 @@ func CreateProject(c *gin.Context) {
 	for _, rp := range body.RevenuePlans {
 		month, err := time.Parse("2006-01", rp.Month)
 		if err != nil {
-			c.JSON(400, gin.H{"error": "invalid month format (YYYY-MM)"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid month format (YYYY-MM)"})
 			return
 		}
 
 		_, err = tx.Exec(ctx, `
-            INSERT INTO project_revenue_plan (project_id, month, target_revenue)
-            VALUES ($1,$2,$3)
-        `, id, month, rp.TargetRevenue)
+		INSERT INTO project_revenue_plan (
+			project_id,
+			month,
+			target_revenue,
+			sph_revenue
+		)
+		VALUES ($1,$2,$3,$4)
+	`, id, month, rp.TargetRevenue, rp.SPHRevenue)
 
 		if err != nil {
-			c.JSON(500, gin.H{"error": "failed insert revenue plan"})
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error": fmt.Sprintf("failed insert revenue plan: %v", err),
+			})
 			return
 		}
 	}

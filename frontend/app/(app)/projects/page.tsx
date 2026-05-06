@@ -32,7 +32,10 @@ type Customer = {
 
 type RevenuePlanItem = {
   month: string; // "YYYY-MM"
-  target_revenue: number;
+  target_revenue: number; // target awal / prospect value
+  sph_revenue?: number | null; // nilai sesuai SPH
+  total_sph_revenue?: number;
+  sph_variance?: number;
 };
 
 type PostPOStatus = "Not Started" | "In Progress" | "Done";
@@ -79,8 +82,10 @@ type Project = {
   // For month filtering (if backend includes it)
   revenue_plans?: RevenuePlanItem[];
 
-  total_revenue?: number;
-  total_realization?: number;
+  total_revenue: number;       // target awal
+  total_sph_revenue?: number;  // SPH value
+  sph_variance?: number;       // SPH - target
+  total_realization: number;
   start_month?: string | null;
   end_month?: string | null;
   
@@ -517,7 +522,7 @@ export default function ProjectsPage() {
   const openCreateModal = () => {
     setModalMode("create");
     setEditingProject(null);
-    setEditingRevenue([{ month: "", target_revenue: 0 }]);
+    setEditingRevenue([{ month: "", target_revenue: 0, sph_revenue: null }]);
     setModalError("");
     setModalOpen(true);
   };
@@ -552,8 +557,12 @@ export default function ProjectsPage() {
           detail.sph_status_reason_note ?? p.sph_status_reason_note,
 
         revenue_plans: revenue.map((x: any) => ({
-          month: x.month,
-          target_revenue: x.target_revenue,
+          month: String(x.month).slice(0, 7),
+          target_revenue: Number(x.target_revenue || 0),
+          sph_revenue:
+            x.sph_revenue === null || x.sph_revenue === undefined
+              ? null
+              : Number(x.sph_revenue),
         })),
       };
 
@@ -562,8 +571,12 @@ export default function ProjectsPage() {
 
       setEditingRevenue(
         revenue.map((r: any) => ({
-          month: r.month.slice(0, 7),
-          target_revenue: r.target_revenue,
+          month: String(r.month).slice(0, 7),
+          target_revenue: Number(r.target_revenue || 0),
+          sph_revenue:
+            r.sph_revenue === null || r.sph_revenue === undefined
+              ? null
+              : Number(r.sph_revenue),
         }))
       );
 
@@ -1072,7 +1085,9 @@ return (
                 <th className="px-3 py-2 text-left">SPH Released?</th>
                 <th className="px-3 py-2 text-left">SPH Status</th>
                 <th className="px-3 py-2 text-left">Reason</th>
-                <th className="px-3 py-2 text-right">Total Revenue</th>
+                <th className="px-3 py-2 text-right">Initial Target</th>
+                <th className="px-3 py-2 text-right">SPH Value</th>
+                <th className="px-3 py-2 text-right">Variance</th>
                 <th className="px-3 py-2 text-right">Total Realization</th>
                 <th className="px-3 py-2 text-right">Actions</th>
               </tr>
@@ -1154,6 +1169,35 @@ return (
                     <td className="px-3 py-2 text-right">
                       Rp {formatIDR(p.total_revenue || 0)}
                     </td>
+
+                    <td className="px-3 py-2 text-right">
+                      {p.total_sph_revenue && p.total_sph_revenue > 0 ? (
+                        <span className="font-medium">
+                          Rp {formatIDR(p.total_sph_revenue)}
+                        </span>
+                      ) : (
+                        <span className="text-gray-400">-</span>
+                      )}
+                    </td>
+
+                    <td className="px-3 py-2 text-right">
+                      {p.total_sph_revenue && p.total_sph_revenue > 0 ? (
+                        <span
+                          className={`font-medium ${
+                            (p.sph_variance || 0) > 0
+                              ? "text-green-600"
+                              : (p.sph_variance || 0) < 0
+                              ? "text-red-600"
+                              : "text-gray-600"
+                          }`}
+                        >
+                          Rp {formatIDR(p.sph_variance || 0)}
+                        </span>
+                      ) : (
+                        <span className="text-gray-400">-</span>
+                      )}
+                    </td>
+
                     <td className="px-3 py-2 text-right">
                       Rp {formatIDR(p.total_realization || 0)}
                     </td>
@@ -1324,12 +1368,18 @@ function ProjectModal({
     !isRecurring && safeInitial[0]?.target_revenue ? String(safeInitial[0].target_revenue) : ""
   );
 
+  const [pbSphValue, setPbSphValue] = useState(
+    !isRecurring && safeInitial[0]?.sph_revenue != null
+      ? String(safeInitial[0].sph_revenue)
+      : ""
+  );
+
   const [plans, setPlans] = useState<RevenuePlanItem[]>(
     isRecurring
       ? safeInitial.length > 0
         ? safeInitial
-        : [{ month: "", target_revenue: 0 }]
-      : [{ month: "", target_revenue: 0 }]
+        : [{ month: "", target_revenue: 0, sph_revenue: null }]
+      : [{ month: "", target_revenue: 0, sph_revenue: null }]
   );
 
   const [rowErrors, setRowErrors] = useState<string[]>([]);
@@ -1338,7 +1388,7 @@ function ProjectModal({
   /* ---- Revenue Helpers ---- */
 
   const addRow = () => {
-    setPlans((prev) => [...prev, { month: "", target_revenue: 0 }]);
+    setPlans((prev) => [...prev, { month: "", target_revenue: 0, sph_revenue: null }]);
   };
 
   const deleteRow = (idx: number) => {
@@ -1357,6 +1407,12 @@ function ProjectModal({
       let msg = "";
       if (!p.month) msg = "Bulan wajib diisi";
       else if (!p.target_revenue || p.target_revenue <= 0) msg = "Revenue harus > 0";
+      else if (
+        sphReleaseStatus === "Yes" &&
+        (p.sph_revenue === null || p.sph_revenue === undefined || Number(p.sph_revenue) <= 0)
+      ) {
+        msg = "SPH Value harus > 0 jika SPH Released = Yes";
+      }
 
       errs[idx] = msg;
     });
@@ -1378,7 +1434,12 @@ function ProjectModal({
         i === idx
           ? {
               ...p,
-              [field]: field === "target_revenue" ? Number(value) : value,
+              [field]:
+              field === "target_revenue" || field === "sph_revenue"
+                ? value === "" || value === null || value === undefined
+                  ? null
+                  : Number(value)
+                : value,
             }
           : p
       );
@@ -1391,13 +1452,42 @@ function ProjectModal({
   const buildPayloadRevenue = (): RevenuePlanItem[] => {
     if (!isRecurring) {
       const val = Number(pbValue);
-      if (!pbMonth || isNaN(val) || val <= 0) return [];
-      return [{ month: pbMonth, target_revenue: val }];
+      const sphVal = Number(pbSphValue);
+
+      if (!pbMonth || isNaN(val) || val < 0) return [];
+
+      if (sphReleaseStatus === "Yes" && (isNaN(sphVal) || sphVal < 0)) {
+        return [];
+      }
+
+      return [
+        {
+          month: pbMonth,
+          target_revenue: val,
+          sph_revenue: sphReleaseStatus === "Yes" ? sphVal : null,
+        },
+      ];
     }
 
-    return plans.filter(
-      (p) => p && typeof p === "object" && p.month && p.target_revenue && p.target_revenue > 0
-    );
+    return plans
+      .filter(
+        (p) =>
+          p &&
+          typeof p === "object" &&
+          p.month &&
+          p.target_revenue &&
+          p.target_revenue > 0
+      )
+      .map((p) => ({
+        month: p.month,
+        target_revenue: Number(p.target_revenue || 0),
+        sph_revenue:
+          sphReleaseStatus === "Yes"
+            ? p.sph_revenue === null || p.sph_revenue === undefined
+              ? null
+              : Number(p.sph_revenue)
+            : null,
+      }));
   };
 
   const sortByMonth = (items: RevenuePlanItem[]) => [...items].sort((a, b) => (a.month > b.month ? 1 : -1));
@@ -1635,6 +1725,7 @@ useEffect(() => {
                     <option value="">- Select Reason -</option>
                     <option value="Administrasi">Administrasi</option>
                     <option value="Teknis">Teknis</option>
+                    <option value="Pricing">Pricing</option>
                     <option value="Other">Other</option>
                   </select>
                 </div>
@@ -1703,6 +1794,9 @@ useEffect(() => {
           <div className="pt-4 border-t space-y-5">
             <div className="flex justify-between items-center">
               <h4 className="text-sm font-semibold">Revenue Plan</h4>
+              <div className="text-xs text-gray-500">
+                Target Revenue = nilai awal/prospect. SPH Value = nilai sesuai SPH setelah released.
+              </div>
               <span className="text-xs text-gray-500">
                 {isRecurring
                   ? "Recurring: multi-bulan, nilai tiap bulan bisa berbeda."
@@ -1712,7 +1806,7 @@ useEffect(() => {
 
             {/* PROJECT BASED */}
             {!isRecurring ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className={`grid grid-cols-1 ${sphReleaseStatus === "Yes" ? "md:grid-cols-3" : "md:grid-cols-2"} gap-4`}>
                 <div>
                   <label className="text-sm font-medium">Month</label>
                   <input
@@ -1732,8 +1826,25 @@ useEffect(() => {
                     onChange={(e) => setPbValue(e.target.value)}
                     placeholder="10000000"
                   />
+                  {sphReleaseStatus === "Yes" && (
+                    <div>
+                      <label className="text-sm font-medium">SPH Value (IDR)</label>
+                      <input
+                        type="number"
+                        className="mt-1 border rounded-lg w-full px-3 py-2"
+                        value={pbSphValue}
+                        onChange={(e) => setPbSphValue(e.target.value)}
+                        placeholder="Nilai sesuai SPH"
+                      />
+                      <div className="text-xs text-gray-500 mt-1">
+                        Nilai final sesuai SPH, boleh berbeda dari target awal.
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
+
+              
             ) : (
               <>
                 {/* RECURRING TABLE */}
@@ -1742,6 +1853,9 @@ useEffect(() => {
                     <tr>
                       <th className="px-3 py-2 text-left w-40">Month</th>
                       <th className="px-3 py-2 text-left">Target Revenue (IDR)</th>
+                      {sphReleaseStatus === "Yes" && (
+                        <th className="px-3 py-2 text-left">SPH Value (IDR)</th>
+                      )}
                       <th className="px-3 py-2 text-right w-20"></th>
                     </tr>
                   </thead>
@@ -1780,6 +1894,21 @@ useEffect(() => {
                               </div>
                             )}
                           </td>
+                          {sphReleaseStatus === "Yes" && (
+                            <td className="px-3 py-2">
+                              <input
+                                type="number"
+                                className={`border rounded-lg px-2 py-1 w-full ${
+                                  rowErrors[idx] ? "border-red-500" : ""
+                                }`}
+                                value={row.sph_revenue ?? ""}
+                                placeholder="Nilai sesuai SPH"
+                                onChange={(e) =>
+                                  updateRow(idx, "sph_revenue", e.target.value === "" ? null : safeNumber(e.target.value))
+                                }
+                              />
+                            </td>
+                          )}
                           <td className="px-3 py-2 text-right">
                             {plans.length > 1 && (
                               <button

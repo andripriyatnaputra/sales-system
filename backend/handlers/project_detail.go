@@ -12,9 +12,10 @@ import (
 )
 
 type RevenuePlanItem struct {
-	Month             string  `json:"month"`
-	TargetRevenue     float64 `json:"target_revenue"`
-	TargetRealization float64 `json:"target_realization"`
+	Month             string   `json:"month"`
+	TargetRevenue     float64  `json:"target_revenue"`
+	SPHRevenue        *float64 `json:"sph_revenue,omitempty"`
+	TargetRealization float64  `json:"target_realization"`
 }
 
 type ProjectDetailResponse struct {

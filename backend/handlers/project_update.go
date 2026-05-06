@@ -84,7 +84,7 @@ func UpdateProject(c *gin.Context) {
 				return
 			}
 			cat := *body.SPHStatusReasonCategory
-			if cat != "Administrasi" && cat != "Teknis" && cat != "Other" {
+			if cat != "Administrasi" && cat != "Teknis" && cat != "Pricing" && cat != "Other" {
 				c.JSON(400, gin.H{"error": "invalid sph_status_reason_category"})
 				return
 			}
@@ -150,24 +150,38 @@ func UpdateProject(c *gin.Context) {
 		c.JSON(500, gin.H{"error": err.Error()})
 		return
 	}
-	// --- Upsert revenue plans (preserve target_realization) ---
+	// --- Upsert revenue plans ---
+	// target_revenue  = target awal / prospect value
+	// sph_revenue     = nilai sesuai SPH, hanya update jika dikirim dari FE
+	// target_realization tetap dipreserve, tidak disentuh di update project
 	for _, rp := range body.RevenuePlans {
 		month, err := time.Parse("2006-01", rp.Month)
 		if err != nil {
-			c.JSON(400, gin.H{"error": "invalid month format (YYYY-MM)"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid month format (YYYY-MM)"})
 			return
 		}
 
 		_, err = tx.Exec(ctx, `
-		INSERT INTO project_revenue_plan (project_id, month, target_revenue)
-		VALUES ($1, $2, $3)
+		INSERT INTO project_revenue_plan (
+			project_id,
+			month,
+			target_revenue,
+			sph_revenue
+		)
+		VALUES ($1, $2, $3, $4)
 		ON CONFLICT (project_id, month)
 		DO UPDATE SET
-			target_revenue = EXCLUDED.target_revenue
-	`, id, month, rp.TargetRevenue)
+			target_revenue = EXCLUDED.target_revenue,
+			sph_revenue = COALESCE(
+				EXCLUDED.sph_revenue,
+				project_revenue_plan.sph_revenue
+			)
+	`, id, month, rp.TargetRevenue, rp.SPHRevenue)
 
 		if err != nil {
-			c.JSON(500, gin.H{"error": "failed upsert revenue plan"})
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error": "failed upsert revenue plan",
+			})
 			return
 		}
 	}
