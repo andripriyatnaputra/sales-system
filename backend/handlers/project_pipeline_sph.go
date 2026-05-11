@@ -264,6 +264,7 @@ func GetProjectPipelineDetails(c *gin.Context) {
 			p.sph_status_reason_category,
 			p.sph_status_reason_note,
 			COALESCE(SUM(rp.target_revenue), 0)::float8 AS target_value,
+			COALESCE(SUM(rp.sph_revenue), 0)::float8 AS sph_value,
 			COALESCE(SUM(rp.target_realization), 0)::float8 AS realization_value,
 			TO_CHAR(MIN(rp.month), 'YYYY-MM') AS start_month,
 			TO_CHAR(MAX(rp.month), 'YYYY-MM') AS end_month
@@ -306,6 +307,7 @@ func GetProjectPipelineDetails(c *gin.Context) {
 			&item.SPHStatusReasonCategory,
 			&item.SPHStatusReasonNote,
 			&item.TargetValue,
+			&item.SPHValue,
 			&item.RealizationValue,
 			&item.StartMonth,
 			&item.EndMonth,
