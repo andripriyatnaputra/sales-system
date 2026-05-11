@@ -238,6 +238,7 @@ export default function ProjectSPHPage() {
   const [projectType, setProjectType] = useState("All");
   const [salesStage, setSalesStage] = useState("All");
   const [sphStatus, setSphStatus] = useState("All");
+  const [sphReleaseRange, setSphReleaseRange] = useState("All");
   const [startMonth, setStartMonth] = useState("");
   const [endMonth, setEndMonth] = useState("");
 
@@ -250,6 +251,10 @@ export default function ProjectSPHPage() {
     if (projectType !== "All") params.set("project_type", projectType);
     if (salesStage !== "All") params.set("sales_stage", salesStage);
     if (sphStatus !== "All") params.set("sph_status", sphStatus);
+
+    if (sphReleaseRange !== "All") {
+      params.set("sph_release_range", sphReleaseRange);
+    }
 
     if (startMonth) params.set("from", `${startMonth}-01`);
     if (endMonth) params.set("to", `${endMonth}-01`);
@@ -300,6 +305,7 @@ export default function ProjectSPHPage() {
     projectType,
     salesStage,
     sphStatus,
+    sphReleaseRange,
     startMonth,
     endMonth,
   ]);
@@ -408,6 +414,7 @@ export default function ProjectSPHPage() {
     setProjectType("All");
     setSalesStage("All");
     setSphStatus("All");
+    setSphReleaseRange("All");
     setStartMonth("");
     setEndMonth("");
     setSelectedReason("All");
@@ -534,19 +541,37 @@ export default function ProjectSPHPage() {
             ))}
           </select>
 
-          <input
-            type="month"
+          <select
             className="border rounded-lg px-3 py-2 text-sm w-full"
-            value={startMonth}
-            onChange={(e) => setStartMonth(e.target.value)}
-          />
+            value={sphReleaseRange}
+            onChange={(e) => setSphReleaseRange(e.target.value)}
+          >
+            <option value="All">SPH Release Date (All)</option>
+            <option value="last_week">Last Week</option>
+            <option value="last_2_weeks">Last 2 Weeks</option>
+            <option value="last_month">Last Month</option>
+            <option value="ytd">Year To Date</option>
+          </select>
 
-          <input
-            type="month"
-            className="border rounded-lg px-3 py-2 text-sm w-full"
-            value={endMonth}
-            onChange={(e) => setEndMonth(e.target.value)}
-          />
+          <div>
+            <div className="text-[11px] text-gray-500 mb-1">Target Month From</div>
+            <input
+              type="month"
+              className="border rounded-lg px-3 py-2 text-sm w-full"
+              value={startMonth}
+              onChange={(e) => setStartMonth(e.target.value)}
+            />
+          </div>
+
+          <div>
+            <div className="text-[11px] text-gray-500 mb-1">Target Month To</div>
+            <input
+              type="month"
+              className="border rounded-lg px-3 py-2 text-sm w-full"
+              value={endMonth}
+              onChange={(e) => setEndMonth(e.target.value)}
+            />
+          </div>
         </div>
 
         <div className="flex gap-2">
@@ -1070,11 +1095,8 @@ export default function ProjectSPHPage() {
                           </td>
                           <td className="px-3 py-3">{reasonText(item)}</td>
                           <td className="px-3 py-3 text-right">
-                            Rp {formatIDR(item.target_value || 0)}
-                          </td>
-                          <td className="px-3 py-3 text-right">
-                            {Number(item.sph_value || 0) > 0 ? (
-                              <>Rp {formatIDR(item.sph_value || 0)}</>
+                            {item.sph_value !== null && item.sph_value !== undefined ? (
+                              <>Rp {formatIDR(item.sph_value)}</>
                             ) : (
                               <span className="text-gray-400">-</span>
                             )}

@@ -144,6 +144,43 @@ func buildProjectAnalyticsFilter(c *gin.Context) (string, []any) {
 
 	loc := mustLoadLocation("Asia/Jakarta")
 
+	if sphReleaseRange != "" && strings.ToUpper(sphReleaseRange) != "ALL" {
+		switch sphReleaseRange {
+
+		case "last_week":
+			conds = append(conds,
+				"p.sph_release_date >= (CURRENT_DATE - INTERVAL '7 days')",
+			)
+			conds = append(conds,
+				"p.sph_release_date <= CURRENT_DATE",
+			)
+
+		case "last_2_weeks":
+			conds = append(conds,
+				"p.sph_release_date >= (CURRENT_DATE - INTERVAL '14 days')",
+			)
+			conds = append(conds,
+				"p.sph_release_date <= CURRENT_DATE",
+			)
+
+		case "last_month":
+			conds = append(conds,
+				"p.sph_release_date >= (CURRENT_DATE - INTERVAL '1 month')",
+			)
+			conds = append(conds,
+				"p.sph_release_date <= CURRENT_DATE",
+			)
+
+		case "ytd":
+			conds = append(conds,
+				"p.sph_release_date >= DATE_TRUNC('year', CURRENT_DATE)",
+			)
+			conds = append(conds,
+				"p.sph_release_date <= CURRENT_DATE",
+			)
+		}
+	}
+
 	var fromDate, toDate time.Time
 	if fromStr == "" && toStr == "" {
 		fromDate, toDate = defaultFiscalYearRange(loc)
@@ -354,18 +391,8 @@ func GetProjectPipelineDetails(c *gin.Context) {
 func GetProjectSPHSummary(c *gin.Context) {
 	ctx := c.Request.Context()
 
-	// optional filter
-	division := NormalizeDivision(c.Query("division"))
-
-	where := "p.sph_release_status = 'Yes'"
-	args := []interface{}{}
-	idx := 1
-
-	if division != "" && division != "All" {
-		where += fmt.Sprintf(" AND p.division = $%d", idx)
-		args = append(args, division)
-		idx++
-	}
+	where, args := buildProjectAnalyticsFilter(c)
+	where = where + " AND COALESCE(p.sph_release_status,'No') = 'Yes'"
 
 	query := fmt.Sprintf(`
 		SELECT
