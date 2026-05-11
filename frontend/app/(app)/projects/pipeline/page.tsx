@@ -456,6 +456,7 @@ export default function ProjectPipelinePage() {
             <option value="last_week">Last Week</option>
             <option value="last_2_weeks">Last 2 Weeks</option>
             <option value="last_month">Last Month</option>
+            <option value="ytd">Year To Date</option>
           </select>
         </div>
 

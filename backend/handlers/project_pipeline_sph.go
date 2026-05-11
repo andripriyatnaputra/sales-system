@@ -134,6 +134,11 @@ func buildProjectAnalyticsFilter(c *gin.Context) (string, []any) {
 			conds = append(conds, "p.sph_release_date >= (CURRENT_DATE - INTERVAL '1 month')")
 			conds = append(conds, "p.sph_release_date <= CURRENT_DATE")
 			conds = append(conds, "COALESCE(p.sph_release_status, 'No') = 'Yes'")
+
+		case "ytd":
+			conds = append(conds, "p.sph_release_date >= DATE_TRUNC('year', CURRENT_DATE)")
+			conds = append(conds, "p.sph_release_date <= CURRENT_DATE")
+			conds = append(conds, "COALESCE(p.sph_release_status, 'No') = 'Yes'")
 		}
 	}
 
