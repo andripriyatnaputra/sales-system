@@ -1405,13 +1405,20 @@ function ProjectModal({
 
     items.forEach((p, idx) => {
       let msg = "";
-      if (!p.month) msg = "Bulan wajib diisi";
-      else if (!p.target_revenue || p.target_revenue <= 0) msg = "Revenue harus > 0";
-      else if (
+
+      if (!p.month) {
+        msg = "Bulan wajib diisi";
+      } else if (!p.target_revenue || p.target_revenue <= 0) {
+        msg = "Revenue harus > 0";
+      } else if (
         sphReleaseStatus === "Yes" &&
-        (p.sph_revenue === null || p.sph_revenue === undefined || Number(p.sph_revenue) <= 0)
+        (
+          p.sph_revenue === null ||
+          p.sph_revenue === undefined ||
+          Number.isNaN(Number(p.sph_revenue))
+        )
       ) {
-        msg = "SPH Value harus > 0 jika SPH Released = Yes";
+        msg = "SPH Value wajib diisi jika SPH Released = Yes";
       }
 
       errs[idx] = msg;
