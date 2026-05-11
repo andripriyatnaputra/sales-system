@@ -434,24 +434,41 @@ func GetProjectSPHSummary(c *gin.Context) {
 	// =========================
 
 	statusQuery := fmt.Sprintf(`
+		WITH base AS (
+			SELECT
+				p.id,
+				CASE
+					WHEN lower(trim(COALESCE(p.sph_status,''))) = 'win' THEN 'Win'
+					WHEN lower(trim(COALESCE(p.sph_status,''))) = 'hold' THEN 'Hold'
+					WHEN lower(trim(COALESCE(p.sph_status,''))) = 'loss' THEN 'Loss'
+					WHEN lower(trim(COALESCE(p.sph_status,''))) = 'drop' THEN 'Drop'
+					ELSE 'Open'
+				END AS status,
+				COALESCE(SUM(rp.sph_revenue), 0)::float8 AS sph_value
+			FROM projects p
+			LEFT JOIN project_revenue_plan rp ON rp.project_id = p.id
+			WHERE %s
+			GROUP BY p.id, p.sph_status
+		)
 		SELECT
+			status,
+			COUNT(*)::bigint AS count,
+			COALESCE(SUM(sph_value), 0)::float8 AS target_value,
 			CASE
-				WHEN lower(COALESCE(p.sph_status,'')) = 'win' THEN 'Win'
-				WHEN lower(COALESCE(p.sph_status,'')) = 'hold' THEN 'Hold'
-				WHEN lower(COALESCE(p.sph_status,'')) = 'loss' THEN 'Loss'
-				WHEN lower(COALESCE(p.sph_status,'')) = 'drop' THEN 'Drop'
-				ELSE 'Open'
-			END AS status,
-			COUNT(DISTINCT p.id)::bigint AS count,
-			COALESCE(SUM(rp.sph_revenue), 0)::float8 AS target_value,
-			CASE
-				WHEN COUNT(DISTINCT p.id) = 0 THEN 0
-				ELSE COALESCE(SUM(rp.sph_revenue), 0) / COUNT(DISTINCT p.id)
+				WHEN COUNT(*) = 0 THEN 0
+				ELSE COALESCE(SUM(sph_value), 0) / COUNT(*)
 			END::float8 AS avg_target_value
-		FROM projects p
-		LEFT JOIN project_revenue_plan rp ON rp.project_id = p.id
-		WHERE %s
-		GROUP BY p.sph_status
+		FROM base
+		GROUP BY status
+		ORDER BY
+			CASE
+				WHEN status = 'Open' THEN 1
+				WHEN status = 'Win' THEN 2
+				WHEN status = 'Hold' THEN 3
+				WHEN status = 'Loss' THEN 4
+				WHEN status = 'Drop' THEN 5
+				ELSE 99
+			END
 	`, where)
 
 	rows, err := database.Pool.Query(ctx, statusQuery, args...)

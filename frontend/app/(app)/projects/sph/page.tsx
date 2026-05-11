@@ -232,6 +232,8 @@ export default function ProjectSPHPage() {
   const [error, setError] = useState("");
 
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [division, setDivision] = useState("All");
   const [customerId, setCustomerId] = useState("All");
   const [status, setStatus] = useState("All");
@@ -324,9 +326,24 @@ export default function ProjectSPHPage() {
 
     for (const item of summary?.statuses || []) {
       const normalized = normalizeStatus(item.status);
+      const existing = map.get(normalized);
+
       map.set(normalized, {
-        ...item,
         status: normalized,
+        count: Number(existing?.count || 0) + Number(item.count || 0),
+        target_value:
+          Number(existing?.target_value || 0) + Number(item.target_value || 0),
+        avg_target_value: 0,
+      });
+    }
+
+    for (const [key, item] of map.entries()) {
+      map.set(key, {
+        ...item,
+        avg_target_value:
+          Number(item.count || 0) > 0
+            ? Number(item.target_value || 0) / Number(item.count || 0)
+            : 0,
       });
     }
 
@@ -381,6 +398,17 @@ export default function ProjectSPHPage() {
   );
 }, [details, search, selectedReason]);
 
+const totalPages = useMemo(() => {
+  return Math.max(1, Math.ceil(filteredDetails.length / pageSize));
+}, [filteredDetails.length, pageSize]);
+
+const paginatedDetails = useMemo(() => {
+  const start = (page - 1) * pageSize;
+  const end = start + pageSize;
+
+  return filteredDetails.slice(start, end);
+}, [filteredDetails, page, pageSize]);
+
   const topValueStatus = useMemo(() => topStatusByValue(statusCards), [statusCards]);
 
   const criticalAging = useMemo(() => {
@@ -427,6 +455,16 @@ export default function ProjectSPHPage() {
   };
 
   const userIsRestrictedDivision = (me?.role || "").toLowerCase() === "user";
+
+  useEffect(() => {
+    if (page > totalPages) {
+      setPage(totalPages);
+    }
+  }, [page, totalPages]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [search, selectedReason]);
 
   return (
     <div className="space-y-6">
@@ -1020,7 +1058,7 @@ export default function ProjectSPHPage() {
                       </td>
                     </tr>
                   ) : (
-                    filteredDetails.map((item) => {
+                    paginatedDetails.map((item) => {
                       const periodText =
                         item.start_month && item.end_month
                           ? `${item.start_month} s/d ${item.end_month}`
@@ -1133,6 +1171,28 @@ export default function ProjectSPHPage() {
               </table>
             </div>
           </div>
+
+          {filteredDetails.length > 0 && (
+            <div className="flex justify-between items-center text-sm">
+              <div>Page {page} of {totalPages}</div>
+              <div className="space-x-2">
+                <button
+                  className="px-2 py-1 border rounded"
+                  disabled={page <= 1}
+                  onClick={() => setPage((p) => p - 1)}
+                >
+                  Prev
+                </button>
+                <button
+                  className="px-2 py-1 border rounded"
+                  disabled={page >= totalPages}
+                  onClick={() => setPage((p) => p + 1)}
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          )}
         </>
       )}
     </div>

@@ -163,6 +163,8 @@ export default function ProjectPipelinePage() {
   const [error, setError] = useState("");
 
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [division, setDivision] = useState("All");
   const [customerId, setCustomerId] = useState("All");
   const [status, setStatus] = useState("All");
@@ -300,6 +302,17 @@ export default function ProjectPipelinePage() {
     return data.sort((a, b) => Number(b.target_value || 0) - Number(a.target_value || 0));
   }, [details, selectedStage, search]);
 
+  const totalPages = useMemo(() => {
+    return Math.max(1, Math.ceil(filteredDetails.length / pageSize));
+  }, [filteredDetails.length, pageSize]);
+
+  const paginatedDetails = useMemo(() => {
+    const start = (page - 1) * pageSize;
+    const end = start + pageSize;
+
+    return filteredDetails.slice(start, end);
+  }, [filteredDetails, page, pageSize]);
+
   const resetFilters = () => {
     setSearch("");
     setCustomerId("All");
@@ -320,6 +333,28 @@ export default function ProjectPipelinePage() {
   };
 
   const userIsRestrictedDivision = (me?.role || "").toLowerCase() === "user";
+
+  useEffect(() => {
+    if (page > totalPages) {
+      setPage(totalPages);
+    }
+  }, [page, totalPages]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [
+    search,
+    division,
+    customerId,
+    status,
+    projectType,
+    salesStage,
+    sphReleased,
+    sphReleaseRange,
+    selectedStage,
+    startMonth,
+    endMonth,
+  ]);
 
   return (
     <div className="space-y-6">
@@ -723,7 +758,7 @@ export default function ProjectPipelinePage() {
             </td>
           </tr>
         ) : (
-          filteredDetails.map((item) => {
+          paginatedDetails.map((item) => {
             const normalizedSPHStatus =
               item.sph_release_status === "Yes"
                 ? normalizeStatus(item.sph_status)
@@ -870,6 +905,27 @@ export default function ProjectPipelinePage() {
     </table>
   </div>
 </div>
+{filteredDetails.length > 0 && (
+  <div className="flex justify-between items-center text-sm">
+    <div>Page {page} of {totalPages}</div>
+    <div className="space-x-2">
+      <button
+        className="px-2 py-1 border rounded"
+        disabled={page <= 1}
+        onClick={() => setPage((p) => p - 1)}
+      >
+        Prev
+      </button>
+      <button
+        className="px-2 py-1 border rounded"
+        disabled={page >= totalPages}
+        onClick={() => setPage((p) => p + 1)}
+      >
+        Next
+      </button>
+    </div>
+  </div>
+)}
         </>
       )}
     </div>
