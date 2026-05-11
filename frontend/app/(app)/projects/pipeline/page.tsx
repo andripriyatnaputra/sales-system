@@ -692,12 +692,14 @@ export default function ProjectPipelinePage() {
                   Number(item.target_value || 0)
                 : null;
 
+            const actualSPHStatus = normalizeStatus(item.sph_status);
+
             const rowClass =
-              normalizedSPHStatus === "Loss"
+              actualSPHStatus === "Loss"
                 ? "bg-rose-50 hover:bg-rose-100"
-                : normalizedSPHStatus === "Hold"
+                : actualSPHStatus === "Hold"
                 ? "bg-amber-50 hover:bg-amber-100"
-                : normalizedSPHStatus === "Drop"
+                : actualSPHStatus === "Drop"
                 ? "bg-slate-100 hover:bg-slate-200"
                 : "hover:bg-gray-50";
 
@@ -722,46 +724,64 @@ export default function ProjectPipelinePage() {
                 </td>
 
                 <td className="px-3 py-3">
-                {(() => {
-                  let icon = "";
-                  let color = "";
+                  {(() => {
+                    const isReleased =
+                      String(item.sph_release_status || "").trim().toLowerCase() === "yes";
 
-                  switch (normalizedSPHStatus) {
-                    case "Win":
-                      icon = "✅";
-                      color = "bg-green-100 text-green-700";
-                      break;
-                    case "Hold":
-                      icon = "⚠️";
-                      color = "bg-amber-100 text-amber-700";
-                      break;
-                    case "Loss":
-                      icon = "❌";
-                      color = "bg-rose-100 text-rose-700";
-                      break;
-                    case "Drop":
-                      icon = "⛔";
-                      color = "bg-slate-200 text-slate-700";
-                      break;
-                    case "Open":
-                      icon = "🟦";
-                      color = "bg-blue-100 text-blue-700";
-                      break;
-                    default:
-                      icon = "•";
-                      color = "bg-gray-200 text-gray-600";
-                  }
+                    const actualSPHStatus = normalizeStatus(item.sph_status);
+                    const releaseLabel = isReleased ? "Released" : "Not Released";
 
-                  return (
-                    <span
-                      className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium ${color}`}
-                    >
-                      <span>{icon}</span>
-                      <span>{normalizedSPHStatus}</span>
-                    </span>
-                  );
-                })()}
-              </td>
+                    const statusStyle: Record<string, { icon: string; color: string }> = {
+                      Win: {
+                        icon: "✅",
+                        color: "bg-green-100 text-green-700",
+                      },
+                      Hold: {
+                        icon: "⚠️",
+                        color: "bg-amber-100 text-amber-700",
+                      },
+                      Loss: {
+                        icon: "❌",
+                        color: "bg-rose-100 text-rose-700",
+                      },
+                      Drop: {
+                        icon: "⛔",
+                        color: "bg-slate-200 text-slate-700",
+                      },
+                      Open: {
+                        icon: "🟦",
+                        color: "bg-blue-100 text-blue-700",
+                      },
+                    };
+
+                    const current = statusStyle[actualSPHStatus] || {
+                      icon: "•",
+                      color: "bg-gray-200 text-gray-600",
+                    };
+
+                    return (
+                      <div className="flex flex-col gap-1">
+                        <span
+                          className={`inline-flex w-fit items-center gap-1 px-2 py-1 rounded text-xs font-medium ${
+                            isReleased
+                              ? "bg-emerald-100 text-emerald-700"
+                              : "bg-gray-100 text-gray-600"
+                          }`}
+                        >
+                          <span>{isReleased ? "📤" : "📄"}</span>
+                          <span>{releaseLabel}</span>
+                        </span>
+
+                        <span
+                          className={`inline-flex w-fit items-center gap-1 px-2 py-1 rounded text-xs font-medium ${current.color}`}
+                        >
+                          <span>{current.icon}</span>
+                          <span>{actualSPHStatus}</span>
+                        </span>
+                      </div>
+                    );
+                  })()}
+                </td>
 
                 <td className="px-3 py-3 text-right">
                   Rp {formatIDR(item.target_value || 0)}
