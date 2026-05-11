@@ -1095,6 +1095,9 @@ export default function ProjectSPHPage() {
                           </td>
                           <td className="px-3 py-3">{reasonText(item)}</td>
                           <td className="px-3 py-3 text-right">
+                            Rp {formatIDR(item.target_value || 0)}
+                          </td>
+                          <td className="px-3 py-3 text-right">
                             {item.sph_value !== null && item.sph_value !== undefined ? (
                               <>Rp {formatIDR(item.sph_value)}</>
                             ) : (
