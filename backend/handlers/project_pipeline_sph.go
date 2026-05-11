@@ -63,6 +63,7 @@ func buildProjectAnalyticsFilter(c *gin.Context) (string, []any) {
 	salesStageStr := strings.TrimSpace(c.Query("sales_stage"))
 	sphReleased := strings.TrimSpace(c.Query("sph_released"))
 	sphStatus := strings.TrimSpace(c.Query("sph_status"))
+	sphReleaseRange := strings.TrimSpace(c.Query("sph_release_range"))
 
 	fromStr := strings.TrimSpace(c.Query("from"))
 	toStr := strings.TrimSpace(c.Query("to"))
@@ -115,6 +116,25 @@ func buildProjectAnalyticsFilter(c *gin.Context) (string, []any) {
 		conds = append(conds, fmt.Sprintf("(%s) = $%d", normalizedSPHStatusExpr(), i))
 		args = append(args, sphStatus)
 		i++
+	}
+
+	if sphReleaseRange != "" && strings.ToUpper(sphReleaseRange) != "ALL" {
+		switch sphReleaseRange {
+		case "last_week":
+			conds = append(conds, "p.sph_release_date >= (CURRENT_DATE - INTERVAL '7 days')")
+			conds = append(conds, "p.sph_release_date <= CURRENT_DATE")
+			conds = append(conds, "COALESCE(p.sph_release_status, 'No') = 'Yes'")
+
+		case "last_2_weeks":
+			conds = append(conds, "p.sph_release_date >= (CURRENT_DATE - INTERVAL '14 days')")
+			conds = append(conds, "p.sph_release_date <= CURRENT_DATE")
+			conds = append(conds, "COALESCE(p.sph_release_status, 'No') = 'Yes'")
+
+		case "last_month":
+			conds = append(conds, "p.sph_release_date >= (CURRENT_DATE - INTERVAL '1 month')")
+			conds = append(conds, "p.sph_release_date <= CURRENT_DATE")
+			conds = append(conds, "COALESCE(p.sph_release_status, 'No') = 'Yes'")
+		}
 	}
 
 	loc := mustLoadLocation("Asia/Jakarta")

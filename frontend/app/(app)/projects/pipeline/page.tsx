@@ -171,6 +171,7 @@ export default function ProjectPipelinePage() {
   const [sphReleased, setSphReleased] = useState("All");
   const [startMonth, setStartMonth] = useState("");
   const [endMonth, setEndMonth] = useState("");
+  const [sphReleaseRange, setSphReleaseRange] = useState("All");  
 
   const [selectedStage, setSelectedStage] = useState<number | "All">("All");
 
@@ -183,6 +184,9 @@ export default function ProjectPipelinePage() {
     if (projectType !== "All") params.set("project_type", projectType);
     if (salesStage !== "All") params.set("sales_stage", salesStage);
     if (sphReleased !== "All") params.set("sph_released", sphReleased);
+    if (sphReleaseRange !== "All") {
+        params.set("sph_release_range", sphReleaseRange);
+    }
 
     if (startMonth) params.set("from", `${startMonth}-01`);
     if (endMonth) params.set("to", `${endMonth}-01`);
@@ -224,7 +228,7 @@ export default function ProjectPipelinePage() {
   useEffect(() => {
     loadData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [division, customerId, status, projectType, salesStage, sphReleased, startMonth, endMonth]);
+  }, [division, customerId, status, projectType, salesStage, sphReleased, sphReleaseRange, startMonth, endMonth]);
 
   const stageCards = useMemo(() => {
     const map = new Map<number, PipelineStageSummary>();
@@ -306,6 +310,7 @@ export default function ProjectPipelinePage() {
     setStartMonth("");
     setEndMonth("");
     setSelectedStage("All");
+    setSphReleaseRange("All");
 
     if ((me?.role || "").toLowerCase() === "user" && me?.division) {
       setDivision(String(me.division));
@@ -441,7 +446,20 @@ export default function ProjectPipelinePage() {
             value={endMonth}
             onChange={(e) => setEndMonth(e.target.value)}
           />
+
+          <select
+            className="border rounded-lg px-3 py-2 text-sm w-full"
+            value={sphReleaseRange}
+            onChange={(e) => setSphReleaseRange(e.target.value)}
+          >
+            <option value="All">SPH Release Date (All)</option>
+            <option value="last_week">Last Week</option>
+            <option value="last_2_weeks">Last 2 Weeks</option>
+            <option value="last_month">Last Month</option>
+          </select>
         </div>
+
+        
 
         <div className="flex gap-2">
           <button
@@ -563,6 +581,15 @@ export default function ProjectPipelinePage() {
               Rp {compactIDR(stage.target_value || 0)}
             </div>
           </div>
+
+          {stage.stage === 4 && (
+            <div className="mt-2">
+              <div className="text-[11px] text-gray-500">SPH Value</div>
+              <div className="font-semibold leading-tight">
+                Rp {compactIDR(stage.sph_value || 0)}
+              </div>
+            </div>
+          )}
         </div>
 
         {!isClosing && (
@@ -602,7 +629,7 @@ export default function ProjectPipelinePage() {
         )}
 
         {isClosing && (
-          <div className="mt-2 rounded-lg bg-white/60 border border-white/70 p-2 space-y-1">
+          <div className="mt-3 rounded-lg bg-white/60 border border-white/70 p-2 space-y-1">
             <div className="flex items-center justify-between gap-2 text-xs">
               <span className="text-gray-500">Realization</span>
               <span className="font-medium">
