@@ -565,6 +565,7 @@ export default function ProjectPipelinePage() {
           </div>
         </div>
 
+        {!isClosing && (
         <div className="mt-3 rounded-lg bg-white/60 border border-white/70 p-2 space-y-1">
           <div className="text-[11px] text-gray-500">SPH Risk</div>
 
@@ -598,9 +599,28 @@ export default function ProjectPipelinePage() {
             <div className="text-xs text-gray-400">No Hold/Loss/Drop SPH</div>
           )}
         </div>
+        )}
 
         {isClosing && (
           <div className="mt-2 rounded-lg bg-white/60 border border-white/70 p-2 space-y-1">
+            <div className="flex items-center justify-between gap-2 text-xs">
+              <span className="text-gray-500">Realization</span>
+              <span className="font-medium">
+                Rp {compactIDR(stage.realization_value || 0)}
+              </span>
+            </div>
+
+            <div className="flex items-center justify-between gap-2 text-xs">
+              <span className="text-gray-500">Achievement</span>
+              <span className="font-medium">
+                {getContribution(
+                  Number(stage.realization_value || 0),
+                  Number(stage.target_value || 0)
+                )}
+                %
+              </span>
+            </div>
+
             <div className="flex items-center justify-between gap-2 text-xs">
               <span className="text-gray-500">% of Total</span>
               <span className="font-medium">
