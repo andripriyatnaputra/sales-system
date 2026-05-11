@@ -1032,6 +1032,7 @@ const paginatedDetails = useMemo(() => {
                 <thead className="bg-gray-100">
                   <tr>
                     <th className="px-3 py-3 text-left">Project Code</th>
+                    <th className="px-3 py-3 text-left">Description</th>
                     <th className="px-3 py-3 text-left">Customer</th>
                     <th className="px-3 py-3 text-left">Division</th>
                     <th className="px-3 py-3 text-left">Stage</th>
@@ -1043,7 +1044,6 @@ const paginatedDetails = useMemo(() => {
                     <th className="px-3 py-3 text-right">Initial Target</th>
                     <th className="px-3 py-3 text-right">SPH Value</th>
                     <th className="px-3 py-3 text-right">Variance</th>
-                    <th className="px-3 py-3 text-right">Realization</th>
                     <th className="px-3 py-3 text-left">Period</th>
                   </tr>
                 </thead>
@@ -1079,6 +1079,11 @@ const paginatedDetails = useMemo(() => {
                             >
                               {item.project_code}
                             </Link>
+                          </td>
+                          <td className="px-3 py-3 max-w-[320px]">
+                            <div className="line-clamp-2" title={item.description || "-"}>
+                              {item.description || "-"}
+                            </div>
                           </td>
                           <td className="px-3 py-3">
                             {item.customer_name || "-"}
@@ -1158,9 +1163,6 @@ const paginatedDetails = useMemo(() => {
                                 Rp {formatIDR(variance)}
                               </span>
                             )}
-                          </td>
-                          <td className="px-3 py-3 text-right">
-                            Rp {formatIDR(item.realization_value || 0)}
                           </td>
                           <td className="px-3 py-3">{periodText}</td>
                         </tr>
