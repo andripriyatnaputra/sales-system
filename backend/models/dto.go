@@ -13,6 +13,7 @@ type CreateProjectRequest struct {
 	Division                string            `json:"division" binding:"required"`
 	Status                  string            `json:"status" binding:"required"`
 	ProjectType             string            `json:"project_type" binding:"required"`
+	PipelineStatus          string            `json:"pipeline_status"`
 	SPHStatus               *string           `json:"sph_status"`
 	SPHRelease              *string           `json:"sph_release_date"` // 2025-01-15
 	SalesStage              int               `json:"sales_stage"`

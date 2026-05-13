@@ -79,6 +79,7 @@ type ProjectDetailResponse = {
   division: string;
   status: string;
   project_type: string;
+  pipeline_status?: string | null;
   sales_stage: number;
   customer_name?: string | null;
   sph_status?: string | null;
@@ -346,7 +347,7 @@ export default function ProjectDetailPage() {
       <Separator />
 
       {/* SUMMARY CARDS */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
         <Card className="p-4">
           <div className="text-xs text-muted-foreground">Total Target</div>
           <div className="font-semibold">Rp {formatIDR(totalTarget)}</div>
@@ -368,6 +369,20 @@ export default function ProjectDetailPage() {
           <div className="font-semibold text-blue-600">
             Rp {formatIDR(totalTarget * (SALES_STAGE_PROBABILITY[project.sales_stage] ?? 1))}
           </div>
+        </Card>
+        <Card className="p-4">
+          <div className="text-xs text-muted-foreground">Pipeline Status</div>
+          <Badge
+            className={
+              project.pipeline_status === "Hold"
+                ? "bg-amber-100 text-amber-700"
+                : project.pipeline_status === "Drop"
+                ? "bg-rose-100 text-rose-700"
+                : "bg-green-100 text-green-700"
+            }
+          >
+            {project.pipeline_status || "Active"}
+          </Badge>
         </Card>
       </div>
 

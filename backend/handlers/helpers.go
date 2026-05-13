@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"sales-system-backend/database"
+	"sales-system-backend/models"
 
 	"github.com/jackc/pgx/v5"
 )
@@ -159,4 +160,83 @@ func BudgetExists(ctx context.Context, division string, month time.Time) (bool, 
 	).Scan(&exists)
 
 	return exists, err
+}
+
+func validateAndNormalizeProjectFlow(body *models.CreateProjectRequest) error {
+	body.PipelineStatus = strings.TrimSpace(body.PipelineStatus)
+	if body.PipelineStatus == "" {
+		body.PipelineStatus = "Active"
+	}
+
+	if body.PipelineStatus != "Active" &&
+		body.PipelineStatus != "Hold" &&
+		body.PipelineStatus != "Drop" {
+		return fmt.Errorf("invalid pipeline_status")
+	}
+
+	// PRE-SPH phase:
+	// SPH lifecycle belum dimulai, jadi SPH fields harus kosong.
+	// PipelineStatus boleh Active/Hold/Drop dan sales_stage tetap di posisi terakhir.
+	if body.SphReleaseStatus != "Yes" {
+		body.SphReleaseStatus = "No"
+		body.SPHStatus = nil
+		body.SPHRelease = nil
+		body.SphNumber = nil
+		body.SPHStatusReasonCategory = nil
+		body.SPHStatusReasonNote = nil
+		return nil
+	}
+
+	// POST-SPH phase:
+	// SPH released hanya valid mulai Quotation.
+	if body.SalesStage < 4 {
+		return fmt.Errorf("SPH released project must be at least Quotation stage")
+	}
+
+	if body.SPHRelease == nil || strings.TrimSpace(*body.SPHRelease) == "" {
+		return fmt.Errorf("sph_release_date is required when SPH Released = Yes")
+	}
+
+	// Kalau sudah released tapi SPH status kosong, default Open.
+	if body.SPHStatus == nil || strings.TrimSpace(*body.SPHStatus) == "" {
+		open := "Open"
+		body.SPHStatus = &open
+	}
+
+	st := strings.TrimSpace(*body.SPHStatus)
+	body.SPHStatus = &st
+
+	if st != "Open" && st != "Hold" && st != "Win" && st != "Loss" && st != "Drop" {
+		return fmt.Errorf("invalid sph_status")
+	}
+
+	// Kalau SPH sudah released dan pipeline di-drop,
+	// maka outcome SPH juga Drop.
+	if body.PipelineStatus == "Drop" {
+		drop := "Drop"
+		body.SPHStatus = &drop
+		st = "Drop"
+	}
+
+	// Outcome final SPH masuk Closing.
+	if st == "Win" || st == "Loss" || st == "Drop" {
+		body.SalesStage = 6
+	}
+
+	// Jika SPH outcome Loss/Drop, pipeline juga dianggap Drop.
+	if st == "Loss" || st == "Drop" {
+		body.PipelineStatus = "Drop"
+	}
+
+	if (st == "Loss" || st == "Drop") &&
+		(body.SPHStatusReasonCategory == nil || strings.TrimSpace(*body.SPHStatusReasonCategory) == "") {
+		return fmt.Errorf("sph_status_reason_category required for Loss/Drop")
+	}
+
+	if st != "Loss" && st != "Drop" {
+		body.SPHStatusReasonCategory = nil
+		body.SPHStatusReasonNote = nil
+	}
+
+	return nil
 }

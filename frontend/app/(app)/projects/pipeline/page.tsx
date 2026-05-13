@@ -52,6 +52,7 @@ type PipelineDetailItem = {
   division: string;
   status: string;
   project_type: string;
+  pipeline_status: string;
   sales_stage: number;
   sph_release_status: string;
   sph_status?: string | null;
@@ -583,7 +584,6 @@ export default function ProjectPipelinePage() {
     const isClosing = stage.stage === 6;
     const hasRisk =
       Number(stage.hold_count || 0) > 0 ||
-      Number(stage.loss_count || 0) > 0 ||
       Number(stage.drop_count || 0) > 0;
 
     return (
@@ -630,37 +630,29 @@ export default function ProjectPipelinePage() {
 
         {!isClosing && (
         <div className="mt-3 rounded-lg bg-white/60 border border-white/70 p-2 space-y-1">
-          <div className="text-[11px] text-gray-500">SPH Risk</div>
+          <div className="text-[11px] text-gray-500">Pipeline Risk</div>
 
           {hasRisk ? (
-            <>
-              <div className="flex items-center justify-between gap-2 text-xs">
-                <span className="text-amber-700">Hold</span>
-                <span className="font-medium">
-                  {stage.hold_count || 0} • Rp{" "}
-                  {compactIDR(stage.hold_value || 0)}
-                </span>
-              </div>
+          <>
+            <div className="flex items-center justify-between gap-2 text-xs">
+              <span className="text-amber-700">Hold</span>
+              <span className="font-medium">
+                {stage.hold_count || 0} • Rp{" "}
+                {compactIDR(stage.hold_value || 0)}
+              </span>
+            </div>
 
-              <div className="flex items-center justify-between gap-2 text-xs">
-                <span className="text-rose-700">Loss</span>
-                <span className="font-medium">
-                  {stage.loss_count || 0} • Rp{" "}
-                  {compactIDR(stage.loss_value || 0)}
-                </span>
-              </div>
-
-              <div className="flex items-center justify-between gap-2 text-xs">
-                <span className="text-rose-700">Drop</span>
-                <span className="font-medium">
-                  {stage.drop_count || 0} • Rp{" "}
-                  {compactIDR(stage.drop_value || 0)}
-                </span>
-              </div>
-            </>
-          ) : (
-            <div className="text-xs text-gray-400">No Hold/Loss/Drop SPH</div>
-          )}
+            <div className="flex items-center justify-between gap-2 text-xs">
+              <span className="text-rose-700">Drop</span>
+              <span className="font-medium">
+                {stage.drop_count || 0} • Rp{" "}
+                {compactIDR(stage.drop_value || 0)}
+              </span>
+            </div>
+          </>
+        ) : (
+          <div className="text-xs text-gray-400">No Hold/Drop Pipeline</div>
+        )}
         </div>
         )}
 
@@ -733,7 +725,7 @@ export default function ProjectPipelinePage() {
   </div>
 
   <div className="overflow-auto">
-    <table className="w-full text-sm min-w-[1200px]">
+    <table className="w-full text-sm min-w-[1350px]">
       <thead className="bg-gray-100">
         <tr>
           <th className="px-3 py-3 text-left">Project Code</th>
@@ -741,6 +733,7 @@ export default function ProjectPipelinePage() {
           <th className="px-3 py-3 text-left">Customer</th>
           <th className="px-3 py-3 text-left">Division</th>
           <th className="px-3 py-3 text-left">Status</th>
+          <th className="px-3 py-3 text-left">Pipeline Status</th>
           <th className="px-3 py-3 text-left">Stage</th>
           <th className="px-3 py-3 text-left">SPH</th>
           <th className="px-3 py-3 text-right">Initial Target</th>
@@ -753,7 +746,7 @@ export default function ProjectPipelinePage() {
       <tbody>
         {filteredDetails.length === 0 ? (
           <tr>
-            <td colSpan={11} className="px-4 py-8 text-center text-gray-500">
+            <td colSpan={12} className="px-4 py-8 text-center text-gray-500">
               No pipeline data found.
             </td>
           </tr>
@@ -801,6 +794,20 @@ export default function ProjectPipelinePage() {
                 <td className="px-3 py-3">{item.customer_name || "-"}</td>
                 <td className="px-3 py-3">{item.division || "-"}</td>
                 <td className="px-3 py-3">{item.status || "-"}</td>
+
+                <td className="px-3 py-3">
+                <span
+                  className={`px-2 py-1 rounded text-xs font-medium ${
+                    item.pipeline_status === "Hold"
+                      ? "bg-amber-100 text-amber-700"
+                      : item.pipeline_status === "Drop"
+                      ? "bg-rose-100 text-rose-700"
+                      : "bg-green-100 text-green-700"
+                  }`}
+                >
+                  {item.pipeline_status || "Active"}
+                </span>
+              </td>
 
                 <td className="px-3 py-3">
                   {item.sales_stage}. {stageLabel(item.sales_stage)}

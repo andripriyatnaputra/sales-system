@@ -3,6 +3,7 @@ package handlers
 import (
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"sales-system-backend/database"
@@ -28,6 +29,18 @@ func CreateProject(c *gin.Context) {
 	// --- Normalize incoming division ---
 	body.Division = NormalizeDivision(body.Division)
 
+	body.PipelineStatus = strings.TrimSpace(body.PipelineStatus)
+	if body.PipelineStatus == "" {
+		body.PipelineStatus = "Active"
+	}
+
+	if body.PipelineStatus != "Active" &&
+		body.PipelineStatus != "Hold" &&
+		body.PipelineStatus != "Drop" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid pipeline_status"})
+		return
+	}
+
 	// =============================
 	//  ACL Enforcement
 	// =============================
@@ -48,6 +61,11 @@ func CreateProject(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": "New Recurring project type only allowed when status is New Prospect",
 		})
+		return
+	}
+
+	if err := validateAndNormalizeProjectFlow(&body); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
@@ -93,12 +111,40 @@ func CreateProject(c *gin.Context) {
 
 	if body.SphReleaseStatus == "Yes" {
 		for _, rp := range body.RevenuePlans {
-			if rp.SPHRevenue == nil || *rp.SPHRevenue <= 0 {
+			if rp.SPHRevenue == nil || *rp.SPHRevenue < 0 {
 				c.JSON(http.StatusBadRequest, gin.H{
-					"error": "sph_revenue is required and must be greater than 0 when SPH Released = Yes",
+					"error": "sph_revenue is required and must be zero or greater when SPH Released = Yes",
 				})
 				return
 			}
+		}
+	}
+
+	if body.SphReleaseStatus != "Yes" {
+		body.SphReleaseStatus = "No"
+		body.SPHStatus = nil
+		body.SPHRelease = nil
+		body.SphNumber = nil
+		body.SPHStatusReasonCategory = nil
+		body.SPHStatusReasonNote = nil
+	} else {
+		if body.SalesStage < 4 {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": "SPH released project must be at least Quotation stage",
+			})
+			return
+		}
+
+		if body.SPHStatus == nil || strings.TrimSpace(*body.SPHStatus) == "" {
+			open := "Open"
+			body.SPHStatus = &open
+		}
+
+		st := strings.TrimSpace(*body.SPHStatus)
+		body.SPHStatus = &st
+
+		if st == "Win" || st == "Loss" || st == "Drop" {
+			body.SalesStage = 6
 		}
 	}
 
@@ -124,11 +170,12 @@ func CreateProject(c *gin.Context) {
 	err = tx.QueryRow(ctx, `
         INSERT INTO projects (
 			project_code, description, customer_id, division, status,
-			project_type, sph_status, sph_release_date, sales_stage,
+			project_type, pipeline_status,
+			sph_status, sph_release_date, sales_stage,
 			sph_release_status, sph_number,
 			sph_status_reason_category, sph_status_reason_note
-			)
-			VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+		)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
         RETURNING id
     `,
 		projectCode,
@@ -137,6 +184,7 @@ func CreateProject(c *gin.Context) {
 		body.Division,
 		body.Status,
 		body.ProjectType,
+		body.PipelineStatus,
 		body.SPHStatus,
 		parseDatePtr(body.SPHRelease),
 		body.SalesStage,

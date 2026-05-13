@@ -225,7 +225,7 @@ func GetProjectPipelineSummary(c *gin.Context) {
 			SELECT
 				p.id AS project_id,
 				p.sales_stage,
-				%s AS sph_status_norm,
+				COALESCE(p.pipeline_status, 'Active') AS pipeline_status,
 				COALESCE(SUM(rp.target_revenue), 0)::float8 AS target_value,
 				COALESCE(SUM(rp.sph_revenue), 0)::float8 AS sph_value,
 				COALESCE(SUM(rp.target_realization), 0)::float8 AS realization_value
@@ -233,7 +233,7 @@ func GetProjectPipelineSummary(c *gin.Context) {
 			LEFT JOIN customers cu ON cu.id = p.customer_id
 			LEFT JOIN project_revenue_plan rp ON rp.project_id = p.id
 			WHERE %s
-			GROUP BY p.id, p.sales_stage, p.sph_status
+			GROUP BY p.id, p.sales_stage, p.pipeline_status
 		)
 		SELECT
 			sales_stage,
@@ -242,17 +242,17 @@ func GetProjectPipelineSummary(c *gin.Context) {
 			COALESCE(SUM(sph_value), 0)::float8 AS sph_value,
 			COALESCE(SUM(realization_value), 0)::float8 AS realization_value,
 			COALESCE(AVG(target_value), 0)::float8 AS avg_target_value,
-			COUNT(*) FILTER (WHERE sph_status_norm = 'Hold')::bigint AS hold_count,
-			COALESCE(SUM(sph_value) FILTER (WHERE sph_status_norm = 'Hold'), 0)::float8 AS hold_value,
-			COUNT(*) FILTER (WHERE sph_status_norm = 'Loss')::bigint AS loss_count,
-			COALESCE(SUM(sph_value) FILTER (WHERE sph_status_norm = 'Loss'), 0)::float8 AS loss_value,
-			COUNT(*) FILTER (WHERE sph_status_norm = 'Drop')::bigint AS drop_count,
-			COALESCE(SUM(sph_value) FILTER (WHERE sph_status_norm = 'Drop'), 0)::float8 AS drop_value
+			COUNT(*) FILTER (WHERE pipeline_status = 'Hold')::bigint AS hold_count,
+			COALESCE(SUM(target_value) FILTER (WHERE pipeline_status = 'Hold'), 0)::float8 AS hold_value,
+			0::bigint AS loss_count,
+			0::float8 AS loss_value,
+			COUNT(*) FILTER (WHERE pipeline_status = 'Drop')::bigint AS drop_count,
+			COALESCE(SUM(target_value) FILTER (WHERE pipeline_status = 'Drop'), 0)::float8 AS drop_value
 		FROM revenue_by_project
 		WHERE sales_stage BETWEEN 1 AND 6
 		GROUP BY sales_stage
 		ORDER BY sales_stage
-	`, normalizedSPHStatusExpr(), where)
+	`, where)
 
 	rows, err := database.Pool.Query(ctx, query, args...)
 	if err != nil {
@@ -318,6 +318,7 @@ func GetProjectPipelineDetails(c *gin.Context) {
 			p.division,
 			p.status,
 			p.project_type,
+			COALESCE(p.pipeline_status, 'Active') AS pipeline_status,
 			p.sales_stage,
 			COALESCE(p.sph_release_status, 'No') AS sph_release_status,
 			p.sph_status,
@@ -337,7 +338,7 @@ func GetProjectPipelineDetails(c *gin.Context) {
 		  AND p.sales_stage BETWEEN 1 AND 6
 		GROUP BY
 			p.id, p.project_code, p.description, cu.name,
-			p.division, p.status, p.project_type, p.sales_stage,
+			p.division, p.status, p.project_type, p.pipeline_status, p.sales_stage,
 			p.sph_release_status, p.sph_status, p.sph_number, p.sph_release_date,
 			p.sph_status_reason_category, p.sph_status_reason_note
 		ORDER BY p.sales_stage ASC, target_value DESC, p.project_code ASC
@@ -361,6 +362,7 @@ func GetProjectPipelineDetails(c *gin.Context) {
 			&item.Division,
 			&item.Status,
 			&item.ProjectType,
+			&item.PipelineStatus,
 			&item.SalesStage,
 			&item.SPHReleaseStatus,
 			&item.SPHStatus,
@@ -650,6 +652,7 @@ func GetProjectSPHDetails(c *gin.Context) {
 			p.division,
 			p.status,
 			p.project_type,
+			COALESCE(p.pipeline_status, 'Active') AS pipeline_status,
 			p.sales_stage,
 			COALESCE(p.sph_release_status, 'Yes') AS sph_release_status,
 			p.sph_status,
@@ -668,7 +671,7 @@ func GetProjectSPHDetails(c *gin.Context) {
 		WHERE %s
 		GROUP BY
 			p.id, p.project_code, p.description, cu.name,
-			p.division, p.status, p.project_type, p.sales_stage,
+			p.division, p.status, p.project_type, p.pipeline_status, p.sales_stage,
 			p.sph_release_status, p.sph_status, p.sph_number, p.sph_release_date,
 			p.sph_status_reason_category, p.sph_status_reason_note
 		ORDER BY p.sph_release_date DESC NULLS LAST, target_value DESC, p.project_code ASC
@@ -692,6 +695,7 @@ func GetProjectSPHDetails(c *gin.Context) {
 			&item.Division,
 			&item.Status,
 			&item.ProjectType,
+			&item.PipelineStatus,
 			&item.SalesStage,
 			&item.SPHReleaseStatus,
 			&item.SPHStatus,

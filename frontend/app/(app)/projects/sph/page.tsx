@@ -469,9 +469,9 @@ const paginatedDetails = useMemo(() => {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold">SPH Management</h1>
+        <h1 className="text-2xl font-semibold">SPH Monitoring</h1>
         <p className="text-sm text-gray-500">
-          Monitoring status SPH, nilai target awal, nilai SPH, aging, dan variance.
+          Monitoring quotation/SPH yang sudah release, status commercial outcome, aging, variance, dan reason loss/drop.
         </p>
       </div>
 
@@ -642,7 +642,7 @@ const paginatedDetails = useMemo(() => {
         <>
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-6 gap-4">
             <div className="bg-slate-50 border border-slate-200 rounded-xl shadow-sm p-4">
-              <div className="text-xs text-slate-600">Total SPH Released</div>
+              <div className="text-xs text-slate-600">Released SPH</div>
               <div className="mt-2 text-2xl font-semibold">
                 {summary?.released_count || 0}
               </div>
@@ -685,7 +685,7 @@ const paginatedDetails = useMemo(() => {
             </div>
 
             <div className="bg-orange-50 border border-orange-200 rounded-xl shadow-sm p-4">
-              <div className="text-xs text-orange-700">Top Status by Value</div>
+              <div className="text-xs text-orange-700">Top SPH Outcome by Value</div>
               <div className="mt-2 text-base font-semibold">
                 {topValueStatus ? topValueStatus.status : "-"}
               </div>
@@ -933,7 +933,7 @@ const paginatedDetails = useMemo(() => {
                     )
                   }
                 >
-                  <div className="text-xs text-gray-500">SPH Status</div>
+                  <div className="text-xs text-gray-500">SPH Outcome</div>
                   <div className="mt-1 text-lg font-semibold">{item.status}</div>
 
                   <div className="mt-3 text-2xl font-semibold">
@@ -1021,7 +1021,7 @@ const paginatedDetails = useMemo(() => {
 
           <div className="bg-white border rounded-xl shadow-sm overflow-hidden">
             <div className="p-4 border-b">
-              <div className="font-semibold">SPH Details</div>
+              <div className="font-semibold">Released SPH Details</div>
               <div className="text-xs text-gray-500 mt-1">
                 {filteredDetails.length} project(s)
               </div>

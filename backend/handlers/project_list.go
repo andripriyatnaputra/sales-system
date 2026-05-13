@@ -87,6 +87,7 @@ func ListProjects(c *gin.Context) {
 	p.division,
 	p.status,
 	p.project_type,
+	COALESCE(p.pipeline_status, 'Active') AS pipeline_status,
 	p.sales_stage,
 	p.sph_release_status,
 
@@ -131,6 +132,7 @@ func ListProjects(c *gin.Context) {
 	p.division,
 	p.status,
 	p.project_type,
+	p.pipeline_status,
 	p.sales_stage,
 	p.sph_release_status,
 
@@ -166,6 +168,7 @@ func ListProjects(c *gin.Context) {
 		Division                string                    `json:"division"`
 		Status                  string                    `json:"status"`
 		ProjectType             string                    `json:"project_type"`
+		PipelineStatus          string                    `json:"pipeline_status"`
 		SalesStage              int                       `json:"sales_stage"`
 		SphReleaseStatus        string                    `json:"sph_release_status"`
 		SPHStatus               *string                   `json:"sph_status,omitempty"`
@@ -197,6 +200,7 @@ func ListProjects(c *gin.Context) {
 			&p.Division,
 			&p.Status,
 			&p.ProjectType,
+			&p.PipelineStatus,
 			&p.SalesStage,
 			&p.SphReleaseStatus,
 			&p.SPHStatus,

@@ -12,6 +12,7 @@ type RevenuePlanItem = {
 const DIVISIONS = ["Network Communications", "Oil Mining & Goverments", "IT Solutions"] as const;
 const STATUSES = ["Carry Over", "Prospect", "New Prospect"] as const;
 const PROJECT_TYPES = ["Project Based", "Recurring", "New Recurring"] as const;
+const PIPELINE_STATUSES = ["Active", "Hold", "Drop"] as const;
 
 export default function NewProjectPage() {
   const router = useRouter();
@@ -21,6 +22,8 @@ export default function NewProjectPage() {
   const [division, setDivision] = useState("IT Solutions");
   const [status, setStatus] = useState("Prospect");
   const [projectType, setProjectType] = useState("Project Based");
+  const [pipelineStatus, setPipelineStatus] = useState("Active");
+  const [sphReleaseStatus, setSphReleaseStatus] = useState("No");
   const [sphStatus, setSphStatus] = useState("");
   const [sphReleaseDate, setSphReleaseDate] = useState("");
 
@@ -87,8 +90,10 @@ export default function NewProjectPage() {
       division,
       status,
       project_type: projectType,
-      sph_status: sphStatus || undefined,
-      sph_release_date: sphReleaseDate || undefined,
+      pipeline_status: pipelineStatus,
+      sph_release_status: sphReleaseStatus,
+      sph_status: sphReleaseStatus === "Yes" ? sphStatus || "Open" : undefined,
+      sph_release_date: sphReleaseStatus === "Yes" ? sphReleaseDate || undefined : undefined,
       sales_stage: 1,
       revenue_plans: revenuePlans,
     };
@@ -166,26 +171,83 @@ export default function NewProjectPage() {
             </select>
           </div>
 
+          <div>
+            <label className="block text-sm font-medium mb-1">
+              Pipeline Status *
+            </label>
+            <select
+              className="border rounded px-3 py-2 w-full"
+              value={pipelineStatus}
+              onChange={(e) => setPipelineStatus(e.target.value)}
+            >
+              {PIPELINE_STATUSES.map((p) => (
+                <option key={p} value={p}>
+                  {p}
+                </option>
+              ))}
+            </select>
+          </div>
+
         </div>
 
         {/* SPH */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
           <div>
+            <label className="block text-sm font-medium mb-1">
+              SPH Released
+            </label>
+            <select
+              className="border rounded px-3 py-2 w-full disabled:bg-gray-100"
+              value={sphReleaseStatus}
+              disabled
+              onChange={(e) => {
+                const value = e.target.value;
+                setSphReleaseStatus(value);
+
+                if (value !== "Yes") {
+                  setSphStatus("");
+                  setSphReleaseDate("");
+                } else if (!sphStatus) {
+                  setSphStatus("Open");
+                }
+              }}
+            >
+              <option value="No">No</option>
+              <option value="Yes">Yes</option>
+            </select>
+            <p className="text-xs text-gray-500 mt-1">
+              SPH release dapat diupdate setelah project masuk minimal stage Quotation.
+            </p>
+          </div>
+
+          <div>
             <label className="block text-sm font-medium mb-1">SPH Status</label>
-            <input
-              className="border rounded px-3 py-2 w-full"
+            <select
+              className="border rounded px-3 py-2 w-full disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed"
               value={sphStatus}
-              onChange={(e) => setSphStatus(e.target.value)}
-            />
+              disabled={sphReleaseStatus !== "Yes"}
+              onChange={(e) => {
+                const value = e.target.value;
+                setSphStatus(value);
+              }}
+            >
+              <option value="">Select Status</option>
+              <option value="Open">Open</option>
+              <option value="Hold">Hold</option>
+              <option value="Win">Win</option>
+              <option value="Loss">Loss</option>
+              <option value="Drop">Drop</option>
+            </select>
           </div>
 
           <div>
             <label className="block text-sm font-medium mb-1">SPH Release Date</label>
             <input
               type="date"
-              className="border rounded px-3 py-2 w-full"
+              className="border rounded px-3 py-2 w-full disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed"
               value={sphReleaseDate}
+              disabled={sphReleaseStatus !== "Yes"}
               onChange={(e) => setSphReleaseDate(e.target.value)}
             />
           </div>

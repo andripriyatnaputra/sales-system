@@ -3,6 +3,7 @@ package handlers
 import (
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"sales-system-backend/database"
@@ -61,6 +62,18 @@ func UpdateProject(c *gin.Context) {
 		body.Division = NormalizeDivision(body.Division)
 	}
 
+	body.PipelineStatus = strings.TrimSpace(body.PipelineStatus)
+	if body.PipelineStatus == "" {
+		body.PipelineStatus = "Active"
+	}
+
+	if body.PipelineStatus != "Active" &&
+		body.PipelineStatus != "Hold" &&
+		body.PipelineStatus != "Drop" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid pipeline_status"})
+		return
+	}
+
 	if body.Status == "Carry Over" {
 		body.SalesStage = 6
 	}
@@ -72,6 +85,11 @@ func UpdateProject(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": "New Recurring project type only allowed when status is New Prospect",
 		})
+		return
+	}
+
+	if err := validateAndNormalizeProjectFlow(&body); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
@@ -99,6 +117,34 @@ func UpdateProject(c *gin.Context) {
 		}
 	}
 
+	if body.SphReleaseStatus != "Yes" {
+		body.SphReleaseStatus = "No"
+		body.SPHStatus = nil
+		body.SPHRelease = nil
+		body.SphNumber = nil
+		body.SPHStatusReasonCategory = nil
+		body.SPHStatusReasonNote = nil
+	} else {
+		if body.SalesStage < 4 {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": "SPH released project must be at least Quotation stage",
+			})
+			return
+		}
+
+		if body.SPHStatus == nil || strings.TrimSpace(*body.SPHStatus) == "" {
+			open := "Open"
+			body.SPHStatus = &open
+		}
+
+		st := strings.TrimSpace(*body.SPHStatus)
+		body.SPHStatus = &st
+
+		if st == "Win" || st == "Loss" || st == "Drop" {
+			body.SalesStage = 6
+		}
+	}
+
 	// --- Validate division ---
 	if !isValidDivision(body.Division) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid division"})
@@ -120,22 +166,24 @@ func UpdateProject(c *gin.Context) {
 			customer_id              = $2,
 			division                 = $3,
 			status                   = $4,
-			project_type             = $5,
-			sph_status               = $6,
-			sph_release_date         = $7,
-			sales_stage              = $8,
-			sph_release_status       = $9,
-			sph_number               = $10,
-			sph_status_reason_category = $11,
-			sph_status_reason_note     = $12,
-			updated_at               = NOW()
-	WHERE id = $13
+			project_type               = $5,
+			pipeline_status            = $6,
+			sph_status                 = $7,
+			sph_release_date           = $8,
+			sales_stage                = $9,
+			sph_release_status         = $10,
+			sph_number                 = $11,
+			sph_status_reason_category = $12,
+			sph_status_reason_note     = $13,
+			updated_at                 = NOW()
+			WHERE id = $14
 	`,
 		body.Description,
 		body.CustomerID,
 		body.Division,
 		body.Status,
 		body.ProjectType,
+		body.PipelineStatus,
 		body.SPHStatus,
 		parseDatePtr(body.SPHRelease),
 		body.SalesStage,

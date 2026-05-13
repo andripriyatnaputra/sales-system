@@ -19,6 +19,7 @@ type Project struct {
 	Division                string     `json:"division"`
 	Status                  string     `json:"status"`
 	ProjectType             string     `json:"project_type"`
+	PipelineStatus          string     `json:"pipeline_status"`
 	SPHStatus               *string    `json:"sph_status,omitempty"`
 	SPHRelease              *time.Time `json:"sph_release_date,omitempty"`
 	SalesStage              int        `json:"sales_stage"`
@@ -72,6 +73,7 @@ type ProjectPipelineDetailItem struct {
 	Division                string     `json:"division"`
 	Status                  string     `json:"status"`
 	ProjectType             string     `json:"project_type"`
+	PipelineStatus          string     `json:"pipeline_status"`
 	SalesStage              int        `json:"sales_stage"`
 	SPHReleaseStatus        string     `json:"sph_release_status"`
 	SPHStatus               *string    `json:"sph_status,omitempty"`

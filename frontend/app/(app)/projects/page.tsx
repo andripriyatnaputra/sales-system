@@ -67,6 +67,7 @@ type Project = {
   division: string;
   status: string;
   project_type: string;
+  pipeline_status?: string | null;
   sales_stage?: number;
   customer_id?: number | null;
   customer_name?: string | null;
@@ -120,13 +121,27 @@ const normalizeSPH = (v: any): "Yes" | "No" => {
 
 const normalizeSPHStatus = (
   v: any
-): "Open" | "Win" | "Hold" | "Loss" | "Drop" => {
+): "Not Released" | "Open" | "Win" | "Hold" | "Loss" | "Drop" => {
   const s = String(v ?? "").trim().toLowerCase();
+  if (!s) return "Not Released";
   if (s === "win") return "Win";
   if (s === "hold") return "Hold";
   if (s === "loss") return "Loss";
   if (s === "drop") return "Drop";
-  return "Open";
+  if (s === "open") return "Open";
+  return "Not Released";
+};
+
+const normalizePipelineStatus = (
+  v: any
+): "Active" | "Hold" | "Drop" | "Closed" => {
+  const s = String(v ?? "").trim().toLowerCase();
+
+  if (s === "hold") return "Hold";
+  if (s === "drop") return "Drop";
+  if (s === "closed") return "Closed";
+
+  return "Active";
 };
 
 const compactIDR = (value: number | null | undefined): string => {
@@ -544,8 +559,13 @@ export default function ProjectsPage() {
 
       const merged: ProjectWithPlans = {
         ...p,
+        pipeline_status: detail.pipeline_status ?? p.pipeline_status ?? "Active",
         sph_status: normalizeSPHStatus(detail.sph_status ?? p.sph_status),
-        sph_release_date: detail.sph_release_date,
+        sph_release_date: detail.sph_release_date
+          ? String(detail.sph_release_date).slice(0, 10)
+          : p.sph_release_date
+          ? String(p.sph_release_date).slice(0, 10)
+          : "",
         sales_stage: detail.sales_stage,
         sph_release_status: detail.sph_release_status ?? p.sph_release_status,
         sph_number: detail.sph_number ?? p.sph_number,
@@ -1081,6 +1101,7 @@ return (
                 <th className="px-3 py-2 text-left">Division</th>
                 <th className="px-3 py-2 text-left">Type</th>
                 <th className="px-3 py-2 text-left">Status</th>
+                <th className="px-3 py-2 text-left">Pipeline Status</th>
                 <th className="px-3 py-2 text-left">Stage</th>
                 <th className="px-3 py-2 text-left">SPH Released?</th>
                 <th className="px-3 py-2 text-left">SPH Status</th>
@@ -1095,7 +1116,7 @@ return (
             <tbody>
               {paged.length === 0 ? (
                 <tr>
-                  <td colSpan={13} className="p-4 text-center text-gray-500">
+                  <td colSpan={14} className="p-4 text-center text-gray-500">
                     No projects found.
                   </td>
                 </tr>
@@ -1116,6 +1137,27 @@ return (
                     <td className="px-3 py-2">{p.project_type}</td>
                     <td className="px-3 py-2">{p.status}</td>
                     <td className="px-3 py-2">
+                      {(() => {
+                        const ps = normalizePipelineStatus(p.pipeline_status);
+
+                        return (
+                          <span
+                            className={`px-2 py-1 rounded text-xs font-medium ${
+                              ps === "Hold"
+                                ? "bg-amber-100 text-amber-700"
+                                : ps === "Drop"
+                                ? "bg-rose-100 text-rose-700"
+                                : ps === "Closed"
+                                ? "bg-slate-200 text-slate-700"
+                                : "bg-green-100 text-green-700"
+                            }`}
+                          >
+                            {ps}
+                          </span>
+                        );
+                      })()}
+                    </td>
+                    <td className="px-3 py-2">
                       {SALES_STAGES.find((s) => s.value === p.sales_stage)?.label || "-"}
                     </td>
                     <td className="px-3 py-2">
@@ -1133,7 +1175,9 @@ return (
                     <td className="px-3 py-2">
                       <span
                         className={`px-2 py-1 rounded text-xs font-medium ${
-                          normalizeSPHStatus(p.sph_status) === "Win"
+                          normalizeSPHStatus(p.sph_status) === "Not Released"
+                            ? "bg-gray-200 text-gray-600"
+                            : normalizeSPHStatus(p.sph_status) === "Win"
                             ? "bg-green-100 text-green-700"
                             : normalizeSPHStatus(p.sph_status) === "Hold"
                             ? "bg-amber-100 text-amber-700"
@@ -1272,6 +1316,7 @@ type ModalProps = {
     division: string;
     status: string;
     project_type: string;
+    pipeline_status: string;
     sph_status?: string;
     sph_release_date?: string;
     sph_release_status?: "Yes" | "No";
@@ -1313,6 +1358,10 @@ function ProjectModal({
   const [customerId, setCustomerId] = useState<number | "">(project?.customer_id ?? "");
 
   const [projectType, setProjectType] = useState(project?.project_type || "Project Based");
+
+  const [pipelineStatus, setPipelineStatus] = useState(
+    project?.pipeline_status || "Active"
+  );
 
   const NEW_RECURRING = "New Recurring";
   const canUseNewRecurring = status === "New Prospect";
@@ -1501,8 +1550,16 @@ function ProjectModal({
 
   useEffect(() => {
     if (sphReleaseStatus === "No") {
+      setSphStatus("");
+      setSphReleaseDate("");
       setSphNumber("");
+      setSphReasonCategory("");
+      setSphReasonNote("");
       setSphNumberError("");
+    }
+
+    if (sphReleaseStatus === "Yes" && !sphStatus) {
+      setSphStatus("Open");
     }
   }, [sphReleaseStatus]);
 
@@ -1574,14 +1631,22 @@ useEffect(() => {
       division,
       status,
       project_type: projectType,
-      sph_status: sphStatus || undefined,
-      sph_release_date: sphReleaseDate || undefined,
+      pipeline_status: pipelineStatus,
+      sph_status: sphReleaseStatus === "Yes" ? sphStatus || "Open" : undefined,
+      sph_release_date:
+        sphReleaseStatus === "Yes" ? sphReleaseDate || undefined : undefined,
       sph_release_status: sphReleaseStatus,
-      sph_number: sphNumber || undefined,
+      sph_number: sphReleaseStatus === "Yes" ? sphNumber || undefined : undefined,
       sales_stage: salesStage,
       revenue_plans: sorted,
-      sph_status_reason_category: isLossDrop ? (sphReasonCategory || undefined) : undefined,
-      sph_status_reason_note: isLossDrop ? (sphReasonNote || undefined) : undefined,
+      sph_status_reason_category:
+        sphReleaseStatus === "Yes" && isLossDrop
+          ? sphReasonCategory || undefined
+          : undefined,
+      sph_status_reason_note:
+        sphReleaseStatus === "Yes" && isLossDrop
+          ? sphReasonNote || undefined
+          : undefined,
     });
   };
 
@@ -1686,6 +1751,19 @@ useEffect(() => {
                 </p>
               )}
             </div>
+
+            <div>
+              <label className="text-sm font-medium">Pipeline Status *</label>
+              <select
+                className="border rounded-lg w-full px-3 py-2 mt-1"
+                value={pipelineStatus}
+                onChange={(e) => setPipelineStatus(e.target.value)}
+              >
+                <option value="Active">Active</option>
+                <option value="Hold">Hold</option>
+                <option value="Drop">Drop</option>
+              </select>
+            </div>
           </div>
           {/* SALES STAGE + SPH */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1707,8 +1785,9 @@ useEffect(() => {
             <div>
               <label className="text-sm font-medium">SPH Status</label>
               <select
-                className="border rounded-lg w-full px-3 py-2 mt-1"
+                className="border rounded-lg w-full px-3 py-2 mt-1 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed"
                 value={sphStatus}
+                disabled={sphReleaseStatus !== "Yes"}
                 onChange={(e) => setSphStatus(e.target.value)}
               >
                 <option value="">- Select Status -</option>
@@ -1790,8 +1869,9 @@ useEffect(() => {
               <label className="text-sm font-medium">SPH Release Date</label>
               <input
                 type="date"
-                className="border rounded-lg w-full px-3 py-2 mt-1"
+                className="border rounded-lg w-full px-3 py-2 mt-1 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed"
                 value={sphReleaseDate || ""}
+                disabled={sphReleaseStatus !== "Yes"}
                 onChange={(e) => setSphReleaseDate(e.target.value)}
               />
             </div>
