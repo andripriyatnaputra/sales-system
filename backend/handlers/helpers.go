@@ -170,7 +170,7 @@ func validateAndNormalizeProjectFlow(body *models.CreateProjectRequest) error {
 
 	if body.PipelineStatus != "Active" &&
 		body.PipelineStatus != "Hold" &&
-		body.PipelineStatus != "Hold" &&
+		body.PipelineStatus != "Drop" &&
 		body.PipelineStatus != "Closed" {
 		return fmt.Errorf("invalid pipeline_status")
 	}
