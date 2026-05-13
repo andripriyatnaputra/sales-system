@@ -80,14 +80,20 @@ const STAGE_LABELS: Record<number, string> = {
   6: "Closing",
 };
 
-function normalizeStatus(value: string | null | undefined) {
-  const v = String(value || "").trim().toLowerCase();
-  if (v === "win") return "Win";
-  if (v === "hold") return "Hold";
-  if (v === "loss") return "Loss";
-  if (v === "drop") return "Drop";
-  return "Open";
-}
+const normalizeSPHStatus = (
+  v: any
+): "Not Released" | "Open" | "Win" | "Hold" | "Loss" | "Drop" => {
+  const s = String(v ?? "").trim().toLowerCase();
+
+  if (!s) return "Not Released";
+  if (s === "open") return "Open";
+  if (s === "win") return "Win";
+  if (s === "hold") return "Hold";
+  if (s === "loss") return "Loss";
+  if (s === "drop") return "Drop";
+
+  return "Not Released";
+};
 
 function formatIDR(value: number | null | undefined) {
   const amount = Number(value || 0);
@@ -754,7 +760,7 @@ export default function ProjectPipelinePage() {
           paginatedDetails.map((item) => {
             const normalizedSPHStatus =
               item.sph_release_status === "Yes"
-                ? normalizeStatus(item.sph_status)
+                ? normalizeSPHStatus(item.sph_status)
                 : "Not Released";
 
             const periodText =
@@ -768,7 +774,7 @@ export default function ProjectPipelinePage() {
                   Number(item.target_value || 0)
                 : null;
 
-            const actualSPHStatus = normalizeStatus(item.sph_status);
+            const actualSPHStatus = normalizeSPHStatus(item.sph_status);
 
             const rowClass =
               actualSPHStatus === "Loss"
@@ -818,10 +824,19 @@ export default function ProjectPipelinePage() {
                     const isReleased =
                       String(item.sph_release_status || "").trim().toLowerCase() === "yes";
 
-                    const actualSPHStatus = normalizeStatus(item.sph_status);
-                    const releaseLabel = isReleased ? "Released" : "Not Released";
+                    const actualSPHStatus = isReleased
+                      ? normalizeSPHStatus(item.sph_status)
+                      : "Not Released";
 
                     const statusStyle: Record<string, { icon: string; color: string }> = {
+                      "Not Released": {
+                        icon: "📄",
+                        color: "bg-gray-100 text-gray-600",
+                      },
+                      Open: {
+                        icon: "🟦",
+                        color: "bg-blue-100 text-blue-700",
+                      },
                       Win: {
                         icon: "✅",
                         color: "bg-green-100 text-green-700",
@@ -838,41 +853,21 @@ export default function ProjectPipelinePage() {
                         icon: "⛔",
                         color: "bg-slate-200 text-slate-700",
                       },
-                      Open: {
-                        icon: "🟦",
-                        color: "bg-blue-100 text-blue-700",
-                      },
                     };
 
-                    const current = statusStyle[actualSPHStatus] || {
-                      icon: "•",
-                      color: "bg-gray-200 text-gray-600",
-                    };
+                    const current = statusStyle[actualSPHStatus] || statusStyle["Not Released"];
 
                     return (
-                      <div className="flex flex-col gap-1">
-                        <span
-                          className={`inline-flex w-fit items-center gap-1 px-2 py-1 rounded text-xs font-medium ${
-                            isReleased
-                              ? "bg-emerald-100 text-emerald-700"
-                              : "bg-gray-100 text-gray-600"
-                          }`}
-                        >
-                          <span>{isReleased ? "📤" : "📄"}</span>
-                          <span>{releaseLabel}</span>
-                        </span>
-
-                        <span
-                          className={`inline-flex w-fit items-center gap-1 px-2 py-1 rounded text-xs font-medium ${current.color}`}
-                        >
-                          <span>{current.icon}</span>
-                          <span>{actualSPHStatus}</span>
-                        </span>
-                      </div>
+                      <span
+                        className={`inline-flex w-fit items-center gap-1 px-2 py-1 rounded text-xs font-medium ${current.color}`}
+                      >
+                        <span>{current.icon}</span>
+                        <span>{actualSPHStatus}</span>
+                      </span>
                     );
                   })()}
                 </td>
-
+                
                 <td className="px-3 py-3 text-right">
                   Rp {formatIDR(item.target_value || 0)}
                 </td>
