@@ -170,7 +170,8 @@ func validateAndNormalizeProjectFlow(body *models.CreateProjectRequest) error {
 
 	if body.PipelineStatus != "Active" &&
 		body.PipelineStatus != "Hold" &&
-		body.PipelineStatus != "Drop" {
+		body.PipelineStatus != "Hold" &&
+		body.PipelineStatus != "Closed" {
 		return fmt.Errorf("invalid pipeline_status")
 	}
 
@@ -223,8 +224,12 @@ func validateAndNormalizeProjectFlow(body *models.CreateProjectRequest) error {
 		body.SalesStage = 6
 	}
 
-	// Jika SPH outcome Loss/Drop, pipeline juga dianggap Drop.
-	if st == "Loss" || st == "Drop" {
+	// Mapping final outcome ke pipeline_status.
+	if st == "Win" || st == "Loss" {
+		body.PipelineStatus = "Closed"
+	}
+
+	if st == "Drop" {
 		body.PipelineStatus = "Drop"
 	}
 
