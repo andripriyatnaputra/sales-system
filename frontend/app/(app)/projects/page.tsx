@@ -289,10 +289,23 @@ export default function ProjectsPage() {
   ]);
 
   const [summary, setSummary] = useState<ProjectSummary | null>(null);
+  const [summaryYear, setSummaryYear] = useState(
+    String(new Date().getFullYear())
+  );
 
   useEffect(() => {
-    apiGet<ProjectSummary>("/projects/summary").then(setSummary);
-  }, []);
+    const params = new URLSearchParams();
+
+    if (summaryYear !== "All") {
+      params.set("year", summaryYear);
+    }
+
+    const qs = params.toString();
+
+    apiGet<ProjectSummary>(
+      qs ? `/projects/summary?${qs}` : "/projects/summary"
+    ).then(setSummary);
+  }, [summaryYear]);
 
   /* -------- Filtering & Sorting -------- */
 
@@ -808,7 +821,19 @@ return (
           </Link>
         </div>
 
+
         <div className="flex flex-wrap gap-2 lg:justify-end">
+          <select
+            className="border px-3 py-2 rounded-lg text-sm bg-white"
+            value={summaryYear}
+            onChange={(e) => setSummaryYear(e.target.value)}
+          >
+            <option value="All">All Years</option>
+            <option value="2026">2026</option>
+            <option value="2025">2025</option>
+            <option value="2024">2024</option>
+          </select>
+
           <button
             onClick={handleExportCsv}
             className="px-3 py-2 border rounded-lg text-sm hover:bg-gray-50"
@@ -826,6 +851,8 @@ return (
       </div>
     </div>
 
+    
+    
     {/* SUMMARY */}
     {summary && (
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-6 gap-4">

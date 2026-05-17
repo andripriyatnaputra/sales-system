@@ -243,15 +243,50 @@ func GetProjectsSummary(c *gin.Context) {
 
 	role := c.GetString("role")
 	userDiv := NormalizeDivision(c.GetString("division"))
+	year := strings.TrimSpace(c.Query("year"))
 
-	// ACL where (konsisten dengan dashboard & project list)
-	where := "1=1"
+	// ACL + year filter
+	whereParts := []string{"1=1"}
 	args := []any{}
+	idx := 1
+
 	if role == "user" {
-		where = "p.division = $1"
+		whereParts = append(whereParts, fmt.Sprintf("p.division = $%d", idx))
 		args = append(args, userDiv)
+		idx++
 	}
 
+	if year != "" && strings.ToUpper(year) != "ALL" {
+		whereParts = append(whereParts, fmt.Sprintf(`
+		EXISTS (
+			SELECT 1
+			FROM project_revenue_plan rp_year
+			WHERE rp_year.project_id = p.id
+			  AND EXTRACT(YEAR FROM rp_year.month) = $%d
+		)
+	`, idx))
+		args = append(args, year)
+		idx++
+	}
+
+	where := strings.Join(whereParts, " AND ")
+	revenueWhereParts := []string{"1=1"}
+	revenueArgs := []any{}
+	revenueIdx := 1
+
+	if role == "user" {
+		revenueWhereParts = append(revenueWhereParts, fmt.Sprintf("p.division = $%d", revenueIdx))
+		revenueArgs = append(revenueArgs, userDiv)
+		revenueIdx++
+	}
+
+	if year != "" && strings.ToUpper(year) != "ALL" {
+		revenueWhereParts = append(revenueWhereParts, fmt.Sprintf("EXTRACT(YEAR FROM rp.month) = $%d", revenueIdx))
+		revenueArgs = append(revenueArgs, year)
+		revenueIdx++
+	}
+
+	revenueWhere := strings.Join(revenueWhereParts, " AND ")
 	var resp models.ProjectSummaryResponse
 
 	// =============================
@@ -350,12 +385,12 @@ func GetProjectsSummary(c *gin.Context) {
 	// =============================
 	_ = database.Pool.QueryRow(ctx,
 		fmt.Sprintf(`
-			SELECT COALESCE(SUM(rp.target_revenue), 0)
-			FROM project_revenue_plan rp
-			JOIN projects p ON p.id = rp.project_id
-			WHERE %s
-		`, where),
-		args...,
+		SELECT COALESCE(SUM(rp.target_revenue), 0)
+		FROM project_revenue_plan rp
+		JOIN projects p ON p.id = rp.project_id
+		WHERE %s
+	`, revenueWhere),
+		revenueArgs...,
 	).Scan(&resp.TotalTargetRevenue)
 
 	c.JSON(200, resp)
