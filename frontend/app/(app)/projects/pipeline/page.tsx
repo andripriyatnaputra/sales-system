@@ -612,10 +612,26 @@ export default function ProjectPipelinePage() {
             {stage.label}
           </div>
 
-          <div className="mt-2 text-xl font-semibold leading-none">
-            {stage.count || 0}
-          </div>
-          <div className="text-[11px] text-gray-500">Projects</div>
+          {(() => {
+            const totalProjects = Number(stage.count || 0);
+            const holdProjects = Number(stage.hold_count || 0);
+            const dropProjects = Number(stage.drop_count || 0);
+            const activeProjects = Math.max(
+              0,
+              totalProjects - holdProjects - dropProjects
+            );
+
+            return (
+              <>
+                <div className="mt-2 text-xl font-semibold leading-none">
+                  {activeProjects}
+                </div>
+                <div className="text-[11px] text-gray-500">
+                  Active dari {totalProjects} Total Project
+                </div>
+              </>
+            );
+          })()}
 
           <div className="mt-3">
             <div className="text-[11px] text-gray-500">Initial Target</div>
