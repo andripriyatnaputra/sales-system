@@ -279,6 +279,8 @@ export default function ProjectPipelinePage() {
     );
   }, [stageCards]);
 
+  
+
   const filteredDetails = useMemo(() => {
     let data = [...details];
 
@@ -634,13 +636,17 @@ export default function ProjectPipelinePage() {
           })()}
 
           <div className="mt-3">
-            <div className="text-[11px] text-gray-500">Initial Target</div>
+            <div className="text-[11px] text-gray-500">Active Target</div>
             <div className="font-semibold leading-tight">
-              Rp {compactIDR(stage.target_value || 0)}
+              Rp {compactIDR(
+                    (stage.target_value || 0) -
+                      (stage.hold_value || 0) -
+                      (stage.drop_value || 0)
+                  )}
             </div>
           </div>
 
-          {stage.stage === 4 && (
+          {(stage.stage === 4 || stage.stage === 5) && (
             <div className="mt-2">
               <div className="text-[11px] text-gray-500">SPH Value</div>
               <div className="font-semibold leading-tight">
