@@ -244,6 +244,7 @@ func GetProjectsSummary(c *gin.Context) {
 	role := c.GetString("role")
 	userDiv := NormalizeDivision(c.GetString("division"))
 	year := strings.TrimSpace(c.Query("year"))
+	divisionQ := NormalizeDivision(strings.TrimSpace(c.Query("division")))
 
 	// ACL + year filter
 	whereParts := []string{"1=1"}
@@ -253,6 +254,10 @@ func GetProjectsSummary(c *gin.Context) {
 	if role == "user" {
 		whereParts = append(whereParts, fmt.Sprintf("p.division = $%d", idx))
 		args = append(args, userDiv)
+		idx++
+	} else if divisionQ != "" && strings.ToUpper(divisionQ) != "ALL" {
+		whereParts = append(whereParts, fmt.Sprintf("p.division = $%d", idx))
+		args = append(args, divisionQ)
 		idx++
 	}
 
@@ -278,11 +283,9 @@ func GetProjectsSummary(c *gin.Context) {
 		revenueWhereParts = append(revenueWhereParts, fmt.Sprintf("p.division = $%d", revenueIdx))
 		revenueArgs = append(revenueArgs, userDiv)
 		revenueIdx++
-	}
-
-	if year != "" && strings.ToUpper(year) != "ALL" {
-		revenueWhereParts = append(revenueWhereParts, fmt.Sprintf("EXTRACT(YEAR FROM rp.month) = $%d", revenueIdx))
-		revenueArgs = append(revenueArgs, year)
+	} else if divisionQ != "" && strings.ToUpper(divisionQ) != "ALL" {
+		revenueWhereParts = append(revenueWhereParts, fmt.Sprintf("p.division = $%d", revenueIdx))
+		revenueArgs = append(revenueArgs, divisionQ)
 		revenueIdx++
 	}
 

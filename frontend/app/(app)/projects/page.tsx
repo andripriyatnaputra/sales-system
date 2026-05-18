@@ -300,12 +300,16 @@ export default function ProjectsPage() {
       params.set("year", summaryYear);
     }
 
+    if (divisionFilter !== "All") {
+      params.set("division", divisionFilter);
+    }
+
     const qs = params.toString();
 
     apiGet<ProjectSummary>(
       qs ? `/projects/summary?${qs}` : "/projects/summary"
     ).then(setSummary);
-  }, [summaryYear]);
+  }, [summaryYear, divisionFilter]);
 
   /* -------- Filtering & Sorting -------- */
 
