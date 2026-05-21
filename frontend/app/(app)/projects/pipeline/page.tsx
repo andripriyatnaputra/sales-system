@@ -369,7 +369,7 @@ export default function ProjectPipelinePage() {
     <div className="space-y-6">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold">Pipeline Management</h1>
+          <h1 className="text-2xl font-semibold">Pipeline Monitoring</h1>
           <p className="text-sm text-gray-500">
             Monitoring jumlah project dan nilai target pada setiap sales stage.
           </p>

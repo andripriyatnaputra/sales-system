@@ -30,6 +30,13 @@ export default function Navbar() {
             <Link href="/projects">Projects</Link>
             <Link href="/budgets">Budgets</Link>
             <Link href="/customers">Customers</Link>
+            <Link
+              href="/leadgen"
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors font-semibold"
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block"></span>
+              Lead Gen
+            </Link>
 
             {/* 🔐 ADMIN ONLY */}
             {role === "admin" && (
