@@ -312,11 +312,11 @@ export default function BudgetsPage() {
   // ---------- Render ----------
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6">
       {/* HEADER */}
-      <div className="flex justify-between items-center">
+      <div className="flex flex-wrap gap-3 justify-between items-start">
         <div>
-          <h2 className="text-2xl font-semibold">Budgets</h2>
+          <h2 className="text-xl sm:text-2xl font-semibold">Budgets</h2>
           <p className="text-xs text-gray-500">
             Budget marketing per division &amp; per month
           </p>

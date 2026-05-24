@@ -480,27 +480,21 @@ export default function DashboardPage() {
 
   return (
     <AuthGuard>
-    <div className="p-4 space-y-6">
+    <div className="space-y-4 sm:space-y-6">
 
-      {/* HEADER */}
-      {/* HEADER + FILTER BAR WRAPPER */}
-      <div className="flex flex-col mb-1">
+      {/* HEADER + FILTER BAR */}
+      <div className="space-y-3">
 
-        {/* ROW 1 – Title + (empty flex) + Filter bar */}
-        <div className="flex justify-between items-center">
-
-          {/* LEFT – Dashboard Title */}
+        {/* ROW 1 – Title + Status label */}
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-3">
-            {/* LOGO */}
             <img
-              src="/Logo.svg"      // atau /logo.png
+              src="/Logo.svg"
               alt="Sales System"
-              className="h-8 w-8 object-contain"
+              className="h-7 w-7 sm:h-8 sm:w-8 object-contain"
             />
-
-            {/* TITLE + SUBTITLE */}
             <div className="flex flex-col gap-0.5">
-              <h1 className="text-3xl font-semibold tracking-tight leading-none">
+              <h1 className="text-xl sm:text-3xl font-semibold tracking-tight leading-none">
                 Sales Dashboard
               </h1>
               <p className="text-[11px] text-muted-foreground leading-none">
@@ -508,194 +502,126 @@ export default function DashboardPage() {
               </p>
             </div>
           </div>
+
           <div className="flex items-center gap-2">
             <span className="text-[11px] text-muted-foreground">
               Status: <span className="font-medium text-foreground">{statusLabel}</span>
             </span>
-
             {isDefaultStatus && (
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-muted border">
+              <span className="hidden sm:inline text-[10px] px-2 py-0.5 rounded-full bg-muted border">
                 Default: Prospect + Carry Over
               </span>
             )}
           </div>
+        </div>
 
-          {/* RIGHT – Filter Bar */}
-          <div className="flex flex-wrap justify-end items-center gap-2">
-            {/* Select Status */}
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" size="sm" className="h-9">
-                  Status {filters.status.length > 0 && `(${filters.status.length})`}
-                </Button>
-              </PopoverTrigger>
-
-              <PopoverContent className="w-64 space-y-2">
-                <div className="text-xs font-semibold text-muted-foreground">Project Status</div>
-
-                {STATUS_OPTIONS.filter(s => s.value !== "ALL").map((s) => (
-                  <label key={s.value} className="flex items-center gap-2 py-1 cursor-pointer">
-                    <Checkbox
-                      checked={filters.status.includes(s.value)}
-                      onCheckedChange={() =>
-                        setFilters((f) => ({
-                          ...f,
-                          status: toggle(f.status, s.value),
-                        }))
-                      }
-                    />
-                    <span className="text-sm">{s.label}</span>
-                  </label>
-                ))}
-
-                <div className="pt-2 flex gap-2">
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    className="h-8"
-                    onClick={() => setFilters((f) => ({ ...f, status: [] }))}
-                  >
-                    Clear
-                  </Button>
-
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-8"
-                    onClick={() =>
-                      setFilters((f) => ({
-                        ...f,
-                        status: STATUS_OPTIONS.filter(x => x.value !== "ALL").map(x => x.value),
-                      }))
-                    }
-                  >
-                    Select all
-                  </Button>
-                </div>
-              </PopoverContent>
-            </Popover>
-            
-          {/* Stage */}
-
+        {/* ROW 2 – Filter Bar (wraps on mobile) */}
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Status */}
           <Popover>
             <PopoverTrigger asChild>
-              <Button variant="outline" size="sm" className="h-9">
-                Stage {filters.salesStage.length > 0 && `(${filters.salesStage.length})`}
+              <Button variant="outline" size="sm" className="h-8 text-xs sm:h-9 sm:text-sm">
+                Status {filters.status.length > 0 && `(${filters.status.length})`}
               </Button>
             </PopoverTrigger>
-
             <PopoverContent className="w-64 space-y-2">
-              <div className="text-xs font-semibold text-muted-foreground">Sales Stage</div>
-
-              {STAGE_OPTIONS.filter(s => s.value !== "ALL").map((s) => (
+              <div className="text-xs font-semibold text-muted-foreground">Project Status</div>
+              {STATUS_OPTIONS.filter(s => s.value !== "ALL").map((s) => (
                 <label key={s.value} className="flex items-center gap-2 py-1 cursor-pointer">
                   <Checkbox
-                    checked={filters.salesStage.includes(s.value)}
+                    checked={filters.status.includes(s.value)}
                     onCheckedChange={() =>
-                      setFilters((f) => ({
-                        ...f,
-                        salesStage: toggle(f.salesStage, s.value),
-                      }))
+                      setFilters((f) => ({ ...f, status: toggle(f.status, s.value) }))
                     }
                   />
                   <span className="text-sm">{s.label}</span>
                 </label>
               ))}
-
               <div className="pt-2 flex gap-2">
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  className="h-8"
-                  onClick={() => setFilters((f) => ({ ...f, salesStage: [] }))}
-                >
-                  Clear
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-8"
-                  onClick={() =>
-                    setFilters((f) => ({
-                      ...f,
-                      salesStage: STAGE_OPTIONS.filter(x => x.value !== "ALL").map(x => x.value),
-                    }))
-                  }
-                >
-                  Select all
-                </Button>
+                <Button variant="secondary" size="sm" className="h-8"
+                  onClick={() => setFilters((f) => ({ ...f, status: [] }))}>Clear</Button>
+                <Button variant="outline" size="sm" className="h-8"
+                  onClick={() => setFilters((f) => ({
+                    ...f, status: STATUS_OPTIONS.filter(x => x.value !== "ALL").map(x => x.value),
+                  }))}>Select all</Button>
               </div>
             </PopoverContent>
           </Popover>
 
+          {/* Stage */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="sm" className="h-8 text-xs sm:h-9 sm:text-sm">
+                Stage {filters.salesStage.length > 0 && `(${filters.salesStage.length})`}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-64 space-y-2">
+              <div className="text-xs font-semibold text-muted-foreground">Sales Stage</div>
+              {STAGE_OPTIONS.filter(s => s.value !== "ALL").map((s) => (
+                <label key={s.value} className="flex items-center gap-2 py-1 cursor-pointer">
+                  <Checkbox
+                    checked={filters.salesStage.includes(s.value)}
+                    onCheckedChange={() =>
+                      setFilters((f) => ({ ...f, salesStage: toggle(f.salesStage, s.value) }))
+                    }
+                  />
+                  <span className="text-sm">{s.label}</span>
+                </label>
+              ))}
+              <div className="pt-2 flex gap-2">
+                <Button variant="secondary" size="sm" className="h-8"
+                  onClick={() => setFilters((f) => ({ ...f, salesStage: [] }))}>Clear</Button>
+                <Button variant="outline" size="sm" className="h-8"
+                  onClick={() => setFilters((f) => ({
+                    ...f, salesStage: STAGE_OPTIONS.filter(x => x.value !== "ALL").map(x => x.value),
+                  }))}>Select all</Button>
+              </div>
+            </PopoverContent>
+          </Popover>
 
           {/* Project Type */}
           <Popover>
             <PopoverTrigger asChild>
-              <Button variant="outline" size="sm" className="h-9">
+              <Button variant="outline" size="sm" className="h-8 text-xs sm:h-9 sm:text-sm">
                 Type {filters.projectType.length > 0 && `(${filters.projectType.length})`}
               </Button>
             </PopoverTrigger>
-
             <PopoverContent className="w-64 space-y-2">
               <div className="text-xs font-semibold text-muted-foreground">Project Type</div>
-
               {PROJECT_TYPE_OPTIONS.filter(t => t.value !== "ALL").map((t) => (
                 <label key={t.value} className="flex items-center gap-2 py-1 cursor-pointer">
                   <Checkbox
                     checked={filters.projectType.includes(t.value)}
                     onCheckedChange={() =>
-                      setFilters((f) => ({
-                        ...f,
-                        projectType: toggle(f.projectType, t.value),
-                      }))
+                      setFilters((f) => ({ ...f, projectType: toggle(f.projectType, t.value) }))
                     }
                   />
                   <span className="text-sm">{t.label}</span>
                 </label>
               ))}
-
               <div className="pt-2 flex gap-2">
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  className="h-8"
-                  onClick={() => setFilters((f) => ({ ...f, projectType: [] }))}
-                >
-                  Clear
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-8"
-                  onClick={() =>
-                    setFilters((f) => ({
-                      ...f,
-                      projectType: PROJECT_TYPE_OPTIONS.filter(x => x.value !== "ALL").map(x => x.value),
-                    }))
-                  }
-                >
-                  Select all
-                </Button>
+                <Button variant="secondary" size="sm" className="h-8"
+                  onClick={() => setFilters((f) => ({ ...f, projectType: [] }))}>Clear</Button>
+                <Button variant="outline" size="sm" className="h-8"
+                  onClick={() => setFilters((f) => ({
+                    ...f, projectType: PROJECT_TYPE_OPTIONS.filter(x => x.value !== "ALL").map(x => x.value),
+                  }))}>Select all</Button>
               </div>
             </PopoverContent>
           </Popover>
 
-
-          {/* CUSTOMER */}
+          {/* Customer */}
           <Select
             value={filters.customer}
             onValueChange={(v) => setFilters((f) => ({ ...f, customer: v }))}
           >
-            <SelectTrigger className="h-9 w-[180px] text-sm">
+            <SelectTrigger className="h-8 sm:h-9 w-[140px] sm:w-[180px] text-xs sm:text-sm">
               <SelectValue placeholder="Customer" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="ALL">All Customers</SelectItem>
               {customerNames.map((cust) => (
-                <SelectItem key={cust} value={cust}>
-                  {cust}
-                </SelectItem>
+                <SelectItem key={cust} value={cust}>{cust}</SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -705,14 +631,12 @@ export default function DashboardPage() {
             value={filters.division}
             onValueChange={(v) => setFilters((f) => ({ ...f, division: v }))}
           >
-            <SelectTrigger className="h-9 w-[150px] text-sm">
+            <SelectTrigger className="h-8 sm:h-9 w-[120px] sm:w-[150px] text-xs sm:text-sm">
               <SelectValue placeholder="Division" />
             </SelectTrigger>
             <SelectContent>
               {DIVISION_OPTIONS.map((d) => (
-                <SelectItem key={d.value} value={d.value}>
-                  {d.label}
-                </SelectItem>
+                <SelectItem key={d.value} value={d.value}>{d.label}</SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -720,38 +644,31 @@ export default function DashboardPage() {
           {/* From Month */}
           <Input
             type="month"
-            className="h-9 w-[150px] text-sm"
+            className="h-8 sm:h-9 w-[130px] sm:w-[150px] text-xs sm:text-sm"
             value={filters.fromMonth}
-            onChange={(e) =>
-              setFilters((f) => ({ ...f, fromMonth: e.target.value }))
-            }
+            onChange={(e) => setFilters((f) => ({ ...f, fromMonth: e.target.value }))}
           />
 
           {/* To Month */}
           <Input
             type="month"
-            className="h-9 w-[150px] text-sm"
+            className="h-8 sm:h-9 w-[130px] sm:w-[150px] text-xs sm:text-sm"
             value={filters.toMonth}
-            onChange={(e) =>
-              setFilters((f) => ({ ...f, toMonth: e.target.value }))
-            }
+            onChange={(e) => setFilters((f) => ({ ...f, toMonth: e.target.value }))}
           />
 
           {/* Reset */}
           <Button
             variant="outline"
             size="sm"
-            className="h-9 px-4 text-sm"
+            className="h-8 sm:h-9 px-3 sm:px-4 text-xs sm:text-sm"
             onClick={() => setFilters(INITIAL_FILTERS)}
           >
             Reset
           </Button>
-          </div>
-
         </div>
-
       </div>
-      <Separator className="my-2" />
+      <Separator className="my-1 sm:my-2" />
 
       {/* ROW 1 – KPI CARDS */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-7 gap-4">

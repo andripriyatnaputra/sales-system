@@ -72,14 +72,14 @@ export default function CustomersPage() {
   /* ------------------- RENDER ------------------- */
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-6">
 
       {/* HEADER */}
-      <div className="flex justify-between items-center">
+      <div className="flex flex-wrap gap-3 justify-between items-center">
         <h1 className="text-xl font-semibold">Customers</h1>
 
         <button
-          className="px-3 py-2 bg-blue-600 text-white rounded"
+          className="px-3 py-2 bg-blue-600 text-white rounded text-sm"
           onClick={() => {
             setEditData(null);
             setOpenModal(true);
