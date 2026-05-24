@@ -483,44 +483,30 @@ export default function DashboardPage() {
     <div className="space-y-4 sm:space-y-6">
 
       {/* HEADER + FILTER BAR */}
-      <div className="space-y-3">
+      <div className="flex flex-wrap justify-between items-center gap-3">
 
-        {/* ROW 1 – Title + Status label */}
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="flex items-center gap-3">
-            <img
-              src="/Logo.svg"
-              alt="Sales System"
-              className="h-7 w-7 sm:h-8 sm:w-8 object-contain"
-            />
-            <div className="flex flex-col gap-0.5">
-              <h1 className="text-xl sm:text-3xl font-semibold tracking-tight leading-none">
-                Sales Dashboard
-              </h1>
-              <p className="text-[11px] text-muted-foreground leading-none">
-                Sales performance & pipeline overview
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <span className="text-[11px] text-muted-foreground">
-              Status: <span className="font-medium text-foreground">{statusLabel}</span>
-            </span>
-            {isDefaultStatus && (
-              <span className="hidden sm:inline text-[10px] px-2 py-0.5 rounded-full bg-muted border">
-                Default: Prospect + Carry Over
-              </span>
-            )}
-          </div>
+        {/* LEFT – Title + Subtitle */}
+        <div className="flex flex-col gap-0.5">
+          <h1 className="text-3xl font-semibold tracking-tight leading-none">
+            Sales Dashboard
+          </h1>
+          <p className="text-[11px] text-muted-foreground leading-none">
+            Sales performance &amp; pipeline overview
+          </p>
         </div>
 
-        {/* ROW 2 – Filter Bar (wraps on mobile) */}
+        {/* RIGHT – Status label + Filter Bar */}
         <div className="flex flex-wrap items-center gap-2">
+
+          {/* Status label */}
+          <span className="text-[11px] text-muted-foreground whitespace-nowrap">
+            Status: <span className="font-medium text-foreground">{statusLabel}</span>
+          </span>
+
           {/* Status */}
           <Popover>
             <PopoverTrigger asChild>
-              <Button variant="outline" size="sm" className="h-8 text-xs sm:h-9 sm:text-sm">
+              <Button variant="outline" className="h-9 px-3 text-sm">
                 Status {filters.status.length > 0 && `(${filters.status.length})`}
               </Button>
             </PopoverTrigger>
@@ -538,9 +524,9 @@ export default function DashboardPage() {
                 </label>
               ))}
               <div className="pt-2 flex gap-2">
-                <Button variant="secondary" size="sm" className="h-8"
+                <Button variant="secondary" size="sm"
                   onClick={() => setFilters((f) => ({ ...f, status: [] }))}>Clear</Button>
-                <Button variant="outline" size="sm" className="h-8"
+                <Button variant="outline" size="sm"
                   onClick={() => setFilters((f) => ({
                     ...f, status: STATUS_OPTIONS.filter(x => x.value !== "ALL").map(x => x.value),
                   }))}>Select all</Button>
@@ -551,7 +537,7 @@ export default function DashboardPage() {
           {/* Stage */}
           <Popover>
             <PopoverTrigger asChild>
-              <Button variant="outline" size="sm" className="h-8 text-xs sm:h-9 sm:text-sm">
+              <Button variant="outline" className="h-9 px-3 text-sm">
                 Stage {filters.salesStage.length > 0 && `(${filters.salesStage.length})`}
               </Button>
             </PopoverTrigger>
@@ -569,9 +555,9 @@ export default function DashboardPage() {
                 </label>
               ))}
               <div className="pt-2 flex gap-2">
-                <Button variant="secondary" size="sm" className="h-8"
+                <Button variant="secondary" size="sm"
                   onClick={() => setFilters((f) => ({ ...f, salesStage: [] }))}>Clear</Button>
-                <Button variant="outline" size="sm" className="h-8"
+                <Button variant="outline" size="sm"
                   onClick={() => setFilters((f) => ({
                     ...f, salesStage: STAGE_OPTIONS.filter(x => x.value !== "ALL").map(x => x.value),
                   }))}>Select all</Button>
@@ -582,7 +568,7 @@ export default function DashboardPage() {
           {/* Project Type */}
           <Popover>
             <PopoverTrigger asChild>
-              <Button variant="outline" size="sm" className="h-8 text-xs sm:h-9 sm:text-sm">
+              <Button variant="outline" className="h-9 px-3 text-sm">
                 Type {filters.projectType.length > 0 && `(${filters.projectType.length})`}
               </Button>
             </PopoverTrigger>
@@ -600,9 +586,9 @@ export default function DashboardPage() {
                 </label>
               ))}
               <div className="pt-2 flex gap-2">
-                <Button variant="secondary" size="sm" className="h-8"
+                <Button variant="secondary" size="sm"
                   onClick={() => setFilters((f) => ({ ...f, projectType: [] }))}>Clear</Button>
-                <Button variant="outline" size="sm" className="h-8"
+                <Button variant="outline" size="sm"
                   onClick={() => setFilters((f) => ({
                     ...f, projectType: PROJECT_TYPE_OPTIONS.filter(x => x.value !== "ALL").map(x => x.value),
                   }))}>Select all</Button>
@@ -615,7 +601,7 @@ export default function DashboardPage() {
             value={filters.customer}
             onValueChange={(v) => setFilters((f) => ({ ...f, customer: v }))}
           >
-            <SelectTrigger className="h-8 sm:h-9 w-[140px] sm:w-[180px] text-xs sm:text-sm">
+            <SelectTrigger className="h-9 w-[180px] text-sm">
               <SelectValue placeholder="Customer" />
             </SelectTrigger>
             <SelectContent>
@@ -631,7 +617,7 @@ export default function DashboardPage() {
             value={filters.division}
             onValueChange={(v) => setFilters((f) => ({ ...f, division: v }))}
           >
-            <SelectTrigger className="h-8 sm:h-9 w-[120px] sm:w-[150px] text-xs sm:text-sm">
+            <SelectTrigger className="h-9 w-[150px] text-sm">
               <SelectValue placeholder="Division" />
             </SelectTrigger>
             <SelectContent>
@@ -644,7 +630,7 @@ export default function DashboardPage() {
           {/* From Month */}
           <Input
             type="month"
-            className="h-8 sm:h-9 w-[130px] sm:w-[150px] text-xs sm:text-sm"
+            className="h-9 w-[150px] text-sm"
             value={filters.fromMonth}
             onChange={(e) => setFilters((f) => ({ ...f, fromMonth: e.target.value }))}
           />
@@ -652,7 +638,7 @@ export default function DashboardPage() {
           {/* To Month */}
           <Input
             type="month"
-            className="h-8 sm:h-9 w-[130px] sm:w-[150px] text-xs sm:text-sm"
+            className="h-9 w-[150px] text-sm"
             value={filters.toMonth}
             onChange={(e) => setFilters((f) => ({ ...f, toMonth: e.target.value }))}
           />
@@ -660,8 +646,7 @@ export default function DashboardPage() {
           {/* Reset */}
           <Button
             variant="outline"
-            size="sm"
-            className="h-8 sm:h-9 px-3 sm:px-4 text-xs sm:text-sm"
+            className="h-9 px-4 text-sm"
             onClick={() => setFilters(INITIAL_FILTERS)}
           >
             Reset
