@@ -11,6 +11,7 @@ type AgentType =
   | "kai"
   | "bjb"
   | "airnav"
+  | "spse-komdigi"
   | "classifier"
   | "qualifier"
   | "outreach";
@@ -30,7 +31,8 @@ const AGENTS: AgentConfig[] = [
   { id: "pamjaya",   name: "PAM Jaya",              description: "Scrape tender dari eproc.pamjaya.co.id",                    category: "scraping",    icon: "💧" },
   { id: "kai",       name: "KAI RAPID",             description: "Scrape tender dari rapid.kai.id",                           category: "scraping",    icon: "🚆" },
   { id: "bjb",       name: "Bank BJB",              description: "Scrape tender dari eproc.bankbjb.co.id (API)",              category: "scraping",    icon: "🏦" },
-  { id: "airnav",    name: "Airnav Indonesia",       description: "Scrape tender dari eproc.airnavindonesia.co.id",            category: "scraping",    icon: "✈️" },
+  { id: "airnav",       name: "Airnav Indonesia",        description: "Scrape tender dari eproc.airnavindonesia.co.id",            category: "scraping",    icon: "✈️" },
+  { id: "spse-komdigi", name: "SPSE Komdigi",          description: "Scrape tender Pasca Kualifikasi dari spse.inaproc.id/komdigi", category: "scraping",    icon: "🏛️" },
   { id: "classifier", name: "Classifier",           description: "Klasifikasi relevansi tender dengan Claude AI",             category: "processing",  icon: "🤖" },
   { id: "qualifier",  name: "Qualifier",            description: "Scoring dan prioritas leads berdasarkan ICP",               category: "processing",  icon: "📊" },
   { id: "outreach",   name: "Outreach",             description: "Generate email outreach yang dipersonalisasi",              category: "processing",  icon: "✉️" },
