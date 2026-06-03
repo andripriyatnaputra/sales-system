@@ -24,9 +24,9 @@ interface RawLead {
 
 function formatNilai(n: number): string {
   if (!n) return "—";
-  if (n >= 1_000_000_000) return `Rp ${(n / 1_000_000_000).toFixed(1)}M`;
-  if (n >= 1_000_000) return `Rp ${(n / 1_000_000).toFixed(0)}jt`;
-  return `Rp ${n.toLocaleString("id-ID")}`;
+  if (n >= 1_000_000_000) return `${(n / 1_000_000_000).toFixed(1)}M`;
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(0)}jt`;
+  return `${n.toLocaleString("id-ID")}`;
 }
 
 function formatDate(d: string): string {

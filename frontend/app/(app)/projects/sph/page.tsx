@@ -296,6 +296,7 @@ export default function ProjectSPHPage() {
   };
 
   const [selectedReason, setSelectedReason] = useState<string | "All">("All");
+  const [selectedAging, setSelectedAging] = useState<string | "All">("All");
 
   useEffect(() => {
     loadData();
@@ -393,6 +394,20 @@ export default function ProjectSPHPage() {
     });
   }
 
+  if (selectedAging !== "All") {
+    data = data.filter((item) => {
+      const normalizedStatus = normalizeStatus(item.sph_status);
+      if (normalizedStatus !== "Open" && normalizedStatus !== "Hold") return false;
+      const days = getAgingDays(item.sph_release_date);
+      if (days === null) return false;
+      if (selectedAging === "0-7 days") return days >= 0 && days <= 7;
+      if (selectedAging === "8-14 days") return days >= 8 && days <= 14;
+      if (selectedAging === "15-30 days") return days >= 15 && days <= 30;
+      if (selectedAging === ">30 days") return days > 30;
+      return false;
+    });
+  }
+
   return data.sort(
     (a, b) => Number(b.sph_value || 0) - Number(a.sph_value || 0)
   );
@@ -446,6 +461,7 @@ const paginatedDetails = useMemo(() => {
     setStartMonth("");
     setEndMonth("");
     setSelectedReason("All");
+    setSelectedAging("All");
 
     if ((me?.role || "").toLowerCase() === "user" && me?.division) {
       setDivision(String(me.division));
@@ -464,7 +480,7 @@ const paginatedDetails = useMemo(() => {
 
   useEffect(() => {
     setPage(1);
-  }, [search, selectedReason]);
+  }, [search, selectedReason, selectedAging]);
 
   return (
     <div className="space-y-6">
@@ -651,14 +667,14 @@ const paginatedDetails = useMemo(() => {
             <div className="bg-blue-50 border border-blue-200 rounded-xl shadow-sm p-4">
               <div className="text-xs text-blue-700">SPH Value</div>
               <div className="mt-2 text-xl font-semibold">
-                Rp {compactIDR(summary?.sph_value || 0)}
+                {compactIDR(summary?.sph_value || 0)}
               </div>
             </div>
 
             <div className="bg-amber-50 border border-amber-200 rounded-xl shadow-sm p-4">
               <div className="text-xs text-amber-700">Initial Target</div>
               <div className="mt-2 text-xl font-semibold">
-                Rp {compactIDR(summary?.initial_target_value || 0)}
+                {compactIDR(summary?.initial_target_value || 0)}
               </div>
             </div>
 
@@ -673,7 +689,7 @@ const paginatedDetails = useMemo(() => {
                     : ""
                 }`}
               >
-                Rp {compactIDR(summary?.variance_value || 0)}
+                {compactIDR(summary?.variance_value || 0)}
               </div>
               <div className="text-xs text-gray-500 mt-1">
                 {percent(
@@ -691,7 +707,7 @@ const paginatedDetails = useMemo(() => {
               </div>
               <div className="mt-1 text-sm text-gray-600">
                 {topValueStatus
-                  ? `Rp ${compactIDR(topValueStatus.target_value || 0)}`
+                  ? `${compactIDR(topValueStatus.target_value || 0)}`
                   : "-"}
               </div>
             </div>
@@ -713,7 +729,7 @@ const paginatedDetails = useMemo(() => {
               {Number(summary?.conversion_rate || 0).toFixed(1)}%
             </div>
             <div className="text-xs text-gray-500 mt-1">
-              Realization: Rp {compactIDR(summary?.realization_value || 0)}
+              Realization: {compactIDR(summary?.realization_value || 0)}
             </div>
           </div>
 
@@ -731,7 +747,7 @@ const paginatedDetails = useMemo(() => {
                       : ""
                   }
                 >
-                  Rp {compactIDR(summary?.variance_value || 0)}
+                  {compactIDR(summary?.variance_value || 0)}
                 </b>{" "}
                 (
                 {percent(
@@ -743,7 +759,7 @@ const paginatedDetails = useMemo(() => {
 
               <div>
                 {topValueStatus
-                  ? `${topValueStatus.status} memiliki nilai SPH terbesar sebesar Rp ${compactIDR(
+                  ? `${topValueStatus.status} memiliki nilai SPH terbesar sebesar ${compactIDR(
                       topValueStatus.target_value || 0
                     )}.`
                   : "Belum ada data status SPH."}
@@ -831,7 +847,7 @@ const paginatedDetails = useMemo(() => {
 
                         <div className="text-right">
                           <div className="font-semibold">
-                            Rp {compactIDR(item.sph_value || 0)}
+                            {compactIDR(item.sph_value || 0)}
                           </div>
                           <div className="text-xs text-gray-500">{pct}%</div>
                         </div>
@@ -899,13 +915,13 @@ const paginatedDetails = useMemo(() => {
                           {normalizeStatus(item.sph_status)}
                         </td>
                         <td className="px-3 py-3 text-right">
-                          Rp {formatIDR(item.target_value || 0)}
+                          {formatIDR(item.target_value || 0)}
                         </td>
                         <td className="px-3 py-3 text-right">
-                          Rp {formatIDR(item.sph_value || 0)}
+                          {formatIDR(item.sph_value || 0)}
                         </td>
                         <td className="px-3 py-3 text-right font-semibold text-red-600">
-                          Rp {formatIDR(item.variance || 0)}
+                          {formatIDR(item.variance || 0)}
                         </td>
                       </tr>
                     ))
@@ -944,7 +960,7 @@ const paginatedDetails = useMemo(() => {
                   <div className="mt-4">
                     <div className="text-xs text-gray-500">Value</div>
                     <div className="font-semibold">
-                      Rp {compactIDR(item.target_value || 0)}
+                      {compactIDR(item.target_value || 0)}
                     </div>
                   </div>
 
@@ -966,7 +982,7 @@ const paginatedDetails = useMemo(() => {
                       <div className="mt-2">
                         <div className="text-xs text-gray-500">Avg / Project</div>
                         <div className="font-medium">
-                          Rp {compactIDR(item.avg_target_value || 0)}
+                          {compactIDR(item.avg_target_value || 0)}
                         </div>
                       </div>
                     </>
@@ -977,12 +993,24 @@ const paginatedDetails = useMemo(() => {
           </div>
 
           <div className="bg-white border rounded-xl shadow-sm overflow-hidden">
-            <div className="p-4 border-b">
-              <div className="font-semibold">SPH Aging</div>
-              <div className="text-xs text-gray-500 mt-1">
-                Distribusi aging untuk SPH aktif (Open/Hold) berdasarkan umur
-                sejak tanggal release.
+            <div className="p-4 border-b flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+              <div>
+                <div className="font-semibold">SPH Aging</div>
+                <div className="text-xs text-gray-500 mt-1">
+                  Distribusi aging untuk SPH aktif (Open/Hold) berdasarkan umur
+                  sejak tanggal release. Klik card untuk filter tabel.
+                </div>
               </div>
+
+              {selectedAging !== "All" && (
+                <button
+                  type="button"
+                  onClick={() => setSelectedAging("All")}
+                  className="px-3 py-2 border rounded-lg text-sm hover:bg-gray-50 shrink-0"
+                >
+                  Clear Aging Filter
+                </button>
+              )}
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 p-4">
@@ -991,30 +1019,42 @@ const paginatedDetails = useMemo(() => {
                   No aging data found.
                 </div>
               ) : (
-                sortedAging.map((item) => (
-                  <div
-                    key={item.label}
-                    className={`border rounded-xl p-4 ${agingCardStyle(
-                      item.label
-                    )}`}
-                  >
-                    <div className="text-xs text-gray-500">{item.label}</div>
-                    <div className="mt-2 text-2xl font-semibold">
-                      {item.count || 0}
-                    </div>
-                    <div className="text-xs text-gray-500">Projects</div>
-                    <div className="mt-3 font-medium">
-                      Rp {compactIDR(item.target_value || 0)}
-                    </div>
-                    <div className="mt-2 text-sm text-gray-600">
-                      {getContribution(
-                        Number(item.target_value || 0),
-                        Number(summary?.sph_value || 0)
-                      )}
-                      % of total
-                    </div>
-                  </div>
-                ))
+                sortedAging.map((item) => {
+                  const active = selectedAging === item.label;
+                  return (
+                    <button
+                      key={item.label}
+                      type="button"
+                      onClick={() =>
+                        setSelectedAging((prev) =>
+                          prev === item.label ? "All" : item.label
+                        )
+                      }
+                      className={`border rounded-xl p-4 text-left hover:shadow-md transition cursor-pointer ${agingCardStyle(item.label)} ${
+                        active ? "ring-2 ring-blue-500 border-blue-500" : ""
+                      }`}
+                    >
+                      <div className="text-xs text-gray-500">{item.label}</div>
+                      <div className="mt-2 text-2xl font-semibold">
+                        {item.count || 0}
+                      </div>
+                      <div className="text-xs text-gray-500">Projects</div>
+                      <div className="mt-3 font-medium">
+                        {compactIDR(item.target_value || 0)}
+                      </div>
+                      <div className="mt-2 text-sm text-gray-600">
+                        {getContribution(
+                          Number(item.target_value || 0),
+                          Number(summary?.sph_value || 0)
+                        )}
+                        % of total
+                      </div>
+                      <div className="mt-2 text-[11px] text-gray-400">
+                        {active ? "Click again to clear filter" : "Click to filter details"}
+                      </div>
+                    </button>
+                  );
+                })
               )}
             </div>
           </div>
@@ -1138,11 +1178,11 @@ const paginatedDetails = useMemo(() => {
                           </td>
                           <td className="px-3 py-3">{reasonText(item)}</td>
                           <td className="px-3 py-3 text-right">
-                            Rp {formatIDR(item.target_value || 0)}
+                            {formatIDR(item.target_value || 0)}
                           </td>
                           <td className="px-3 py-3 text-right">
                             {item.sph_value !== null && item.sph_value !== undefined ? (
-                              <>Rp {formatIDR(item.sph_value)}</>
+                              <>{formatIDR(item.sph_value)}</>
                             ) : (
                               <span className="text-gray-400">-</span>
                             )}
@@ -1160,7 +1200,7 @@ const paginatedDetails = useMemo(() => {
                                     : ""
                                 }`}
                               >
-                                Rp {formatIDR(variance)}
+                              {formatIDR(variance)}
                               </span>
                             )}
                           </td>

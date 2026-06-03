@@ -350,12 +350,12 @@ export default function ProjectDetailPage() {
       <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
         <Card className="p-4">
           <div className="text-xs text-muted-foreground">Total Target</div>
-          <div className="font-semibold">Rp {formatIDR(totalTarget)}</div>
+          <div className="font-semibold">{formatIDR(totalTarget)}</div>
         </Card>
         <Card className="p-4">
           <div className="text-xs text-muted-foreground">Total Realization</div>
           <div className="font-semibold text-green-600">
-            Rp {formatIDR(totalReal)}
+            {formatIDR(totalReal)}
           </div>
         </Card>
         <Card className="p-4">
@@ -367,7 +367,7 @@ export default function ProjectDetailPage() {
         <Card className="p-4">
           <div className="text-xs text-muted-foreground">Weighted Revenue</div>
           <div className="font-semibold text-blue-600">
-            Rp {formatIDR(totalTarget * (SALES_STAGE_PROBABILITY[project.sales_stage] ?? 1))}
+            {formatIDR(totalTarget * (SALES_STAGE_PROBABILITY[project.sales_stage] ?? 1))}
           </div>
         </Card>
         <Card className="p-4">
@@ -574,7 +574,7 @@ export default function ProjectDetailPage() {
             <div>
               <div className="text-sm text-muted-foreground">Target</div>
               <div className="font-medium">
-                Rp {formatIDR(selected?.target_revenue || 0)}
+                {formatIDR(selected?.target_revenue || 0)}
               </div>
             </div>
 

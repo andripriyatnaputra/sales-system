@@ -545,21 +545,21 @@ export default function ProjectPipelinePage() {
   <div className="bg-blue-50 border border-blue-200 rounded-xl shadow-sm p-4">
     <div className="text-xs text-blue-700">Total Target Value</div>
     <div className="mt-2 text-xl font-semibold">
-      Rp {compactIDR(summary?.total_target_value || 0)}
+      {compactIDR(summary?.total_target_value || 0)}
     </div>
   </div>
 
   <div className="bg-green-50 border border-green-200 rounded-xl shadow-sm p-4">
     <div className="text-xs text-green-700">Total SPH Value</div>
     <div className="mt-2 text-xl font-semibold">
-      Rp {compactIDR(totalSPHValue)}
+      {compactIDR(totalSPHValue)}
     </div>
   </div>
 
   <div className="bg-violet-50 border border-violet-200 rounded-xl shadow-sm p-4">
     <div className="text-xs text-violet-700">Average Deal Size</div>
     <div className="mt-2 text-xl font-semibold">
-      Rp {compactIDR(summary?.avg_deal_size || 0)}
+      {compactIDR(summary?.avg_deal_size || 0)}
     </div>
   </div>
 
@@ -580,7 +580,7 @@ export default function ProjectPipelinePage() {
     </div>
     <div className="mt-1 text-sm text-gray-600">
       {topValueStage
-        ? `Rp ${compactIDR(topValueStage.target_value || 0)}`
+        ? `${compactIDR(topValueStage.target_value || 0)}`
         : "-"}
     </div>
   </div>
@@ -638,7 +638,7 @@ export default function ProjectPipelinePage() {
           <div className="mt-3">
             <div className="text-[11px] text-gray-500">Active Target</div>
             <div className="font-semibold leading-tight">
-              Rp {compactIDR(
+              {compactIDR(
                     (stage.target_value || 0) -
                       (stage.hold_value || 0) -
                       (stage.drop_value || 0)
@@ -650,7 +650,7 @@ export default function ProjectPipelinePage() {
             <div className="mt-2">
               <div className="text-[11px] text-gray-500">SPH Value</div>
               <div className="font-semibold leading-tight">
-                Rp {compactIDR(stage.sph_value || 0)}
+              {compactIDR(stage.sph_value || 0)}
               </div>
             </div>
           )}
@@ -665,7 +665,7 @@ export default function ProjectPipelinePage() {
             <div className="flex items-center justify-between gap-2 text-xs">
               <span className="text-amber-700">Hold</span>
               <span className="font-medium">
-                {stage.hold_count || 0} • Rp{" "}
+                {stage.hold_count || 0} • {" "}
                 {compactIDR(stage.hold_value || 0)}
               </span>
             </div>
@@ -673,7 +673,7 @@ export default function ProjectPipelinePage() {
             <div className="flex items-center justify-between gap-2 text-xs">
               <span className="text-rose-700">Drop</span>
               <span className="font-medium">
-                {stage.drop_count || 0} • Rp{" "}
+                {stage.drop_count || 0} • {" "}
                 {compactIDR(stage.drop_value || 0)}
               </span>
             </div>
@@ -689,7 +689,7 @@ export default function ProjectPipelinePage() {
             <div className="flex items-center justify-between gap-2 text-xs">
               <span className="text-gray-500">Realization</span>
               <span className="font-medium">
-                Rp {compactIDR(stage.realization_value || 0)}
+                {compactIDR(stage.realization_value || 0)}
               </span>
             </div>
 
@@ -718,7 +718,7 @@ export default function ProjectPipelinePage() {
             <div className="flex items-center justify-between gap-2 text-xs">
               <span className="text-gray-500">Avg / Project</span>
               <span className="font-medium">
-                Rp {compactIDR(stage.avg_target_value || 0)}
+                {compactIDR(stage.avg_target_value || 0)}
               </span>
             </div>
           </div>
@@ -891,12 +891,12 @@ export default function ProjectPipelinePage() {
                 </td>
                 
                 <td className="px-3 py-3 text-right">
-                  Rp {formatIDR(item.target_value || 0)}
+                  {formatIDR(item.target_value || 0)}
                 </td>
 
                 <td className="px-3 py-3 text-right">
                   {Number(item.sph_value || 0) > 0 ? (
-                    <>Rp {formatIDR(item.sph_value || 0)}</>
+                    <>{formatIDR(item.sph_value || 0)}</>
                   ) : (
                     <span className="text-gray-400">-</span>
                   )}
@@ -913,7 +913,7 @@ export default function ProjectPipelinePage() {
                           : "text-gray-600"
                       }`}
                     >
-                      Rp {formatIDR(variance)}
+                      {formatIDR(variance)}
                     </span>
                   ) : (
                     <span className="text-gray-400">-</span>

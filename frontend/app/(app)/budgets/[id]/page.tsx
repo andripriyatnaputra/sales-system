@@ -385,19 +385,19 @@ export default function BudgetDetailPage() {
         <div className="bg-white p-4 border rounded-xl shadow-sm">
           <div className="text-xs text-gray-500">Budget</div>
           <div className="text-base font-semibold">
-            Rp {formatIDR(budget.budget_amount)}
+            {formatIDR(budget.budget_amount)}
           </div>
         </div>
         <div className="bg-white p-4 border rounded-xl shadow-sm">
           <div className="text-xs text-gray-500">Total Realization</div>
           <div className="text-base font-semibold text-green-600">
-            Rp {formatIDR(budget.total_realization || 0)}
+            {formatIDR(budget.total_realization || 0)}
           </div>
         </div>
         <div className="bg-white p-4 border rounded-xl shadow-sm">
           <div className="text-xs text-gray-500">Remaining</div>
           <div className={`text-base font-semibold ${remainingClass(budget.remaining)}`}>
-            Rp {formatIDR(budget.remaining || 0)}
+            {formatIDR(budget.remaining || 0)}
           </div>
         </div>
         <div className="bg-white p-4 border rounded-xl shadow-sm">
@@ -493,7 +493,7 @@ export default function BudgetDetailPage() {
                       : "-"}
                   </td>
                   <td className="px-3 py-2 text-right text-green-700">
-                    Rp {formatIDR(r.amount)}
+                    {formatIDR(r.amount)}
                   </td>
                   <td className="px-3 py-2 text-right space-x-2">
                     <button

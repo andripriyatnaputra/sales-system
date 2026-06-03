@@ -55,7 +55,7 @@ export function formatIDR(num: number): string {
 
 // Format with prefix "Rp"
 export function formatRupiah(num: number): string {
-  return "Rp " + formatIDR(num);
+  return "" + formatIDR(num);
 }
 
 // Convert YYYY-MM to readable format

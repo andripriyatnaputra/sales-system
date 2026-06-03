@@ -423,7 +423,7 @@ export function AddToProjectModal({
               />
               {lead.nilaiProyek && lead.nilaiProyek > 0 && (
                 <p className="text-xs text-gray-400 mt-1">
-                  Nilai dari lead: Rp {lead.nilaiProyek.toLocaleString("id-ID")}
+                  Nilai dari lead: {lead.nilaiProyek.toLocaleString("id-ID")}
                 </p>
               )}
             </div>

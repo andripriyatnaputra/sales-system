@@ -912,7 +912,7 @@ return (
         <div className="bg-cyan-50 border border-cyan-200 rounded-xl shadow-sm p-4">
           <div className="text-xs text-cyan-700">Total Target Revenue</div>
           <div className="mt-2 text-xl font-semibold">
-            Rp {compactIDR(summary.total_target_revenue)}
+            {compactIDR(summary.total_target_revenue)}
           </div>
         </div>
       </div>
@@ -1242,13 +1242,13 @@ return (
                     </td>
 
                     <td className="px-3 py-2 text-right">
-                      Rp {formatIDR(p.total_revenue || 0)}
+                      {formatIDR(p.total_revenue || 0)}
                     </td>
 
                     <td className="px-3 py-2 text-right">
                       {p.total_sph_revenue && p.total_sph_revenue > 0 ? (
                         <span className="font-medium">
-                          Rp {formatIDR(p.total_sph_revenue)}
+                          {formatIDR(p.total_sph_revenue)}
                         </span>
                       ) : (
                         <span className="text-gray-400">-</span>
@@ -1266,7 +1266,7 @@ return (
                               : "text-gray-600"
                           }`}
                         >
-                          Rp {formatIDR(p.sph_variance || 0)}
+                          {formatIDR(p.sph_variance || 0)}
                         </span>
                       ) : (
                         <span className="text-gray-400">-</span>
@@ -1274,7 +1274,7 @@ return (
                     </td>
 
                     <td className="px-3 py-2 text-right">
-                      Rp {formatIDR(p.total_realization || 0)}
+                      {formatIDR(p.total_realization || 0)}
                     </td>
                     <td className="px-3 py-2 text-right space-x-3">
                       <button className="text-blue-600" onClick={() => openEditModal(p)}>

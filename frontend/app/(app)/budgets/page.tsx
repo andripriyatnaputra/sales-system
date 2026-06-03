@@ -462,10 +462,10 @@ export default function BudgetsPage() {
                     </td>
                     <td className="px-3 py-2">{b.division}</td>
                     <td className="px-3 py-2 text-right">
-                      Rp {formatIDR(b.budget_amount || 0)}
+                      {formatIDR(b.budget_amount || 0)}
                     </td>
                     <td className="px-3 py-2 text-right text-green-700">
-                      Rp {formatIDR(b.total_realization || 0)}
+                      {formatIDR(b.total_realization || 0)}
                     </td>
                     <td className="px-3 py-2 text-right">
                       <span className={achievementClass(b.achievement)}>
@@ -476,7 +476,7 @@ export default function BudgetsPage() {
                     </td>
                     <td className="px-3 py-2 text-right">
                       <span className={remainingClass(b.remaining)}>
-                        Rp {formatIDR(b.remaining || 0)}
+                        {formatIDR(b.remaining || 0)}
                       </span>
                     </td>
                     <td className="px-3 py-2 text-right space-x-3">
@@ -618,7 +618,7 @@ function EditBudgetModal({ budget, onClose, onSaved }: EditBudgetModalProps) {
               min={0}
             />
             <p className="text-xs text-gray-500 mt-1">
-              Total realisasi saat ini: Rp {formatIDR(totalReal)}
+              Total realisasi saat ini: {formatIDR(totalReal)}
             </p>
           </div>
 

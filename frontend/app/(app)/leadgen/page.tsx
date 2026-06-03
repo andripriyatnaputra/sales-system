@@ -18,9 +18,9 @@ interface LeadGenStats {
 
 function formatNilai(n: number): string {
   if (!n) return "—";
-  if (n >= 1_000_000_000_000) return `Rp ${(n / 1_000_000_000_000).toFixed(1)} T`;
-  if (n >= 1_000_000_000) return `Rp ${(n / 1_000_000_000).toFixed(1)} M`;
-  if (n >= 1_000_000) return `Rp ${(n / 1_000_000).toFixed(0)} jt`;
+  if (n >= 1_000_000_000_000) return `${(n / 1_000_000_000_000).toFixed(1)} T`;
+  if (n >= 1_000_000_000) return `${(n / 1_000_000_000).toFixed(1)} M`;
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(0)} jt`;
   return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(n);
 }
 

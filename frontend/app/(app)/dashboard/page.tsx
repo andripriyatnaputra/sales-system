@@ -666,7 +666,7 @@ export default function DashboardPage() {
 
         <Card className="p-4 space-y-2">
           <div className="text-[14px] text-muted-foreground uppercase">Total Opportunity</div>
-          <div className="text-xl font-bold">Rp {formatIDR(opp.target)}</div>
+          <div className="text-xl font-bold">{formatIDR(opp.target)}</div>
           <div className="text-[14px] text-muted-foreground">
             Conversion {(opp.conversion * 100).toFixed(1)}%
           </div>
@@ -1009,7 +1009,7 @@ function KPI({
   return (
     <Card className="p-4 space-y-2">
       <div className="text-[14px] uppercase text-muted-foreground">{title}</div>
-      <div className="text-xl font-bold">Rp {formatIDR(value)}</div>
+      <div className="text-xl font-bold">{formatIDR(value)}</div>
 
       {pct !== undefined && (
         <>
