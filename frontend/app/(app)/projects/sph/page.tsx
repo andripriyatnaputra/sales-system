@@ -411,7 +411,7 @@ export default function ProjectSPHPage() {
   return data.sort(
     (a, b) => Number(b.sph_value || 0) - Number(a.sph_value || 0)
   );
-}, [details, search, selectedReason]);
+}, [details, search, selectedReason, selectedAging]);
 
 const totalPages = useMemo(() => {
   return Math.max(1, Math.ceil(filteredDetails.length / pageSize));
