@@ -185,6 +185,12 @@ func validateAndNormalizeProjectFlow(body *models.CreateProjectRequest) error {
 		body.SphNumber = nil
 		body.SPHStatusReasonCategory = nil
 		body.SPHStatusReasonNote = nil
+
+		// Closed tidak valid untuk project yang belum release SPH.
+		if body.PipelineStatus == "Closed" {
+			body.PipelineStatus = "Active"
+		}
+
 		return nil
 	}
 
@@ -207,34 +213,34 @@ func validateAndNormalizeProjectFlow(body *models.CreateProjectRequest) error {
 	st := strings.TrimSpace(*body.SPHStatus)
 	body.SPHStatus = &st
 
-	if st != "Open" && st != "Hold" && st != "Win" && st != "Loss" && st != "Drop" {
+	if st != "Open" &&
+		st != "Hold" &&
+		st != "Win" &&
+		st != "Loss" &&
+		st != "Drop" {
 		return fmt.Errorf("invalid sph_status")
 	}
 
-	// Kalau SPH sudah released dan pipeline di-drop,
-	// maka outcome SPH juga Drop.
-	if body.PipelineStatus == "Drop" {
-		drop := "Drop"
-		body.SPHStatus = &drop
-		st = "Drop"
-	}
+	// Setelah SPH released, SPH status menjadi source of truth untuk pipeline_status.
+	switch st {
+	case "Open":
+		body.PipelineStatus = "Active"
 
-	// Outcome final SPH masuk Closing.
-	if st == "Win" || st == "Loss" || st == "Drop" {
+	case "Hold":
+		body.PipelineStatus = "Hold"
+
+	case "Win", "Loss":
+		body.PipelineStatus = "Closed"
+		body.SalesStage = 6
+
+	case "Drop":
+		body.PipelineStatus = "Drop"
 		body.SalesStage = 6
 	}
 
-	// Mapping final outcome ke pipeline_status.
-	if st == "Win" || st == "Loss" {
-		body.PipelineStatus = "Closed"
-	}
-
-	if st == "Drop" {
-		body.PipelineStatus = "Drop"
-	}
-
 	if (st == "Loss" || st == "Drop") &&
-		(body.SPHStatusReasonCategory == nil || strings.TrimSpace(*body.SPHStatusReasonCategory) == "") {
+		(body.SPHStatusReasonCategory == nil ||
+			strings.TrimSpace(*body.SPHStatusReasonCategory) == "") {
 		return fmt.Errorf("sph_status_reason_category required for Loss/Drop")
 	}
 
