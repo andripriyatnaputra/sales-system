@@ -184,6 +184,24 @@ export default function ProjectPipelinePage() {
 
   const [selectedStage, setSelectedStage] = useState<number | "All">("All");
 
+  const [sortKey, setSortKey] = useState<
+    | "project_code"
+    | "description"
+    | "customer_name"
+    | "division"
+    | "status"
+    | "project_type"
+    | "pipeline_status"
+    | "sales_stage"
+    | "sph_release_status"
+    | "sph_status"
+    | "target_value"
+    | "sph_value"
+    | "variance"
+    | "realization_value"
+  >("project_code");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+
   const buildQueryString = () => {
     const params = new URLSearchParams();
 
@@ -308,8 +326,28 @@ export default function ProjectPipelinePage() {
       });
     }
 
-    return data.sort((a, b) => Number(b.target_value || 0) - Number(a.target_value || 0));
-  }, [details, selectedStage, search]);
+    const numericKeys = new Set(["sales_stage", "target_value", "sph_value", "realization_value"]);
+
+    data.sort((a, b) => {
+      if (sortKey === "variance") {
+        const av = Number(a.sph_value || 0) > 0 ? Number(a.sph_value || 0) - Number(a.target_value || 0) : 0;
+        const bv = Number(b.sph_value || 0) > 0 ? Number(b.sph_value || 0) - Number(b.target_value || 0) : 0;
+        return sortDir === "asc" ? av - bv : bv - av;
+      }
+      const av = (a as any)[sortKey] ?? "";
+      const bv = (b as any)[sortKey] ?? "";
+      if (numericKeys.has(sortKey)) {
+        return sortDir === "asc" ? Number(av) - Number(bv) : Number(bv) - Number(av);
+      }
+      const sa = String(av);
+      const sb = String(bv);
+      if (sa < sb) return sortDir === "asc" ? -1 : 1;
+      if (sa > sb) return sortDir === "asc" ? 1 : -1;
+      return 0;
+    });
+
+    return data;
+  }, [details, selectedStage, search, sortKey, sortDir]);
 
   const totalPages = useMemo(() => {
     return Math.max(1, Math.ceil(filteredDetails.length / pageSize));
@@ -520,6 +558,36 @@ export default function ProjectPipelinePage() {
             className="px-3 py-2 border rounded-lg text-sm bg-gray-900 text-white hover:bg-black"
           >
             Refresh
+          </button>
+        </div>
+
+        <div className="flex flex-wrap gap-2 pt-2 border-t mt-1">
+          <select
+            className="border px-3 py-2 rounded-lg text-sm"
+            value={sortKey}
+            onChange={(e) => setSortKey(e.target.value as typeof sortKey)}
+          >
+            <option value="project_code">Sort by Code</option>
+            <option value="description">Sort by Description</option>
+            <option value="customer_name">Sort by Customer</option>
+            <option value="division">Sort by Division</option>
+            <option value="status">Sort by Status</option>
+            <option value="project_type">Sort by Type</option>
+            <option value="pipeline_status">Sort by Pipeline Status</option>
+            <option value="sales_stage">Sort by Stage</option>
+            <option value="sph_release_status">Sort by SPH Released</option>
+            <option value="sph_status">Sort by SPH Status</option>
+            <option value="target_value">Sort by Revenue</option>
+            <option value="sph_value">Sort by SPH Value</option>
+            <option value="variance">Sort by Variance</option>
+            <option value="realization_value">Sort by Realization</option>
+          </select>
+          <button
+            type="button"
+            className="border px-3 py-2 rounded-lg text-sm hover:bg-gray-50"
+            onClick={() => setSortDir((prev) => (prev === "asc" ? "desc" : "asc"))}
+          >
+            {sortDir === "asc" ? "↑ Asc" : "↓ Desc"}
           </button>
         </div>
       </div>

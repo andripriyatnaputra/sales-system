@@ -186,10 +186,18 @@ export default function ProjectsPage() {
   const [sortKey, setSortKey] =
     useState<
       | "project_code"
+      | "description"
+      | "customer_name"
       | "division"
       | "status"
       | "project_type"
+      | "pipeline_status"
+      | "sales_stage"
+      | "sph_release_status"
+      | "sph_status"
       | "total_revenue"
+      | "total_sph_revenue"
+      | "sph_variance"
       | "total_realization"
     >("project_code");
 
@@ -508,18 +516,21 @@ export default function ProjectsPage() {
     }
 
     // 9️⃣ Sorting
+    const numericSortKeys = new Set([
+      "sales_stage", "total_revenue", "total_sph_revenue",
+      "sph_variance", "total_realization",
+    ]);
+
     data.sort((a, b) => {
       const av = (a as any)[sortKey] ?? "";
       const bv = (b as any)[sortKey] ?? "";
 
-      // numeric sorting for revenue & realization
-      if (sortKey === "total_revenue" || sortKey === "total_realization") {
+      if (numericSortKeys.has(sortKey)) {
         const na = Number(av) || 0;
         const nb = Number(bv) || 0;
         return sortDir === "asc" ? na - nb : nb - na;
       }
 
-      // fallback string sorting
       const sa = String(av);
       const sb = String(bv);
       if (sa < sb) return sortDir === "asc" ? -1 : 1;
@@ -1078,23 +1089,21 @@ return (
         <select
           className="border px-3 py-2 rounded-lg text-sm"
           value={sortKey}
-          onChange={(e) =>
-            setSortKey(
-              e.target.value as
-                | "project_code"
-                | "division"
-                | "status"
-                | "project_type"
-                | "total_revenue"
-                | "total_realization"
-            )
-          }
+          onChange={(e) => setSortKey(e.target.value as typeof sortKey)}
         >
           <option value="project_code">Sort by Code</option>
+          <option value="description">Sort by Description</option>
+          <option value="customer_name">Sort by Customer</option>
           <option value="division">Sort by Division</option>
           <option value="status">Sort by Status</option>
           <option value="project_type">Sort by Type</option>
+          <option value="pipeline_status">Sort by Pipeline Status</option>
+          <option value="sales_stage">Sort by Stage</option>
+          <option value="sph_release_status">Sort by SPH Released</option>
+          <option value="sph_status">Sort by SPH Status</option>
           <option value="total_revenue">Sort by Revenue</option>
+          <option value="total_sph_revenue">Sort by SPH Value</option>
+          <option value="sph_variance">Sort by Variance</option>
           <option value="total_realization">Sort by Realization</option>
         </select>
 
