@@ -289,6 +289,12 @@ func GetProjectsSummary(c *gin.Context) {
 		revenueIdx++
 	}
 
+	if year != "" && strings.ToUpper(year) != "ALL" {
+		revenueWhereParts = append(revenueWhereParts, fmt.Sprintf("EXTRACT(YEAR FROM rp.month) = $%d", revenueIdx))
+		revenueArgs = append(revenueArgs, year)
+		revenueIdx++
+	}
+
 	revenueWhere := strings.Join(revenueWhereParts, " AND ")
 	var resp models.ProjectSummaryResponse
 
@@ -581,6 +587,7 @@ SELECT
   COALESCE(cu.name,'') AS customer_name,
   p.project_type,
   p.status,
+  COALESCE(p.pipeline_status, 'Active') AS pipeline_status,
 
   CASE p.sales_stage
     WHEN 1 THEN '1 - Prospecting'
@@ -602,6 +609,8 @@ SELECT
   END AS post_po_last_status,
 
   COALESCE(p.sph_release_status,'No') AS sph_release_status,
+  COALESCE(p.sph_number,'') AS sph_number,
+  COALESCE(to_char(p.sph_release_date,'YYYY-MM-DD'),'') AS sph_release_date,
   COALESCE(p.sph_status,'') AS sph_status,
   COALESCE(p.sph_status_reason_category,'') AS reason_category,
   COALESCE(p.sph_status_reason_note,'') AS reason_note,
@@ -662,9 +671,9 @@ ORDER BY p.project_code ASC
 	defer w.Flush()
 
 	headers := []string{
-		"Code", "Descriptions", "Divisi", "Customer", "Type", "Status",
+		"Code", "Descriptions", "Divisi", "Customer", "Type", "Status", "Pipeline Status",
 		"Stage", "Post PO Last Status",
-		"SPH Release?", "SPH Status", "Reason",
+		"SPH Release?", "SPH Number", "SPH Release Date", "SPH Status", "Reason",
 		"Initial Target Revenue", "SPH Value", "SPH Variance", "Total Realization",
 		"(Target) January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December",
 		"(Realization) January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December",
@@ -673,18 +682,18 @@ ORDER BY p.project_code ASC
 
 	for rows.Next() {
 		var (
-			code, desc, div, cust, typ, status                                     string
+			code, desc, div, cust, typ, status, pipelineStatus                     string
 			stageText, postPoLast                                                  string
-			sphRel, sphStatus, reasonCat, reasonNote                               string
+			sphRel, sphNumber, sphReleaseDate, sphStatus, reasonCat, reasonNote    string
 			totalRev, totalSPHRev, sphVariance, totalReal                          string
 			tJan, tFeb, tMar, tApr, tMay, tJun, tJul, tAug, tSep, tOct, tNov, tDec string
 			rJan, rFeb, rMar, rApr, rMay, rJun, rJul, rAug, rSep, rOct, rNov, rDec string
 		)
 
 		if err := rows.Scan(
-			&code, &desc, &div, &cust, &typ, &status,
+			&code, &desc, &div, &cust, &typ, &status, &pipelineStatus,
 			&stageText, &postPoLast,
-			&sphRel, &sphStatus, &reasonCat, &reasonNote,
+			&sphRel, &sphNumber, &sphReleaseDate, &sphStatus, &reasonCat, &reasonNote,
 			&totalRev, &totalSPHRev, &sphVariance, &totalReal,
 			&tJan, &tFeb, &tMar, &tApr, &tMay, &tJun, &tJul, &tAug, &tSep, &tOct, &tNov, &tDec,
 			&rJan, &rFeb, &rMar, &rApr, &rMay, &rJun, &rJul, &rAug, &rSep, &rOct, &rNov, &rDec,
@@ -709,11 +718,14 @@ ORDER BY p.project_code ASC
 			cust,
 			typ,
 			status,
+			pipelineStatus,
 
 			stageText,
 			postPoLast,
 
 			sphRel,
+			sphNumber,
+			sphReleaseDate,
 			sphStatus,
 			strings.ReplaceAll(reason, ",", " "),
 
