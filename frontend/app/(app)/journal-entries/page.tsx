@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { apiGetJournalEntries, apiGetChartOfAccounts, JournalEntry, ChartOfAccount, canEditDepartment } from "@/lib/api";
@@ -16,6 +16,14 @@ const SOURCE_LABEL: Record<string, string> = {
 };
 
 export default function JournalEntriesPage() {
+  return (
+    <Suspense fallback={<div className="p-6">Loading...</div>}>
+      <JournalEntriesPageInner />
+    </Suspense>
+  );
+}
+
+function JournalEntriesPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const accountId = searchParams.get("account_id") || "";
