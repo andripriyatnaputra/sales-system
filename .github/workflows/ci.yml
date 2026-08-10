@@ -152,6 +152,9 @@ jobs:
           key: ${{ secrets.STAGING_SSH_KEY }}
           script: |
             cd ~/sales-system-staging
+            set -a
+            source .env.staging
+            set +a
             docker compose -f docker-compose.staging-server.yml -p sales-staging pull
             docker compose -f docker-compose.staging-server.yml -p sales-staging up -d
 
