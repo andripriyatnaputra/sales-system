@@ -34,6 +34,7 @@ func main() {
 			"http://localhost:3000",
 			"http://202.50.203.136:3000",
 			"http://localhost:3010",
+			"http://202.50.203.136:3010",
 		},
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization"},
