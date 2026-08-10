@@ -2,7 +2,7 @@ name: CI/CD Pipeline
 
 on:
   push:
-    branches: [ "main", "master" ]
+    branches: [ "main", "master", "staging" ]
 
 jobs:
   # =========================
@@ -48,6 +48,11 @@ jobs:
   # =========================
   # 2️⃣ BACKEND BUILD & PUSH
   # =========================
+  # Tag production (*-latest) HANYA dari main/master, tag staging (*-staging)
+  # HANYA dari branch staging -- 2 step terpisah & mutually exclusive by
+  # `if:` branch check, SENGAJA tidak digabung jadi 1 step dgn tag
+  # kondisional, supaya gampang dicek sekilas tidak ada percampuran tag
+  # antar environment.
   backend-build:
     runs-on: ubuntu-latest
     needs: backend-test
@@ -64,7 +69,8 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Build & push backend image
+      - name: Build & push backend image (production tag)
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
         uses: docker/build-push-action@v5
         with:
           context: ./backend
@@ -73,6 +79,17 @@ jobs:
           tags: |
             andriputra/sales-system:backend-latest
             andriputra/sales-system:backend-${{ github.sha }}
+
+      - name: Build & push backend image (staging tag)
+        if: github.ref == 'refs/heads/staging'
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile
+          push: true
+          tags: |
+            andriputra/sales-system:backend-staging
+            andriputra/sales-system:backend-staging-${{ github.sha }}
 
   # =========================
   # 3️⃣ FRONTEND BUILD & PUSH
@@ -92,7 +109,8 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Build & push frontend image
+      - name: Build & push frontend image (production tag)
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
         uses: docker/build-push-action@v5
         with:
           context: ./frontend
@@ -101,3 +119,43 @@ jobs:
           tags: |
             andriputra/sales-system:frontend-latest
             andriputra/sales-system:frontend-${{ github.sha }}
+
+      - name: Build & push frontend image (staging tag)
+        if: github.ref == 'refs/heads/staging'
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          file: ./frontend/Dockerfile
+          push: true
+          tags: |
+            andriputra/sales-system:frontend-staging
+            andriputra/sales-system:frontend-staging-${{ github.sha }}
+
+  # =========================
+  # 4️⃣ DEPLOY TO STAGING SERVER
+  # =========================
+  # HANYA jalan dari branch staging (never main/master) -- deploy production
+  # TETAP manual seperti sebelumnya, tidak diotomasi di sini. Compose project
+  # "-p sales-staging" + file docker-compose.staging-server.yml terpisah
+  # total dari compose project production di server yang sama.
+  deploy-staging:
+    runs-on: ubuntu-latest
+    needs: [backend-build, frontend-build]
+    if: github.ref == 'refs/heads/staging'
+
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.STAGING_SSH_HOST }}
+          username: ${{ secrets.STAGING_SSH_USER }}
+          key: ${{ secrets.STAGING_SSH_KEY }}
+          script: |
+            cd ~/sales-system-staging
+            docker compose -f docker-compose.staging-server.yml -p sales-staging pull
+            docker compose -f docker-compose.staging-server.yml -p sales-staging up -d
+
+      - name: Health check
+        run: |
+          sleep 5
+          curl -f http://${{ secrets.STAGING_SSH_HOST }}:8091/health
