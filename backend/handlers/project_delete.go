@@ -19,16 +19,21 @@ func DeleteProject(c *gin.Context) {
 
 	ctx := c.Request.Context()
 
+	// --- ACL: cuma Sales/admin yang boleh delete project ---
+	if !canManageProjectCore(c) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "forbidden: only Sales can delete project"})
+		return
+	}
+
 	// --- ACL from JWT ---
-	role := c.GetString("role")
 	userDivision := NormalizeDivision(c.GetString("division"))
 
 	// --- Ambil division project ---
-	var projectDivision string
+	var projectDivision, projectCode string
 	err = database.Pool.QueryRow(ctx,
-		`SELECT division FROM projects WHERE id = $1`,
+		`SELECT division, project_code FROM projects WHERE id = $1`,
 		id,
-	).Scan(&projectDivision)
+	).Scan(&projectDivision, &projectCode)
 
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "project not found"})
@@ -38,7 +43,7 @@ func DeleteProject(c *gin.Context) {
 	projectDivision = NormalizeDivision(projectDivision)
 
 	// --- ACL for user ---
-	if role == "user" {
+	if isSalesDivisionLocked(c) {
 		if userDivision == "" || userDivision != projectDivision {
 			c.JSON(http.StatusForbidden, gin.H{
 				"error": "forbidden: cannot delete project in another division",
@@ -62,6 +67,8 @@ func DeleteProject(c *gin.Context) {
 		c.JSON(404, gin.H{"error": "project not found"})
 		return
 	}
+
+	LogAudit(c, c.GetInt64("user_id"), "delete", "project", idStr, projectCode, nil)
 
 	c.Status(204)
 }

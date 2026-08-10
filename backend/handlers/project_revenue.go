@@ -19,7 +19,6 @@ func GetRevenuePlan(c *gin.Context) {
 	ctx := c.Request.Context()
 
 	// --- ACL from token ---
-	role := c.GetString("role")
 	userDivision := NormalizeDivision(c.GetString("division"))
 
 	// --- Fetch project division ---
@@ -37,7 +36,7 @@ func GetRevenuePlan(c *gin.Context) {
 	projectDivision = NormalizeDivision(projectDivision)
 
 	// --- ACL Enforcement ---
-	if role == "user" && userDivision != projectDivision {
+	if isSalesDivisionLocked(c) && userDivision != projectDivision {
 		c.JSON(403, gin.H{
 			"error": "forbidden: cannot view revenue in another division",
 		})

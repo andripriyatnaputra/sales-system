@@ -23,11 +23,10 @@ func CreateBudget(c *gin.Context) {
 		return
 	}
 
-	role := c.GetString("role")
 	userDiv := NormalizeDivision(c.GetString("division"))
 
 	// user wajib memakai division dari token
-	if role == "user" {
+	if isSalesDivisionLocked(c) {
 		req.Division = userDiv
 	}
 
@@ -67,6 +66,8 @@ func CreateBudget(c *gin.Context) {
 		return
 	}
 
+	LogAudit(c, c.GetInt64("user_id"), "create", "budget", strconv.FormatInt(id, 10), req.Division+" "+req.Month, req)
+
 	c.JSON(200, gin.H{"id": id})
 }
 
@@ -92,7 +93,6 @@ func AddRealization(c *gin.Context) {
 		return
 	}
 
-	role := c.GetString("role")
 	userDiv := NormalizeDivision(c.GetString("division"))
 
 	var budgetDiv string
@@ -107,7 +107,7 @@ func AddRealization(c *gin.Context) {
 		return
 	}
 
-	if role == "user" && NormalizeDivision(budgetDiv) != userDiv {
+	if isSalesDivisionLocked(c) && NormalizeDivision(budgetDiv) != userDiv {
 		c.JSON(403, gin.H{"error": "forbidden"})
 		return
 	}
@@ -129,6 +129,8 @@ func AddRealization(c *gin.Context) {
 		return
 	}
 
+	LogAudit(c, c.GetInt64("user_id"), "create", "budget_realization", strconv.FormatInt(budgetID, 10), req.Category, req)
+
 	c.JSON(201, gin.H{"status": "created"})
 }
 
@@ -137,7 +139,11 @@ func AddRealization(c *gin.Context) {
 // ======================================================
 
 func UpdateBudget(c *gin.Context) {
-	id, _ := strconv.ParseInt(c.Param("id"), 10, 64)
+	id, err := strconv.ParseInt(c.Param("budgetId"), 10, 64)
+	if err != nil {
+		c.JSON(400, gin.H{"error": "invalid budget id"})
+		return
+	}
 
 	var req models.UpdateBudgetRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -155,7 +161,7 @@ func UpdateBudget(c *gin.Context) {
 		return
 	}
 
-	_, err := database.Pool.Exec(
+	_, err = database.Pool.Exec(
 		c,
 		`UPDATE budgets
 		 SET budget_amount=$1, updated_at=NOW()
@@ -168,6 +174,8 @@ func UpdateBudget(c *gin.Context) {
 		return
 	}
 
+	LogAudit(c, c.GetInt64("user_id"), "update", "budget", strconv.FormatInt(id, 10), "", req)
+
 	c.JSON(200, gin.H{"status": "ok"})
 }
 
@@ -179,11 +187,10 @@ func ListBudgets(c *gin.Context) {
 	division := NormalizeDivision(c.Query("division"))
 	year := c.Query("year")
 
-	role := c.GetString("role")
 	userDiv := NormalizeDivision(c.GetString("division"))
 
 	// user hanya bisa lihat division-nya sendiri
-	if role == "user" {
+	if isSalesDivisionLocked(c) {
 		division = userDiv
 	}
 
@@ -237,7 +244,6 @@ func GetBudgetDetail(c *gin.Context) {
 		return
 	}
 
-	role := c.GetString("role")
 	userDiv := NormalizeDivision(c.GetString("division"))
 
 	var b models.Budget
@@ -262,7 +268,7 @@ func GetBudgetDetail(c *gin.Context) {
 	b.Month = month.Format("2006-01")
 
 	// ACL
-	if role == "user" && b.Division != userDiv {
+	if isSalesDivisionLocked(c) && b.Division != userDiv {
 		c.JSON(403, gin.H{"error": "forbidden"})
 		return
 	}
@@ -350,7 +356,6 @@ func UpdateRealization(c *gin.Context) {
 		return
 	}
 
-	role := c.GetString("role")
 	userDiv := NormalizeDivision(c.GetString("division"))
 
 	var budgetDivision string
@@ -371,7 +376,7 @@ func UpdateRealization(c *gin.Context) {
 		return
 	}
 
-	if role == "user" && NormalizeDivision(budgetDivision) != userDiv {
+	if isSalesDivisionLocked(c) && NormalizeDivision(budgetDivision) != userDiv {
 		c.JSON(403, gin.H{"error": "forbidden"})
 		return
 	}
@@ -398,6 +403,8 @@ func UpdateRealization(c *gin.Context) {
 		return
 	}
 
+	LogAudit(c, c.GetInt64("user_id"), "update", "budget_realization", strconv.FormatInt(realID, 10), "", req)
+
 	c.JSON(200, gin.H{"status": "ok"})
 }
 
@@ -409,7 +416,6 @@ func DeleteRealization(c *gin.Context) {
 	realID, _ := strconv.ParseInt(c.Param("realizationId"), 10, 64)
 	budgetID, _ := strconv.ParseInt(c.Param("budgetId"), 10, 64)
 
-	role := c.GetString("role")
 	userDiv := NormalizeDivision(c.GetString("division"))
 
 	var budgetDiv string
@@ -430,7 +436,7 @@ func DeleteRealization(c *gin.Context) {
 		return
 	}
 
-	if role == "user" && NormalizeDivision(budgetDiv) != userDiv {
+	if isSalesDivisionLocked(c) && NormalizeDivision(budgetDiv) != userDiv {
 		c.JSON(403, gin.H{"error": "forbidden"})
 		return
 	}
@@ -447,6 +453,8 @@ func DeleteRealization(c *gin.Context) {
 		return
 	}
 
+	LogAudit(c, c.GetInt64("user_id"), "delete", "budget_realization", strconv.FormatInt(realID, 10), "", nil)
+
 	c.JSON(200, gin.H{"status": "deleted"})
 }
 
@@ -455,7 +463,6 @@ func DeleteRealization(c *gin.Context) {
 // ======================================================
 
 func GetBudgetTrend(c *gin.Context) {
-	role := c.GetString("role")
 	userDiv := NormalizeDivision(c.GetString("division"))
 
 	// Query params
@@ -474,7 +481,7 @@ func GetBudgetTrend(c *gin.Context) {
 	}
 
 	// ROLE-BASED: user forced to own division
-	if role == "user" {
+	if isSalesDivisionLocked(c) {
 		division = userDiv
 	}
 

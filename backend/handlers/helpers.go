@@ -9,6 +9,7 @@ import (
 	"sales-system-backend/database"
 	"sales-system-backend/models"
 
+	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -59,6 +60,37 @@ func isValidDivision(d string) bool {
 	default:
 		return false
 	}
+}
+
+// isSalesDivisionLocked: kunci `division` (NetCo/Oil Mining/IT Solutions -- lini
+// bisnis/vertikal proyek) HANYA berlaku untuk departemen Sales. User dari
+// departemen lain (ProDev/Operations/Procurement/Finance/HR GA & Legal) legacy
+// role-nya juga "user", tapi division mereka cuma placeholder nama departemen
+// (mis. "Product & Development") yang TIDAK PERNAH cocok dengan division project
+// mana pun -- kalau dikunci sama seperti Sales, mereka jadi tidak bisa buka
+// project sama sekali. BUG ditemukan 2026-07-21 saat testing modul dokumen project.
+//
+// department kosong (user lama yang belum sempat dapat role_id granular) tetap
+// dianggap terkunci -- fail-closed, bukan fail-open, supaya tidak tiba-tiba
+// membuka akses ke user yang belum jelas departemennya.
+func isSalesDivisionLocked(c *gin.Context) bool {
+	if c.GetString("role") != "user" {
+		return false
+	}
+	department := c.GetString("department")
+	return department == "" || department == "Sales"
+}
+
+// canManageProjectCore: cuma Sales (pemilik proses New Project/Quotation/Closing)
+// dan admin yang boleh create/edit/delete field inti project (division, status,
+// customer, SPH, revenue plan). Departemen lain (ProDev/Ops/Procurement/Finance/HR)
+// hanya boleh baca + isi bagian mereka sendiri (presales section, BoQ, PR/PO, BAST)
+// lewat endpoint masing-masing yang sudah requireDepartment.
+func canManageProjectCore(c *gin.Context) bool {
+	if c.GetString("role") == "admin" {
+		return true
+	}
+	return c.GetString("department") == "Sales"
 }
 
 // =====================================================
@@ -126,6 +158,26 @@ func generateProjectCodeTx(ctx context.Context, tx pgx.Tx, division string) (str
 	}
 
 	return fmt.Sprintf("PRJ-%s-%d-%04d", code, year, seq), nil
+}
+
+// =====================================================
+//  ACTIVITY AGING HELPER
+// =====================================================
+
+// daysBetween: dipakai hitung "aging" (turnaround) antar 2 titik waktu.
+// nil kalau start nil (data lama sebelum kolom timestamp ini ada -- tidak
+// bisa direkonstruksi, BUKAN dianggap 0 hari). end nil berarti "masih
+// berjalan", dihitung sampai NOW().
+func daysBetween(start *time.Time, end *time.Time) *int {
+	if start == nil {
+		return nil
+	}
+	e := time.Now()
+	if end != nil {
+		e = *end
+	}
+	days := int(e.Sub(*start).Hours() / 24)
+	return &days
 }
 
 // =====================================================

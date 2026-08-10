@@ -27,6 +27,11 @@ type Project struct {
 	SPHNumber               *string    `json:"sph_number"`
 	SPHStatusReasonCategory *string    `json:"sph_status_reason_category,omitempty"`
 	SPHStatusReasonNote     *string    `json:"sph_status_reason_note,omitempty"`
+	OpsTeam                 string     `json:"ops_team"`
+	OpsHandoverDate         *time.Time `json:"ops_handover_date,omitempty"`
+	DocumentsCompleteAt     *time.Time `json:"documents_complete_at,omitempty"`
+	ProdevOrgUnitID         *int64     `json:"prodev_org_unit_id,omitempty"`
+	ProdevAssignedAt        *time.Time `json:"prodev_assigned_at,omitempty"`
 	CreatedAt               time.Time  `json:"created_at"`
 	UpdatedAt               time.Time  `json:"updated_at"`
 }

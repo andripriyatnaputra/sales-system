@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -29,26 +30,47 @@ func UpdateProject(c *gin.Context) {
 
 	ctx := c.Request.Context()
 
+	// --- ACL: cuma Sales/admin yang boleh edit field inti project ---
+	if !canManageProjectCore(c) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "forbidden: only Sales can edit project"})
+		return
+	}
+
 	// --- ACL From token ---
-	role := c.GetString("role")
 	userDivision := NormalizeDivision(c.GetString("division"))
 
-	// --- Fetch existing project division ---
+	// --- Fetch existing project division & sales_stage ---
 	var existingDivision string
+	var existingSalesStage int
 	err = database.Pool.QueryRow(ctx,
-		`SELECT division FROM projects WHERE id = $1`,
+		`SELECT division, sales_stage FROM projects WHERE id = $1`,
 		id,
-	).Scan(&existingDivision)
+	).Scan(&existingDivision, &existingSalesStage)
 
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "project not found"})
 		return
 	}
 
+	// --- GATE: Presales Analysis harus approved sebelum project pindah ke
+	// Quotation (stage >= 4) buat pertama kali. Proyek yang sudah >=4 sebelumnya
+	// tidak kena block retroaktif -- cuma transisi BARU yang divalidasi.
+	if body.SalesStage >= 4 && existingSalesStage < 4 {
+		ok, reason, gateErr := CheckPresalesGateForQuotation(ctx, id)
+		if gateErr != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": gateErr.Error()})
+			return
+		}
+		if !ok {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "tidak bisa pindah ke stage Quotation: " + reason})
+			return
+		}
+	}
+
 	existingDivision = NormalizeDivision(existingDivision)
 
 	// --- ACL Enforcement ---
-	if role == "user" {
+	if isSalesDivisionLocked(c) {
 		// user hanya boleh update project divisi sendiri
 		if existingDivision != userDivision {
 			c.JSON(http.StatusForbidden, gin.H{"error": "forbidden: different division"})
@@ -239,6 +261,15 @@ func UpdateProject(c *gin.Context) {
 		c.JSON(500, gin.H{"error": "transaction commit error"})
 		return
 	}
+
+	// --- Sales Order otomatis begitu deal jadi Win (idempoten, lihat sales_order.go) ---
+	if body.SPHStatus != nil && *body.SPHStatus == "Win" {
+		if err := ensureSalesOrderForProject(ctx, id, c.GetInt64("user_id")); err != nil {
+			fmt.Println("warning: failed to auto-create sales order:", err)
+		}
+	}
+
+	LogAudit(c, c.GetInt64("user_id"), "update", "project", idStr, body.Description, body)
 
 	c.JSON(200, gin.H{"status": "ok"})
 }

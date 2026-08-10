@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { apiGet, apiPut } from "@/lib/api";
+import { apiGet, apiPut, apiGetSalesOrderByProject } from "@/lib/api";
 
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -10,6 +10,10 @@ import { Separator } from "@/components/ui/separator";
 import { formatIDR } from "@/lib/utils";
 import { SALES_STAGE_PROBABILITY, STAGES } from "@/lib/constants";
 import { SalesStageBar } from "@/components/SalesStageBar";
+import { PresalesAnalysisCard } from "@/components/PresalesAnalysisCard";
+import { ProjectDocumentsCard } from "@/components/ProjectDocumentsCard";
+import { ProdevAssignmentCard } from "@/components/ProdevAssignmentCard";
+import { ProjectProfitabilityCard } from "@/components/ProjectProfitabilityCard";
 
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -86,6 +90,12 @@ type ProjectDetailResponse = {
   sph_release_date?: string | null;
   revenue_plans?: RevenueItem[];
   postpo_monitoring?: PostPOMonitoring | null;
+  ops_team: string;
+  ops_handover_date?: string | null;
+  documents_complete_at?: string | null;
+  prodev_org_unit_id?: number | null;
+  prodev_org_unit_name?: string | null;
+  prodev_assigned_at?: string | null;
 };
 
 type StageStatusKey =
@@ -128,6 +138,7 @@ export default function ProjectDetailPage() {
   const chartRef = useRef<any>(null);
 
   const [postpo, setPostpo] = useState<PostPOMonitoring | null>(null);
+  const [salesOrderId, setSalesOrderId] = useState<number | null>(null);
 
   const [stageModalOpen, setStageModalOpen] = useState(false);
   const [selectedStage, setSelectedStage] = useState<number | null>(null);
@@ -145,6 +156,12 @@ export default function ProjectDetailPage() {
       setPostpo(data.postpo_monitoring ?? null);
     };
     load();
+
+    // Sales Order cuma ada begitu project closing (Win) -- cek terpisah,
+    // 404 kalau belum ada itu wajar, jangan dianggap error.
+    apiGetSalesOrderByProject(id as string)
+      .then((so: any) => setSalesOrderId(so?.id ?? null))
+      .catch(() => setSalesOrderId(null));
   }, [id]);
 
   if (!project)
@@ -335,13 +352,33 @@ export default function ProjectDetailPage() {
       {/* HEADER */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-semibold">{project.project_code}</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-semibold">{project.project_code}</h1>
+            {project.project_type !== "Project Based" && (
+              <Badge
+                className={
+                  project.ops_team === "Managed Service"
+                    ? "bg-emerald-100 text-emerald-700"
+                    : "bg-blue-100 text-blue-700"
+                }
+              >
+                Ops Team: {project.ops_team}
+              </Badge>
+            )}
+          </div>
           <p className="text-muted-foreground">{project.description}</p>
         </div>
 
-        <Button variant="outline" onClick={() => router.push("/projects")}>
-          Back
-        </Button>
+        <div className="flex items-center gap-2">
+          {salesOrderId && (
+            <Button variant="outline" onClick={() => router.push(`/sales-orders/${salesOrderId}`)}>
+              Lihat Sales Order
+            </Button>
+          )}
+          <Button variant="outline" onClick={() => router.push("/projects")}>
+            Back
+          </Button>
+        </div>
       </div>
 
       <Separator />
@@ -393,6 +430,15 @@ export default function ProjectDetailPage() {
         <h3 className="text-sm font-semibold mb-4">Revenue Chart</h3>
         <Line ref={chartRef} data={chartData} />
       </Card>
+
+      {/* DOKUMEN PROJECT (RFQ/TOR/dll) */}
+      <ProjectDocumentsCard projectId={id as string} />
+
+      {/* ASSIGNMENT SUB-TIM PRODEV */}
+      <ProdevAssignmentCard projectId={id as string} />
+
+      {/* PRESALES ANALYSIS + BOQ */}
+      <PresalesAnalysisCard projectId={id as string} />
 
       {/* POST-PO MONITORING */}
       <Card className="p-6">
@@ -465,6 +511,7 @@ export default function ProjectDetailPage() {
         )}
       </Card>
 
+      <ProjectProfitabilityCard projectId={id as string} />
 
       {/* REVENUE TABLE */}
       <Card className="p-6">

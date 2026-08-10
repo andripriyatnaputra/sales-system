@@ -1,0 +1,52 @@
+services:
+  postgres-staging:
+    image: postgres:15
+    container_name: sales-system-staging-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: sales_staging
+      POSTGRES_PASSWORD: staging_local_only
+      POSTGRES_DB: salesdb_staging
+    ports:
+      - "5434:5432"   # beda dari produksi/lokal existing (5433)
+    volumes:
+      - postgres_data_staging:/var/lib/postgresql/data
+    networks:
+      - sales-net-staging
+
+  backend-staging:
+    build:
+      context: ./backend
+    container_name: sales-system-staging-backend
+    restart: unless-stopped
+    depends_on:
+      - postgres-staging
+    environment:
+      APP_PORT: 8081
+      DB_DSN: postgres://sales_staging:staging_local_only@postgres-staging:5432/salesdb_staging?sslmode=disable
+    ports:
+      - "8091:8081"   # beda dari produksi/lokal existing (8081)
+    networks:
+      - sales-net-staging
+
+  frontend-staging:
+    build:
+      context: ./frontend
+    container_name: sales-system-staging-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend-staging
+    environment:
+      NEXT_PUBLIC_API_BASE_URL: http://localhost:8091
+      DATABASE_URL: postgres://sales_staging:staging_local_only@postgres-staging:5432/salesdb_staging?sslmode=disable
+    ports:
+      - "3010:3000"   # beda dari produksi/lokal existing (3000)
+    networks:
+      - sales-net-staging
+
+volumes:
+  postgres_data_staging:
+
+networks:
+  sales-net-staging:
+    driver: bridge

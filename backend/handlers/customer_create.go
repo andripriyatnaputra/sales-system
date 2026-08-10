@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	"strconv"
+
 	"sales-system-backend/database"
 
 	"github.com/gin-gonic/gin"
@@ -29,6 +31,8 @@ func CreateCustomer(c *gin.Context) {
 		c.JSON(500, gin.H{"error": err.Error()})
 		return
 	}
+
+	LogAudit(c, c.GetInt64("user_id"), "create", "customer", strconv.FormatInt(id, 10), body.Name, body)
 
 	c.JSON(201, gin.H{"id": id})
 }

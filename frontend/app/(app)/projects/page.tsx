@@ -3,6 +3,7 @@
 export const dynamic = "force-dynamic";
 
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { apiDelete, apiGet, apiPost, apiPut } from "@/lib/api";
 import {
@@ -11,6 +12,7 @@ import {
   SALES_STAGES,
   SPH_STATUSES,
   STATUSES,
+  STAGES,
 } from "@/lib/constants";
 import {
   safeString,
@@ -100,6 +102,7 @@ type ProjectWithPlans = Project & {
 type Me = {
   role: string;
   division: string;
+  department: string;
 };
 
 type ProjectSummary = {
@@ -118,6 +121,26 @@ const normalizeSPH = (v: any): "Yes" | "No" => {
   if (!v) return "No";
   return String(v).toLowerCase() === "yes" ? "Yes" : "No";
 };
+
+function postpoDoneCount(m: PostPOMonitoring): number {
+  return [m.stage1_status, m.stage2_status, m.stage3_status, m.stage4_status, m.stage5_status].filter(
+    (s) => s === "Done"
+  ).length;
+}
+
+// postpoCurrentStage: tahap TERTINGGI yang sudah py aktivitas (bukan "Not
+// Started") -- prioritas sama persis CASE expression di work_queue.go's
+// postpoRows, supaya label yang tampil di My Work dan di list Projects
+// konsisten.
+function postpoCurrentStage(m: PostPOMonitoring): { title: string; status: PostPOStatus } {
+  const statuses: PostPOStatus[] = [m.stage1_status, m.stage2_status, m.stage3_status, m.stage4_status, m.stage5_status];
+  for (let i = 4; i >= 0; i--) {
+    if (statuses[i] !== "Not Started") {
+      return { title: STAGES[i].title, status: statuses[i] };
+    }
+  }
+  return { title: STAGES[0].title, status: "Not Started" };
+}
 
 const normalizeSPHStatus = (
   v: any
@@ -155,9 +178,11 @@ const compactIDR = (value: number | null | undefined): string => {
 /* ------------- Main Page ------------- */
 
 export default function ProjectsPage() {
+  const router = useRouter();
   const [projects, setProjects] = useState<Project[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [me, setMe] = useState<Me | null>(null);
+  const canManageProject = me?.role === "admin" || me?.department === "Sales";
 
   const [loading, setLoading] = useState(false);
   const [loadingError, setLoadingError] = useState<string | null>(null);
@@ -266,6 +291,7 @@ export default function ProjectsPage() {
       setMe({
         role: String(res?.role || ""),
         division: String(res?.division || ""),
+        department: String(res?.department || ""),
       });
     } catch {
       setMe(null);
@@ -356,12 +382,7 @@ export default function ProjectsPage() {
         const m = p.postpo_monitoring;
         if (!m) return false;
 
-        const done =
-          m.stage1_status === "Done" &&
-          m.stage2_status === "Done" &&
-          m.stage3_status === "Done" &&
-          m.stage4_status === "Done" &&
-          m.stage5_status === "Done";
+        const done = postpoDoneCount(m) === 5;
 
         return executionFilter === "completed" ? done : !done;
       });
@@ -470,12 +491,7 @@ export default function ProjectsPage() {
         const m = p.postpo_monitoring;
         if (!m) return false;
 
-        const done =
-          m.stage1_status === "Done" &&
-          m.stage2_status === "Done" &&
-          m.stage3_status === "Done" &&
-          m.stage4_status === "Done" &&
-          m.stage5_status === "Done";
+        const done = postpoDoneCount(m) === 5;
 
         return executionFilter === "completed" ? done : !done;
       });
@@ -711,7 +727,10 @@ const handleExportCsv = async () => {
       setModalSaving(true);
 
       if (modalMode === "create") {
-        await apiPost("/projects", payload);
+        const created = await apiPost<{ id: number }>("/projects", payload);
+        setModalOpen(false);
+        router.push(`/projects/${created.id}`);
+        return;
       } else if (modalMode === "edit" && editingProject) {
         await apiPut(`/projects/${editingProject.id}`, payload);
       }
@@ -856,17 +875,19 @@ return (
             Export CSV
           </button>
 
+          {canManageProject && (
           <button
             onClick={openCreateModal}
             className="px-3 py-2 rounded-lg bg-blue-600 text-white text-sm hover:bg-blue-700"
           >
             + New Project
           </button>
+          )}
         </div>
       </div>
     </div>
 
-    
+
     
     {/* SUMMARY */}
     {summary && (
@@ -1199,6 +1220,12 @@ return (
                     </td>
                     <td className="px-3 py-2">
                       {SALES_STAGES.find((s) => s.value === p.sales_stage)?.label || "-"}
+                      {p.sales_stage === 6 && p.postpo_monitoring && (
+                        <div className="text-[11px] text-muted-foreground mt-0.5">
+                          Post-PO: {postpoCurrentStage(p.postpo_monitoring).title} (
+                          {postpoDoneCount(p.postpo_monitoring)}/5)
+                        </div>
+                      )}
                     </td>
                     <td className="px-3 py-2">
                       {normalizeSPH(p.sph_release_status) === "Yes" ? (
@@ -1286,12 +1313,18 @@ return (
                       {formatIDR(p.total_realization || 0)}
                     </td>
                     <td className="px-3 py-2 text-right space-x-3">
-                      <button className="text-blue-600" onClick={() => openEditModal(p)}>
-                        Edit
-                      </button>
-                      <button className="text-red-600" onClick={() => handleDelete(p)}>
-                        Delete
-                      </button>
+                      {canManageProject ? (
+                        <>
+                          <button className="text-blue-600" onClick={() => openEditModal(p)}>
+                            Edit
+                          </button>
+                          <button className="text-red-600" onClick={() => handleDelete(p)}>
+                            Delete
+                          </button>
+                        </>
+                      ) : (
+                        <span className="text-gray-300">-</span>
+                      )}
                     </td>
                   </tr>
                 ))

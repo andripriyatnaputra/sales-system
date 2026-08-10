@@ -50,7 +50,6 @@ func ListProjects(c *gin.Context) {
 	}
 
 	// --- ACL + FILTERS ---
-	role := c.GetString("role")
 	userDiv := NormalizeDivision(c.GetString("division"))
 
 	whereParts := []string{}
@@ -58,7 +57,7 @@ func ListProjects(c *gin.Context) {
 	i := 1
 
 	// Sama dengan dashboard: user selalu dibatasi divisinya
-	if role == "user" {
+	if isSalesDivisionLocked(c) {
 		whereParts = append(whereParts, fmt.Sprintf("p.division = $%d", i))
 		args = append(args, userDiv)
 		i++
@@ -241,7 +240,6 @@ func ListProjects(c *gin.Context) {
 func GetProjectsSummary(c *gin.Context) {
 	ctx := c.Request.Context()
 
-	role := c.GetString("role")
 	userDiv := NormalizeDivision(c.GetString("division"))
 	year := strings.TrimSpace(c.Query("year"))
 	divisionQ := NormalizeDivision(strings.TrimSpace(c.Query("division")))
@@ -251,7 +249,7 @@ func GetProjectsSummary(c *gin.Context) {
 	args := []any{}
 	idx := 1
 
-	if role == "user" {
+	if isSalesDivisionLocked(c) {
 		whereParts = append(whereParts, fmt.Sprintf("p.division = $%d", idx))
 		args = append(args, userDiv)
 		idx++
@@ -279,7 +277,7 @@ func GetProjectsSummary(c *gin.Context) {
 	revenueArgs := []any{}
 	revenueIdx := 1
 
-	if role == "user" {
+	if isSalesDivisionLocked(c) {
 		revenueWhereParts = append(revenueWhereParts, fmt.Sprintf("p.division = $%d", revenueIdx))
 		revenueArgs = append(revenueArgs, userDiv)
 		revenueIdx++
@@ -418,7 +416,6 @@ func ExportProjectsCSV(c *gin.Context) {
 	startYear := time.Date(year, 1, 1, 0, 0, 0, 0, time.UTC).Format("2006-01-02")
 
 	// ===== ACL & filters =====
-	role := c.GetString("role")
 	userDiv := NormalizeDivision(c.GetString("division"))
 
 	args := []any{startYear} // $1 reserved for year
@@ -426,7 +423,7 @@ func ExportProjectsCSV(c *gin.Context) {
 	whereParts := []string{"1=1"}
 
 	// ACL: user locked to division
-	if role == "user" {
+	if isSalesDivisionLocked(c) {
 		whereParts = append(whereParts, fmt.Sprintf("p.division = $%d", i))
 		args = append(args, userDiv)
 		i++

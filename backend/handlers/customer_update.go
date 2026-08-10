@@ -35,5 +35,11 @@ func UpdateCustomer(c *gin.Context) {
 		return
 	}
 
+	label := ""
+	if body.Name != nil {
+		label = *body.Name
+	}
+	LogAudit(c, c.GetInt64("user_id"), "update", "customer", id, label, body)
+
 	c.JSON(200, gin.H{"status": "updated"})
 }

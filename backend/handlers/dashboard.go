@@ -177,7 +177,7 @@ func GetDashboard(c *gin.Context) {
 	role := c.GetString("role")
 	userDiv := NormalizeDivision(c.GetString("division"))
 
-	if role == "user" {
+	if isSalesDivisionLocked(c) {
 		q := c.Request.URL.Query()
 		q.Set("division", userDiv)
 		c.Request.URL.RawQuery = q.Encode()
@@ -731,7 +731,7 @@ func buildProjectDashboardFilter(
 	fromStr := strings.TrimSpace(c.Query("from"))
 	toStr := strings.TrimSpace(c.Query("to"))
 
-	if role == "user" {
+	if isSalesDivisionLocked(c) {
 		division = userDiv
 	}
 
@@ -859,7 +859,7 @@ func buildBudgetDashboardFilter(c *gin.Context, role, userDiv string) (string, [
 	fromStr := strings.TrimSpace(c.Query("from"))
 	toStr := strings.TrimSpace(c.Query("to"))
 
-	if role == "user" {
+	if isSalesDivisionLocked(c) {
 		divFilter = userDiv
 	}
 	divFilter = NormalizeDivision(divFilter)
@@ -946,7 +946,7 @@ func buildPipelineFilter(
 	fromStr := strings.TrimSpace(c.Query("from"))
 	toStr := strings.TrimSpace(c.Query("to"))
 
-	if role == "user" {
+	if isSalesDivisionLocked(c) {
 		division = userDiv
 	}
 

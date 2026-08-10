@@ -59,7 +59,6 @@ func UpdateRevenueRealization(c *gin.Context) {
 	ctx := c.Request.Context()
 
 	// --- ACL from token ---
-	role := c.GetString("role")
 	userDivision := NormalizeDivision(c.GetString("division"))
 
 	// --- Fetch project division ---
@@ -77,7 +76,7 @@ func UpdateRevenueRealization(c *gin.Context) {
 	projectDivision = NormalizeDivision(projectDivision)
 
 	// --- ACL Enforcement ---
-	if role == "user" && userDivision != projectDivision {
+	if isSalesDivisionLocked(c) && userDivision != projectDivision {
 		c.JSON(403, gin.H{
 			"error": "forbidden: cannot update realization in another division",
 		})
@@ -133,6 +132,8 @@ func UpdateRevenueRealization(c *gin.Context) {
 		c.JSON(500, gin.H{"error": "tx commit failed"})
 		return
 	}
+
+	LogAudit(c, c.GetInt64("user_id"), "update", "project_revenue_realization", projectIDStr, applyMonth, body)
 
 	c.JSON(200, gin.H{"status": "ok"})
 

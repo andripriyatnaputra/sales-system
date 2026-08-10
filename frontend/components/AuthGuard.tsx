@@ -7,9 +7,10 @@ import { getToken } from "@/lib/api";
 type AuthGuardProps = {
   children: ReactNode;
   requireAdmin?: boolean;
+  requirePermission?: string;
 };
 
-export function AuthGuard({ children, requireAdmin }: AuthGuardProps) {
+export function AuthGuard({ children, requireAdmin, requirePermission }: AuthGuardProps) {
   const router = useRouter();
   const [checking, setChecking] = useState(true);
 
@@ -31,8 +32,18 @@ export function AuthGuard({ children, requireAdmin }: AuthGuardProps) {
       return;
     }
 
+    if (requirePermission) {
+      const permissions: string[] = JSON.parse(
+        (typeof window !== "undefined" ? localStorage.getItem("permissions") : null) || "[]"
+      );
+      if (!permissions.includes(requirePermission)) {
+        router.replace("/dashboard");
+        return;
+      }
+    }
+
     setChecking(false);
-  }, [router, requireAdmin]);
+  }, [router, requireAdmin, requirePermission]);
 
   if (checking) {
     return (

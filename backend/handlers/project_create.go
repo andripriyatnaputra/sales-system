@@ -3,6 +3,7 @@ package handlers
 import (
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -22,8 +23,13 @@ func CreateProject(c *gin.Context) {
 
 	ctx := c.Request.Context()
 
+	// --- ACL: cuma Sales/admin yang boleh create project ---
+	if !canManageProjectCore(c) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "forbidden: only Sales can create project"})
+		return
+	}
+
 	// --- ACL DATA FROM JWT ---
-	role := c.GetString("role")
 	userDivision := NormalizeDivision(c.GetString("division"))
 
 	// --- Normalize incoming division ---
@@ -44,7 +50,7 @@ func CreateProject(c *gin.Context) {
 	// =============================
 	//  ACL Enforcement
 	// =============================
-	if role == "user" {
+	if isSalesDivisionLocked(c) {
 		// FORCE project division to user’s division
 		if userDivision == "" {
 			c.JSON(http.StatusForbidden, gin.H{"error": "missing division in token"})
@@ -234,6 +240,15 @@ func CreateProject(c *gin.Context) {
 		c.JSON(500, gin.H{"error": "transaction commit error"})
 		return
 	}
+
+	// --- Sales Order otomatis begitu deal jadi Win (idempoten, lihat sales_order.go) ---
+	if body.SPHStatus != nil && *body.SPHStatus == "Win" {
+		if err := ensureSalesOrderForProject(ctx, id, c.GetInt64("user_id")); err != nil {
+			fmt.Println("warning: failed to auto-create sales order:", err)
+		}
+	}
+
+	LogAudit(c, c.GetInt64("user_id"), "create", "project", strconv.FormatInt(id, 10), projectCode, body)
 
 	// --- SUCCESS RESPONSE ---
 	c.JSON(201, gin.H{

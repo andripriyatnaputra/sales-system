@@ -49,7 +49,6 @@ func normalizedSPHStatusExpr() string {
 // - filter waktu diaplikasikan ke rp.month
 // - karena itu helper ini dipakai hanya pada query yang JOIN project_revenue_plan rp
 func buildProjectAnalyticsFilter(c *gin.Context) (string, []any) {
-	role := strings.TrimSpace(c.GetString("role"))
 	userDiv := NormalizeDivision(strings.TrimSpace(c.GetString("division")))
 
 	conds := []string{"1=1"}
@@ -68,7 +67,7 @@ func buildProjectAnalyticsFilter(c *gin.Context) (string, []any) {
 	fromStr := strings.TrimSpace(c.Query("from"))
 	toStr := strings.TrimSpace(c.Query("to"))
 
-	if role == "user" {
+	if isSalesDivisionLocked(c) {
 		division = userDiv
 	}
 

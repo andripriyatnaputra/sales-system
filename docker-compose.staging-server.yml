@@ -1,0 +1,60 @@
+# Compose file khusus deploy STAGING ke server 202.50.203.136 via CI/CD
+# (GitHub Actions, branch "staging"). Pull image jadi dari Docker Hub
+# (:backend-staging / :frontend-staging), BUKAN build lokal -- beda dari
+# docker-compose.staging.yml (file lokal WSL, untracked, dipakai buat dev
+# lokal via `docker compose ... build`, JANGAN disatukan/ditimpa).
+#
+# Dijalankan di server SELALU dengan flag eksplisit:
+#   docker compose -f docker-compose.staging-server.yml -p sales-staging pull
+#   docker compose -f docker-compose.staging-server.yml -p sales-staging up -d
+# -p sales-staging memisahkan total dari compose project production
+# (docker-compose.yml, project default) -- container/network/volume tidak
+# pernah tumpang tindih meski dijalankan di host yang sama.
+
+services:
+  postgres:
+    image: postgres:15
+    restart: always
+    environment:
+      POSTGRES_USER: sales_staging
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD_STAGING}
+      POSTGRES_DB: salesdb_staging
+    ports:
+      - "5434:5432"   # host 5434, beda dari production (5433)
+    volumes:
+      - postgres_data_staging:/var/lib/postgresql/data
+    networks:
+      - sales-staging-net
+
+  backend:
+    image: andriputra/sales-system:backend-staging
+    restart: always
+    depends_on:
+      - postgres
+    environment:
+      APP_PORT: 8081   # PENTING: port INTERNAL container, sengaja sama dgn production (bukan 8091) --
+                        # frontend/next.config.mjs (committed di git) hardcode proxy ke "http://backend:8081",
+                        # dievaluasi saat BUILD TIME jadi tidak bisa dioverride via env runtime. Host-side
+                        # tetap dibedakan lewat port mapping di bawah (8091), bukan lewat APP_PORT ini.
+      DB_DSN: postgres://sales_staging:${POSTGRES_PASSWORD_STAGING}@postgres:5432/salesdb_staging?sslmode=disable
+    ports:
+      - "8091:8081"   # host 8091 (beda dari production 8081) -> container 8081 (sama internal, lihat komentar di atas)
+    networks:
+      - sales-staging-net
+
+  frontend:
+    image: andriputra/sales-system:frontend-staging
+    restart: always
+    depends_on:
+      - backend
+    ports:
+      - "3010:3000"   # container Next.js standalone listen di 3000 default (lihat Dockerfile EXPOSE), host 3010
+    networks:
+      - sales-staging-net
+
+volumes:
+  postgres_data_staging:
+
+networks:
+  sales-staging-net:
+    driver: bridge

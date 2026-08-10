@@ -48,6 +48,31 @@ func AuthRequired() gin.HandlerFunc {
 		c.Set("division", division)
 		c.Set("user_id", userID)
 
+		// Claims RBAC tambahan (additive) -- token lama tanpa claims ini masih
+		// bisa lolos, cukup diperlakukan sebagai role_key/department/level kosong
+		// dan permissions kosong (RequirePermission akan menolak, bukan panic).
+		if roleKey, ok := claims["role_key"].(string); ok {
+			c.Set("role_key", roleKey)
+		}
+		if department, ok := claims["department"].(string); ok {
+			c.Set("department", department)
+		}
+		if level, ok := claims["level"].(string); ok {
+			c.Set("level", level)
+		}
+		if orgUnit, ok := claims["org_unit"].(string); ok {
+			c.Set("org_unit", orgUnit)
+		}
+		if permsRaw, ok := claims["permissions"].([]interface{}); ok {
+			perms := make([]string, 0, len(permsRaw))
+			for _, p := range permsRaw {
+				if s, ok := p.(string); ok {
+					perms = append(perms, s)
+				}
+			}
+			c.Set("permissions", perms)
+		}
+
 		c.Next()
 	}
 }

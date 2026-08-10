@@ -100,8 +100,8 @@ export default function NewProjectPage() {
 
     try {
       setIsSubmitting(true);
-      await apiPost("/projects", body);
-      router.push("/projects");
+      const res = await apiPost<{ id: number }>("/projects", body);
+      router.push(`/projects/${res.id}`);
     } catch (err: any) {
       setErrorMsg(err?.message || "Gagal membuat project.");
     } finally {
