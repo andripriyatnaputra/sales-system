@@ -198,10 +198,35 @@ func UpdateProject(c *gin.Context) {
 		c.JSON(500, gin.H{"error": err.Error()})
 		return
 	}
-	// --- Upsert revenue plans ---
+	// --- Replace revenue plans ---
 	// target_revenue  = target awal / prospect value
 	// sph_revenue     = nilai sesuai SPH, hanya update jika dikirim dari FE
 	// target_realization tetap dipreserve, tidak disentuh di update project
+	//
+	// FE selalu mengirim daftar lengkap revenue plan project ini (bukan diff),
+	// jadi bulan lama yang sudah tidak ada di payload (mis. dipindah dari
+	// Januari ke Maret) harus dihapus di sini juga - kalau tidak, baris lama
+	// tetap nyangkut dan revenue project jadi dobel (lama + baru).
+	if len(body.RevenuePlans) > 0 {
+		keepMonths := make([]string, 0, len(body.RevenuePlans))
+		for _, rp := range body.RevenuePlans {
+			keepMonths = append(keepMonths, rp.Month)
+		}
+
+		_, err = tx.Exec(ctx, `
+		DELETE FROM project_revenue_plan
+		WHERE project_id = $1
+		  AND to_char(month, 'YYYY-MM') <> ALL($2::text[])
+	`, id, keepMonths)
+
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error": "failed to remove stale revenue plan months",
+			})
+			return
+		}
+	}
+
 	for _, rp := range body.RevenuePlans {
 		month, err := time.Parse("2006-01", rp.Month)
 		if err != nil {
