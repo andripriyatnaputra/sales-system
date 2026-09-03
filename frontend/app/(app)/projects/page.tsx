@@ -2,7 +2,8 @@
 
 export const dynamic = "force-dynamic";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { apiDelete, apiGet, apiPost, apiPut } from "@/lib/api";
 import {
@@ -154,7 +155,19 @@ const compactIDR = (value: number | null | undefined): string => {
 
 /* ------------- Main Page ------------- */
 
+type CardMode = "all" | "pipeline" | "closing" | "in_execution" | "completed";
+
 export default function ProjectsPage() {
+  return (
+    <Suspense fallback={<div className="p-6">Loading...</div>}>
+      <ProjectsPageInner />
+    </Suspense>
+  );
+}
+
+function ProjectsPageInner() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [projects, setProjects] = useState<Project[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [me, setMe] = useState<Me | null>(null);
@@ -162,25 +175,26 @@ export default function ProjectsPage() {
   const [loading, setLoading] = useState(false);
   const [loadingError, setLoadingError] = useState<string | null>(null);
 
-  // Filters
-  const [search, setSearch] = useState("");
-  const [divisionFilter, setDivisionFilter] = useState<string>("All");
-  const [customerFilter, setCustomerFilter] = useState<string>("All");
-  const [statusFilter, setStatusFilter] = useState<string>("All");
-  const [sphFilter, setSphFilter] = useState<string>("All");
+  // Filters -- nilai awal dibaca dari URL query string (bukan hardcode default)
+  // supaya balik dari halaman detail (browser Back) mengembalikan persis filter
+  // & halaman pagination terakhir, bukan reset ke kondisi kosong.
+  const [search, setSearch] = useState(() => searchParams.get("q") || "");
+  const [divisionFilter, setDivisionFilter] = useState<string>(() => searchParams.get("division") || "All");
+  const [customerFilter, setCustomerFilter] = useState<string>(() => searchParams.get("customer") || "All");
+  const [statusFilter, setStatusFilter] = useState<string>(() => searchParams.get("status") || "All");
+  const [sphFilter, setSphFilter] = useState<string>(() => searchParams.get("sph") || "All");
   const [sphStatusFilter, setSphStatusFilter] = useState<
     "All" | "Open" | "Win" | "Hold" | "Loss" | "Drop"
-  >("All");
-  const [projectTypeFilter, setProjectTypeFilter] = useState<string>("All");
-  const [salesStageFilter, setSalesStageFilter] = useState<string>("All");
-  const [startMonth, setStartMonth] = useState("");
-  const [endMonth, setEndMonth] = useState("");
+  >(() => (searchParams.get("sph_status") as any) || "All");
+  const [projectTypeFilter, setProjectTypeFilter] = useState<string>(() => searchParams.get("type") || "All");
+  const [salesStageFilter, setSalesStageFilter] = useState<string>(() => searchParams.get("stage") || "All");
+  const [startMonth, setStartMonth] = useState(() => searchParams.get("start_month") || "");
+  const [endMonth, setEndMonth] = useState(() => searchParams.get("end_month") || "");
 
   const [executionFilter, setExecutionFilter] =
-    useState<"all" | "in_execution" | "completed">("all");
+    useState<"all" | "in_execution" | "completed">(() => (searchParams.get("execution") as any) || "all");
 
-  type CardMode = "all" | "pipeline" | "closing" | "in_execution" | "completed";
-  const [cardMode, setCardMode] = useState<CardMode>("all");
+  const [cardMode, setCardMode] = useState<CardMode>(() => (searchParams.get("card") as CardMode) || "all");
 
   // Sorting
   const [sortKey, setSortKey] =
@@ -199,9 +213,9 @@ export default function ProjectsPage() {
       | "total_sph_revenue"
       | "sph_variance"
       | "total_realization"
-    >("project_code");
+    >(() => (searchParams.get("sort") as any) || "project_code");
 
-  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">(() => (searchParams.get("dir") as any) || "desc");
 
   const toggleSort = (key: typeof sortKey) => {
     if (sortKey === key) {
@@ -234,7 +248,7 @@ export default function ProjectsPage() {
   );
 
   // Pagination
-  const [page, setPage] = useState(1);
+  const [page, setPage] = useState(() => Number(searchParams.get("page")) || 1);
   const pageSize = 10;
 
   // Modal
@@ -308,8 +322,52 @@ export default function ProjectsPage() {
     loadMe();
   }, []);
 
-  // Reset page saat filter/search berubah
+  // Re-sync SEMUA filter/sort/page dari URL setiap `searchParams` berubah --
+  // BUKAN cuma sekali di initializer. Next.js App Router kadang restore
+  // instance komponen dari cache saat browser Back (bukan remount murni),
+  // jadi initializer `useState(() => ...)` TIDAK re-run -- tanpa effect ini,
+  // address bar sudah benar (mis. ?page=3) tapi state React di komponen
+  // ketinggalan/stale. `isRestoringFromURL` dipakai efek reset-page di bawah
+  // supaya restorasi ini TIDAK dianggap "user ganti filter" (yang seharusnya
+  // reset page ke 1).
+  const isRestoringFromURL = useRef(false);
   useEffect(() => {
+    isRestoringFromURL.current = true;
+    setSearch(searchParams.get("q") || "");
+    setDivisionFilter(searchParams.get("division") || "All");
+    setCustomerFilter(searchParams.get("customer") || "All");
+    setStatusFilter(searchParams.get("status") || "All");
+    setSphFilter(searchParams.get("sph") || "All");
+    setSphStatusFilter((searchParams.get("sph_status") as any) || "All");
+    setProjectTypeFilter(searchParams.get("type") || "All");
+    setSalesStageFilter(searchParams.get("stage") || "All");
+    setStartMonth(searchParams.get("start_month") || "");
+    setEndMonth(searchParams.get("end_month") || "");
+    setExecutionFilter((searchParams.get("execution") as any) || "all");
+    setCardMode((searchParams.get("card") as CardMode) || "all");
+    setSortKey((searchParams.get("sort") as any) || "project_code");
+    setSortDir((searchParams.get("dir") as any) || "desc");
+    setPage(Number(searchParams.get("page")) || 1);
+
+    const t = setTimeout(() => {
+      isRestoringFromURL.current = false;
+    }, 0);
+    return () => clearTimeout(t);
+  }, [searchParams]);
+
+  // Reset page saat filter/search berubah DARI AKSI USER -- SKIP di render
+  // pertama & SKIP kalau perubahan ini datang dari restorasi URL di atas
+  // (Back/forward), supaya `page` yang baru dipulihkan (mis. 3) tidak
+  // langsung ketimpa balik ke 1 oleh efek ini.
+  const isFirstFilterRender = useRef(true);
+  useEffect(() => {
+    if (isFirstFilterRender.current) {
+      isFirstFilterRender.current = false;
+      return;
+    }
+    if (isRestoringFromURL.current) {
+      return;
+    }
     setPage(1);
   }, [
     divisionFilter,
@@ -322,8 +380,55 @@ export default function ProjectsPage() {
     endMonth,
     search,
     executionFilter,
-    cardMode,  
+    cardMode,
     sphStatusFilter,
+  ]);
+
+  // Sinkron seluruh filter/sort/page ke URL query string (debounced) --
+  // supaya browser Back dari halaman detail project mengembalikan persis
+  // state filter+halaman terakhir, bukan reset. Pakai router.replace (bukan
+  // push) supaya tiap ketikan/klik filter TIDAK menumpuk entry baru di
+  // history -- cuma navigasi asli (klik ke detail project) yang push entry.
+  useEffect(() => {
+    const t = setTimeout(() => {
+      const params = new URLSearchParams();
+      if (search.trim()) params.set("q", search.trim());
+      if (divisionFilter !== "All") params.set("division", divisionFilter);
+      if (customerFilter !== "All") params.set("customer", customerFilter);
+      if (statusFilter !== "All") params.set("status", statusFilter);
+      if (sphFilter !== "All") params.set("sph", sphFilter);
+      if (sphStatusFilter !== "All") params.set("sph_status", sphStatusFilter);
+      if (projectTypeFilter !== "All") params.set("type", projectTypeFilter);
+      if (salesStageFilter !== "All") params.set("stage", salesStageFilter);
+      if (startMonth) params.set("start_month", startMonth);
+      if (endMonth) params.set("end_month", endMonth);
+      if (executionFilter !== "all") params.set("execution", executionFilter);
+      if (cardMode !== "all") params.set("card", cardMode);
+      if (sortKey !== "project_code") params.set("sort", sortKey);
+      if (sortDir !== "desc") params.set("dir", sortDir);
+      if (page !== 1) params.set("page", String(page));
+
+      const qs = params.toString();
+      router.replace(qs ? `/projects?${qs}` : "/projects", { scroll: false });
+    }, 300);
+    return () => clearTimeout(t);
+  }, [
+    search,
+    divisionFilter,
+    customerFilter,
+    statusFilter,
+    sphFilter,
+    sphStatusFilter,
+    projectTypeFilter,
+    salesStageFilter,
+    startMonth,
+    endMonth,
+    executionFilter,
+    cardMode,
+    sortKey,
+    sortDir,
+    page,
+    router,
   ]);
 
   const [summary, setSummary] = useState<ProjectSummary | null>(null);
