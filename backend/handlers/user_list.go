@@ -11,7 +11,7 @@ import (
 
 func ListUsers(c *gin.Context) {
 	rows, err := database.Pool.Query(c, `
-		SELECT u.id, u.username, u.role, u.division, u.role_id, u.manager_id,
+		SELECT u.id, u.username, u.role, u.division, u.email, u.role_id, u.manager_id,
 		       u.created_at, u.updated_at,
 		       COALESCE(r.key, ''), COALESCE(r.label, ''),
 		       COALESCE(d.name, ou_dept.name, ''), COALESCE(r.level, '')
@@ -33,7 +33,7 @@ func ListUsers(c *gin.Context) {
 	for rows.Next() {
 		var u models.User
 		err := rows.Scan(
-			&u.ID, &u.Username, &u.Role, &u.Division, &u.RoleID, &u.ManagerID,
+			&u.ID, &u.Username, &u.Role, &u.Division, &u.Email, &u.RoleID, &u.ManagerID,
 			&u.CreatedAt, &u.UpdatedAt,
 			&u.RoleKey, &u.RoleLabel, &u.RoleDepartment, &u.RoleLevel,
 		)

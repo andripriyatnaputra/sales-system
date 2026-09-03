@@ -8,6 +8,7 @@ type User struct {
 	PasswordHash string    `json:"-"`
 	Role         string    `json:"role"`     // "admin" or "user" (legacy, dipertahankan untuk kompatibilitas)
 	Division     string    `json:"division"` // NetCo, Oil Gas & Mining, IT Solutions (lini bisnis/vertikal proyek)
+	Email        *string   `json:"email,omitempty"`
 	RoleID       *int64    `json:"role_id,omitempty"`
 	ManagerID    *int64    `json:"manager_id,omitempty"`
 	CreatedAt    time.Time `json:"created_at"`

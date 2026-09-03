@@ -18,6 +18,7 @@ func UpdateUser(c *gin.Context) {
 		RoleID    int64   `json:"role_id"`
 		Division  string  `json:"division"`
 		ManagerID *int64  `json:"manager_id"`
+		Email     string  `json:"email"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -57,19 +58,23 @@ func UpdateUser(c *gin.Context) {
 		_, err = database.Pool.Exec(c, `
 			UPDATE users
 			   SET username=COALESCE(NULLIF($1, ''), username), password_hash=$2, role=$3, division=$4,
-			       role_id=$5, manager_id=COALESCE($6, manager_id), updated_at=NOW()
-			 WHERE id=$7
-		`, req.Username, *passwordHash, legacyRole, division, req.RoleID, req.ManagerID, id)
+			       role_id=$5, manager_id=COALESCE($6, manager_id), email=COALESCE(NULLIF($7, ''), email), updated_at=NOW()
+			 WHERE id=$8
+		`, req.Username, *passwordHash, legacyRole, division, req.RoleID, req.ManagerID, req.Email, id)
 	} else {
 		_, err = database.Pool.Exec(c, `
 			UPDATE users
 			   SET username=COALESCE(NULLIF($1, ''), username), role=$2, division=$3,
-			       role_id=$4, manager_id=COALESCE($5, manager_id), updated_at=NOW()
-			 WHERE id=$6
-		`, req.Username, legacyRole, division, req.RoleID, req.ManagerID, id)
+			       role_id=$4, manager_id=COALESCE($5, manager_id), email=COALESCE(NULLIF($6, ''), email), updated_at=NOW()
+			 WHERE id=$7
+		`, req.Username, legacyRole, division, req.RoleID, req.ManagerID, req.Email, id)
 	}
 
 	if err != nil {
+		if strings.Contains(err.Error(), "idx_users_email_unique") {
+			c.JSON(409, gin.H{"error": "email already exists"})
+			return
+		}
 		c.JSON(500, gin.H{"error": "update failed"})
 		return
 	}

@@ -18,6 +18,8 @@ type PRItem = {
   unit?: string | null;
   qty: number;
   estimated_unit_cost?: number | null;
+  ordered_qty: number;
+  remaining_qty: number;
 };
 
 type Vendor = {
@@ -68,9 +70,10 @@ export default function NewPurchaseOrderPage() {
       setPrItems(items);
       const init: Record<number, ItemSelection> = {};
       items.forEach((it) => {
+        const remaining = it.remaining_qty ?? it.qty;
         init[it.id] = {
-          selected: true,
-          qty: String(it.qty),
+          selected: remaining > 0,
+          qty: String(remaining > 0 ? remaining : it.qty),
           unitCost: it.estimated_unit_cost != null ? String(it.estimated_unit_cost) : "",
         };
       });
@@ -178,23 +181,34 @@ export default function NewPurchaseOrderPage() {
                   <tr>
                     <th className="px-2 py-2 text-left w-8"></th>
                     <th className="px-2 py-2 text-left">Item</th>
+                    <th className="px-2 py-2 text-right">Sisa PR</th>
                     <th className="px-2 py-2 text-right">Estimasi PR</th>
                     <th className="px-2 py-2 text-right">Qty</th>
                     <th className="px-2 py-2 text-right">Harga Satuan Vendor</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {prItems.map((it) => (
+                  {prItems.map((it) => {
+                    const fullyOrdered = it.remaining_qty <= 0;
+                    return (
                     <tr key={it.id} className="border-t">
                       <td className="px-2 py-2">
                         <input
                           type="checkbox"
                           checked={!!selections[it.id]?.selected}
                           onChange={(e) => updateSelection(it.id, "selected", e.target.checked)}
+                          disabled={fullyOrdered}
                         />
                       </td>
                       <td className="px-2 py-2">
                         {it.item_name} <span className="text-muted-foreground">({it.unit || "-"})</span>
+                      </td>
+                      <td className="px-2 py-2 text-right">
+                        {fullyOrdered ? (
+                          <span className="text-[11px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground">Sudah terpenuhi</span>
+                        ) : (
+                          it.remaining_qty
+                        )}
                       </td>
                       <td className="px-2 py-2 text-right text-muted-foreground">
                         {it.estimated_unit_cost != null ? formatIDR(it.estimated_unit_cost) : "-"}
@@ -218,7 +232,7 @@ export default function NewPurchaseOrderPage() {
                         />
                       </td>
                     </tr>
-                  ))}
+                  );})}
                 </tbody>
               </table>
             </div>

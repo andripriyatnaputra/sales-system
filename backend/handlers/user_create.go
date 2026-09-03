@@ -11,11 +11,12 @@ import (
 
 func CreateUser(c *gin.Context) {
 	var req struct {
-		Username  string `json:"username"`
-		Password  string `json:"password"`
-		RoleID    int64  `json:"role_id"`
-		Division  string `json:"division"`
-		ManagerID *int64 `json:"manager_id"`
+		Username  string  `json:"username"`
+		Password  string  `json:"password"`
+		RoleID    int64   `json:"role_id"`
+		Division  string  `json:"division"`
+		ManagerID *int64  `json:"manager_id"`
+		Email     *string `json:"email"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -59,8 +60,8 @@ func CreateUser(c *gin.Context) {
 	err = database.Pool.QueryRow(
 		c,
 		`
-		INSERT INTO users (username, password_hash, role, division, role_id, manager_id)
-		VALUES ($1, $2, $3, $4, $5, $6)
+		INSERT INTO users (username, password_hash, role, division, role_id, manager_id, email)
+		VALUES ($1, $2, $3, $4, $5, $6, NULLIF($7, ''))
 		RETURNING id
 		`,
 		req.Username,
@@ -69,11 +70,16 @@ func CreateUser(c *gin.Context) {
 		division,
 		req.RoleID,
 		req.ManagerID,
+		req.Email,
 	).Scan(&id)
 
 	if err != nil {
 		if strings.Contains(err.Error(), "users_username_key") {
 			c.JSON(409, gin.H{"error": "username already exists"})
+			return
+		}
+		if strings.Contains(err.Error(), "idx_users_email_unique") {
+			c.JSON(409, gin.H{"error": "email already exists"})
 			return
 		}
 

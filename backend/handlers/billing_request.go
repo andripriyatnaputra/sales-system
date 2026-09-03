@@ -131,6 +131,9 @@ func GetBillingRequest(c *gin.Context) {
 			br.Status = outcome
 			if outcome == "approved" && br.ApprovedAt == nil {
 				br.ApprovedAt = &now
+				notifyDepartmentByEmail(c.Request.Context(), "finance",
+					"META disetujui: "+br.METANumber,
+					fmt.Sprintf("META %s sudah disetujui, siap dibuatkan Invoice.", br.METANumber))
 			}
 		}
 	}
@@ -183,6 +186,12 @@ func SubmitBillingRequest(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
+	}
+
+	if newStatus == "approved" {
+		notifyDepartmentByEmail(c.Request.Context(), "finance",
+			"META disetujui: "+br.METANumber,
+			fmt.Sprintf("META %s sudah disetujui, siap dibuatkan Invoice.", br.METANumber))
 	}
 
 	LogAudit(c, c.GetInt64("user_id"), "submit", "billing_request", strconv.FormatInt(id, 10), br.METANumber, gin.H{"approval_request_id": ar.ID, "status": newStatus})

@@ -17,6 +17,17 @@ type PRItem = {
   unit?: string | null;
   qty: number;
   estimated_unit_cost?: number | null;
+  ordered_qty: number;
+  remaining_qty: number;
+};
+
+type LinkedPO = {
+  id: number;
+  po_number: string;
+  vendor_name?: string;
+  status: string;
+  total_value: number;
+  created_at: string;
 };
 
 type PurchaseRequestDetail = {
@@ -30,6 +41,7 @@ type PurchaseRequestDetail = {
   approval_request_id?: number | null;
   notes?: string | null;
   items?: PRItem[];
+  purchase_orders?: LinkedPO[];
 };
 
 const STATUS_BADGE: Record<string, string> = {
@@ -37,6 +49,7 @@ const STATUS_BADGE: Record<string, string> = {
   pending_approval: "bg-blue-100 text-blue-700",
   approved: "bg-green-100 text-green-700",
   rejected: "bg-rose-100 text-rose-700",
+  cancelled: "bg-rose-100 text-rose-700",
 };
 
 export default function PurchaseRequestDetailPage() {
@@ -140,6 +153,8 @@ export default function PurchaseRequestDetailPage() {
                 <th className="text-left py-2">Item</th>
                 <th className="text-left py-2">Unit</th>
                 <th className="text-right py-2">Qty</th>
+                <th className="text-right py-2">Sudah Dipesan</th>
+                <th className="text-right py-2">Sisa</th>
                 <th className="text-right py-2">Estimasi Harga Satuan</th>
                 <th className="text-right py-2">Subtotal</th>
               </tr>
@@ -147,7 +162,7 @@ export default function PurchaseRequestDetailPage() {
             <tbody>
               {items.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="py-4 text-center text-muted-foreground">
+                  <td colSpan={7} className="py-4 text-center text-muted-foreground">
                     Tidak ada item.
                   </td>
                 </tr>
@@ -157,6 +172,12 @@ export default function PurchaseRequestDetailPage() {
                     <td className="py-2">{it.item_name}</td>
                     <td className="py-2">{it.unit || "-"}</td>
                     <td className="py-2 text-right">{it.qty}</td>
+                    <td className="py-2 text-right">{it.ordered_qty}</td>
+                    <td className="py-2 text-right">
+                      <span className={it.remaining_qty <= 0 ? "text-muted-foreground" : "font-medium"}>
+                        {it.remaining_qty}
+                      </span>
+                    </td>
                     <td className="py-2 text-right">{it.estimated_unit_cost != null ? formatIDR(it.estimated_unit_cost) : "-"}</td>
                     <td className="py-2 text-right">
                       {it.estimated_unit_cost != null ? formatIDR(it.estimated_unit_cost * it.qty) : "-"}
@@ -171,6 +192,42 @@ export default function PurchaseRequestDetailPage() {
 
       {pr.approval_request_id && (
         <ApprovalStepsPanel approvalId={pr.approval_request_id} onActed={load} />
+      )}
+
+      {(pr.purchase_orders || []).length > 0 && (
+        <Card className="p-6">
+          <h3 className="text-sm font-semibold mb-3">Purchase Order Terkait</h3>
+          <div className="overflow-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b text-muted-foreground">
+                  <th className="text-left py-2">PO Number</th>
+                  <th className="text-left py-2">Vendor</th>
+                  <th className="text-left py-2">Status</th>
+                  <th className="text-right py-2">Nilai</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(pr.purchase_orders || []).map((po) => (
+                  <tr key={po.id} className="border-b">
+                    <td className="py-2">
+                      <Link href={`/purchase-orders/${po.id}`} className="text-blue-600 hover:underline">
+                        {po.po_number}
+                      </Link>
+                    </td>
+                    <td className="py-2">{po.vendor_name || "-"}</td>
+                    <td className="py-2">
+                      <span className={`text-[11px] px-2 py-0.5 rounded-full ${STATUS_BADGE[po.status] || "bg-muted"}`}>
+                        {po.status}
+                      </span>
+                    </td>
+                    <td className="py-2 text-right">{formatIDR(po.total_value)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
       )}
 
       {pr.status === "approved" && (

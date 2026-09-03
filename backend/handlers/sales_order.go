@@ -112,6 +112,23 @@ func queryCustomerPOs(ctx context.Context, salesOrderID int64) ([]models.Custome
 	return pos, nil
 }
 
+// recomputeSalesOrderTotalValue: total_value SO SEHARUSNYA nilai final yang
+// disepakati customer (bisa berubah krn negosiasi dari SPH awal), bukan
+// estimasi BoQ yang statis -- begitu ADA customer_purchase_orders, jumlahnya
+// (bisa lebih dari 1, mis. dipecah Material vs Jasa) jadi sumber kebenaran.
+// Dipanggil reaktif setiap kali customer PO berubah, pola sama persis
+// recomputeOverallStatus (presales.go). Sengaja TIDAK fallback balik ke
+// estimasi BoQ kalau semua customer PO dihapus (jadi 0) -- supaya tidak ada
+// angka basi yang menyesatkan.
+func recomputeSalesOrderTotalValue(ctx context.Context, salesOrderID int64) error {
+	_, err := database.Pool.Exec(ctx, `
+		UPDATE sales_orders SET total_value = COALESCE(
+			(SELECT SUM(amount) FROM customer_purchase_orders WHERE sales_order_id = $1 AND amount IS NOT NULL), 0
+		), updated_at = NOW() WHERE id = $1
+	`, salesOrderID)
+	return err
+}
+
 // ListSalesOrders: division-scoped sama seperti ListProjects (role=="user" cuma
 // lihat SO dari project di division-nya sendiri).
 func ListSalesOrders(c *gin.Context) {
@@ -245,7 +262,14 @@ func UpdateSalesOrder(c *gin.Context) {
 
 // CreateCustomerPO: satu Sales Order bisa punya lebih dari satu PO customer
 // (mis. dipecah Material vs Jasa/Instalasi) -- lihat komentar migrasi 0009.
+// Sales-only -- PO customer adalah bukti negosiasi/deal yang jadi wewenang
+// Sales, dan sekarang langsung menentukan sales_orders.total_value.
 func CreateCustomerPO(c *gin.Context) {
+	if !requireDepartment(c, "Sales") {
+		c.JSON(http.StatusForbidden, gin.H{"error": "forbidden: hanya Sales yang bisa mengelola PO customer"})
+		return
+	}
+
 	salesOrderID, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid sales order id"})
@@ -274,12 +298,22 @@ func CreateCustomerPO(c *gin.Context) {
 		return
 	}
 
+	if err := recomputeSalesOrderTotalValue(c, salesOrderID); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
 	LogAudit(c, c.GetInt64("user_id"), "create", "customer_purchase_order", strconv.FormatInt(id, 10), body.PONumber, body)
 
 	c.JSON(http.StatusCreated, gin.H{"id": id})
 }
 
 func UpdateCustomerPO(c *gin.Context) {
+	if !requireDepartment(c, "Sales") {
+		c.JSON(http.StatusForbidden, gin.H{"error": "forbidden: hanya Sales yang bisa mengelola PO customer"})
+		return
+	}
+
 	poID := c.Param("poId")
 
 	var body struct {
@@ -293,7 +327,8 @@ func UpdateCustomerPO(c *gin.Context) {
 		return
 	}
 
-	_, err := database.Pool.Exec(c, `
+	var salesOrderID int64
+	err := database.Pool.QueryRow(c, `
 		UPDATE customer_purchase_orders
 		SET po_number = COALESCE(NULLIF($1, ''), po_number),
 		    po_date = COALESCE($2::date, po_date),
@@ -301,8 +336,14 @@ func UpdateCustomerPO(c *gin.Context) {
 		    amount = COALESCE($4, amount),
 		    updated_at = NOW()
 		WHERE id = $5
-	`, body.PONumber, body.PODate, body.Category, body.Amount, poID)
+		RETURNING sales_order_id
+	`, body.PONumber, body.PODate, body.Category, body.Amount, poID).Scan(&salesOrderID)
 	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	if err := recomputeSalesOrderTotalValue(c, salesOrderID); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -313,15 +354,22 @@ func UpdateCustomerPO(c *gin.Context) {
 }
 
 func DeleteCustomerPO(c *gin.Context) {
-	poID := c.Param("poId")
-
-	result, err := database.Pool.Exec(c, `DELETE FROM customer_purchase_orders WHERE id = $1`, poID)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+	if !requireDepartment(c, "Sales") {
+		c.JSON(http.StatusForbidden, gin.H{"error": "forbidden: hanya Sales yang bisa mengelola PO customer"})
 		return
 	}
-	if result.RowsAffected() == 0 {
+
+	poID := c.Param("poId")
+
+	var salesOrderID int64
+	err := database.Pool.QueryRow(c, `DELETE FROM customer_purchase_orders WHERE id = $1 RETURNING sales_order_id`, poID).Scan(&salesOrderID)
+	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "customer PO not found"})
+		return
+	}
+
+	if err := recomputeSalesOrderTotalValue(c, salesOrderID); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 

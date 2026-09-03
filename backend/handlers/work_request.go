@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -128,6 +129,10 @@ func CreateWorkRequest(c *gin.Context) {
 	}
 
 	LogAudit(c, c.GetInt64("user_id"), "create", "work_request", strconv.FormatInt(id, 10), body.Title, body)
+
+	notifyDepartmentByEmail(c.Request.Context(), "product_development",
+		"Request baru: "+body.Title,
+		fmt.Sprintf("Ada request baru (%s) yang perlu ditangani: %s\n\nDeskripsi: %s", body.Type, body.Title, body.Description))
 
 	c.JSON(http.StatusCreated, gin.H{"id": id})
 }

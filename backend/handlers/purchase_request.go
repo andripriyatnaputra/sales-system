@@ -155,7 +155,39 @@ func queryPurchaseRequestItems(c *gin.Context, prID int64) []models.PurchaseRequ
 			items = append(items, it)
 		}
 	}
+
+	for i := range items {
+		ordered, err := prItemOrderedQty(c, items[i].ID)
+		if err == nil {
+			items[i].OrderedQty = ordered
+			items[i].RemainingQty = items[i].Qty - ordered
+		} else {
+			items[i].RemainingQty = items[i].Qty
+		}
+	}
+
 	return items
+}
+
+// queryPurchaseOrdersForPR: daftar ringkas SEMUA PO yang sudah dibuat dari 1
+// PR (bisa lebih dari 1, lihat prItemOrderedQty) -- sebelumnya SAMA SEKALI
+// tidak ditampilkan di detail PR, padahal PR yang sama bisa dipakai berulang
+// utk bikin PO ke vendor berbeda.
+func queryPurchaseOrdersForPR(c *gin.Context, prID int64) []models.PurchaseOrder {
+	rows, err := database.Pool.Query(c, purchaseOrderSelectBase+" WHERE po.purchase_request_id = $1 ORDER BY po.created_at DESC", prID)
+	if err != nil {
+		return nil
+	}
+	defer rows.Close()
+
+	pos := []models.PurchaseOrder{}
+	for rows.Next() {
+		po, err := scanPurchaseOrder(rows)
+		if err == nil {
+			pos = append(pos, *po)
+		}
+	}
+	return pos
 }
 
 func ListPurchaseRequests(c *gin.Context) {
@@ -212,11 +244,15 @@ func GetPurchaseRequest(c *gin.Context) {
 			pr.Status = outcome
 			if outcome == "approved" && pr.ApprovedAt == nil {
 				pr.ApprovedAt = &now
+				notifyDepartmentByEmail(c.Request.Context(), "procurement",
+					"Purchase Request disetujui: "+pr.PRNumber,
+					fmt.Sprintf("Purchase Request %s sudah disetujui, siap dibuatkan Purchase Order.", pr.PRNumber))
 			}
 		}
 	}
 
 	pr.Items = queryPurchaseRequestItems(c, pr.ID)
+	pr.PurchaseOrders = queryPurchaseOrdersForPR(c, pr.ID)
 	c.JSON(http.StatusOK, pr)
 }
 
@@ -264,6 +300,12 @@ func SubmitPurchaseRequest(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
+	}
+
+	if newStatus == "approved" {
+		notifyDepartmentByEmail(c.Request.Context(), "procurement",
+			"Purchase Request disetujui: "+pr.PRNumber,
+			fmt.Sprintf("Purchase Request %s sudah disetujui, siap dibuatkan Purchase Order.", pr.PRNumber))
 	}
 
 	LogAudit(c, c.GetInt64("user_id"), "submit", "purchase_request", strconv.FormatInt(id, 10), pr.PRNumber, gin.H{"approval_request_id": ar.ID, "status": newStatus})

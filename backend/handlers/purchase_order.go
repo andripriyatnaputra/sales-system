@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"os"
@@ -15,9 +16,29 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// prItemOrderedQty: total qty yang sudah di-PO-kan utk 1 purchase_request_item,
+// dari SEMUA PO manapun statusnya (draft/pending_approval/approved) KECUALI
+// rejected/cancelled -- konservatif, supaya 2 orang tidak bisa bikin PO
+// overlap utk item yang sama sebelum salah satu di-approve/ditolak. Dipakai
+// GetPurchaseRequest (tampilkan sisa qty) -- CreatePurchaseOrder punya query
+// yang SAMA PERSIS tapi jalan LEWAT transaksinya sendiri (bukan lewat helper
+// ini), supaya guard-nya melihat state yang konsisten di dalam 1 transaksi.
+func prItemOrderedQty(ctx context.Context, prItemID int64) (float64, error) {
+	var qty float64
+	err := database.Pool.QueryRow(ctx, `
+		SELECT COALESCE(SUM(poi.qty), 0) FROM purchase_order_items poi
+		JOIN purchase_orders po ON po.id = poi.purchase_order_id
+		WHERE poi.purchase_request_item_id = $1 AND po.status NOT IN ('rejected', 'cancelled')
+	`, prItemID).Scan(&qty)
+	return qty, err
+}
+
 // CreatePurchaseOrder: Procurement only. Hanya bisa dibuat dari Purchase Request
 // yang statusnya SUDAH 'approved' (gate). Item PO WAJIB dipilih dari
 // purchase_request_items (traceability BoQ -> SO -> PR -> PO, bukan input bebas).
+// Dibungkus transaksi (sebelumnya tidak) supaya guard anti over-order yang
+// gagal DI TENGAH loop item tidak nyisain PO/PO-item yang sudah kebur ke-insert
+// sebagian.
 func CreatePurchaseOrder(c *gin.Context) {
 	if !requireDepartment(c, "Procurement") {
 		c.JSON(http.StatusForbidden, gin.H{"error": "forbidden: hanya Procurement yang bisa membuat Purchase Order"})
@@ -39,8 +60,16 @@ func CreatePurchaseOrder(c *gin.Context) {
 		return
 	}
 
+	ctx := c.Request.Context()
+	tx, err := database.Pool.Begin(ctx)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "db transaction error"})
+		return
+	}
+	defer tx.Rollback(ctx)
+
 	var prStatus string
-	if err := database.Pool.QueryRow(c, `SELECT status FROM purchase_requests WHERE id = $1`, body.PurchaseRequestID).Scan(&prStatus); err != nil {
+	if err := tx.QueryRow(ctx, `SELECT status FROM purchase_requests WHERE id = $1`, body.PurchaseRequestID).Scan(&prStatus); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "purchase_request tidak ditemukan"})
 		return
 	}
@@ -50,13 +79,13 @@ func CreatePurchaseOrder(c *gin.Context) {
 	}
 
 	var vendorStatus string
-	if err := database.Pool.QueryRow(c, `SELECT status FROM vendors WHERE id = $1`, body.VendorID).Scan(&vendorStatus); err != nil || vendorStatus != "active" {
+	if err := tx.QueryRow(ctx, `SELECT status FROM vendors WHERE id = $1`, body.VendorID).Scan(&vendorStatus); err != nil || vendorStatus != "active" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "vendor tidak ditemukan atau tidak aktif"})
 		return
 	}
 
 	var poID int64
-	err := database.Pool.QueryRow(c, `
+	err = tx.QueryRow(ctx, `
 		INSERT INTO purchase_orders (po_number, purchase_request_id, vendor_id, created_by, notes)
 		VALUES ('', $1, $2, $3, NULLIF($4, ''))
 		RETURNING id
@@ -71,7 +100,7 @@ func CreatePurchaseOrder(c *gin.Context) {
 
 	for _, it := range body.Items {
 		var pri models.PurchaseRequestItem
-		err := database.Pool.QueryRow(c, `
+		err := tx.QueryRow(ctx, `
 			SELECT id, purchase_request_id, item_name, unit, qty FROM purchase_request_items
 			WHERE id = $1 AND purchase_request_id = $2
 		`, it.PurchaseRequestItemID, body.PurchaseRequestID).Scan(&pri.ID, &pri.PurchaseRequestID, &pri.ItemName, &pri.Unit, &pri.Qty)
@@ -85,7 +114,25 @@ func CreatePurchaseOrder(c *gin.Context) {
 			qty = *it.Qty
 		}
 
-		_, err = database.Pool.Exec(c, `
+		var alreadyOrdered float64
+		if err := tx.QueryRow(ctx, `
+			SELECT COALESCE(SUM(poi.qty), 0) FROM purchase_order_items poi
+			JOIN purchase_orders po ON po.id = poi.purchase_order_id
+			WHERE poi.purchase_request_item_id = $1 AND po.status NOT IN ('rejected', 'cancelled')
+		`, pri.ID).Scan(&alreadyOrdered); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		if alreadyOrdered+qty > pri.Qty {
+			remaining := pri.Qty - alreadyOrdered
+			c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf(
+				"qty melebihi sisa PR utk item '%s': sudah dipesan %g, diminta PR %g, sisa %g",
+				pri.ItemName, alreadyOrdered, pri.Qty, remaining,
+			)})
+			return
+		}
+
+		_, err = tx.Exec(ctx, `
 			INSERT INTO purchase_order_items (purchase_order_id, purchase_request_item_id, item_name, unit, qty, unit_cost)
 			VALUES ($1, $2, $3, $4, $5, $6)
 		`, poID, pri.ID, pri.ItemName, pri.Unit, qty, it.UnitCost)
@@ -97,8 +144,13 @@ func CreatePurchaseOrder(c *gin.Context) {
 		total += it.UnitCost * qty
 	}
 
-	_, err = database.Pool.Exec(c, `UPDATE purchase_orders SET po_number = $1, total_value = $2 WHERE id = $3`, poNumber, total, poID)
+	_, err = tx.Exec(ctx, `UPDATE purchase_orders SET po_number = $1, total_value = $2 WHERE id = $3`, poNumber, total, poID)
 	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	if err := tx.Commit(ctx); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}

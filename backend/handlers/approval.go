@@ -141,6 +141,10 @@ func notifyApprovalStep(ctx context.Context, stepID int64, userIDs []int64, enti
 			VALUES ($1, $2, 'approval_pending', $3, '/approvals?mine=true')
 		`, uid, stepID, title)
 	}
+
+	if emails, err := usersEmailsByIDs(ctx, userIDs); err == nil && len(emails) > 0 {
+		sendEmailAsync(emails, title, "Ada approval yang perlu ditindaklanjuti: "+label+"\n\nBuka aplikasi > Approvals untuk memproses.")
+	}
 }
 
 // findMatrixRules: utamakan rule spesifik department_id kalau ada, fallback ke

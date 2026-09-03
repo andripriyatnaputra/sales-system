@@ -17,6 +17,7 @@ type User = {
   username: string;
   role: string;
   division: string;
+  email?: string;
   role_id?: number;
   role_key?: string;
   role_label?: string;
@@ -85,6 +86,7 @@ export default function UsersPage() {
             <thead className="bg-gray-100">
               <tr>
                 <th className="px-3 py-2 text-left">Username</th>
+                <th className="px-3 py-2 text-left">Email</th>
                 <th className="px-3 py-2 text-left">Department</th>
                 <th className="px-3 py-2 text-left">Role</th>
                 <th className="px-3 py-2 text-left">Manager</th>
@@ -95,13 +97,13 @@ export default function UsersPage() {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={6} className="p-4 text-center">
+                  <td colSpan={7} className="p-4 text-center">
                     Loading...
                   </td>
                 </tr>
               ) : users.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="p-4 text-center">
+                  <td colSpan={7} className="p-4 text-center">
                     No users found.
                   </td>
                 </tr>
@@ -109,6 +111,7 @@ export default function UsersPage() {
                 users.map((u) => (
                   <tr key={u.id} className="border-t">
                     <td className="px-3 py-2">{u.username}</td>
+                    <td className="px-3 py-2">{u.email || "-"}</td>
                     <td className="px-3 py-2">{u.role_department || "-"}</td>
                     <td className="px-3 py-2">{u.role_label || u.role}</td>
                     <td className="px-3 py-2">
@@ -161,6 +164,7 @@ function UserModal({
   onSaved: () => void;
 }) {
   const [username, setUsername] = useState(user?.username || "");
+  const [email, setEmail] = useState(user?.email || "");
   const [password, setPassword] = useState("");
   const [division, setDivision] = useState(user?.division || "");
   const [saving, setSaving] = useState(false);
@@ -239,6 +243,7 @@ function UserModal({
         username,
         role_id: roleId,
       };
+      if (email.trim()) payload.email = email.trim();
       if (division.trim()) payload.division = division;
       if (managerId) payload.manager_id = managerId;
 
@@ -272,6 +277,17 @@ function UserModal({
             className="border rounded px-3 py-2 w-full"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <label className="block text-sm">Email (untuk notifikasi)</label>
+          <input
+            type="email"
+            className="border rounded px-3 py-2 w-full"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="nama@perusahaan.com"
           />
         </div>
 

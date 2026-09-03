@@ -17,7 +17,8 @@ type PurchaseRequest struct {
 	CreatedAt           time.Time  `json:"created_at"`
 	UpdatedAt           time.Time  `json:"updated_at"`
 
-	Items []PurchaseRequestItem `json:"items,omitempty"`
+	Items          []PurchaseRequestItem `json:"items,omitempty"`
+	PurchaseOrders []PurchaseOrder       `json:"purchase_orders,omitempty"`
 }
 
 type PurchaseRequestItem struct {
@@ -30,6 +31,12 @@ type PurchaseRequestItem struct {
 	EstimatedUnitCost *float64  `json:"estimated_unit_cost,omitempty"`
 	CreatedAt         time.Time `json:"created_at"`
 	UpdatedAt         time.Time `json:"updated_at"`
+
+	// OrderedQty/RemainingQty: DIHITUNG (subquery purchase_order_items via
+	// prItemOrderedQty), bukan disimpan -- lihat komentar prItemOrderedQty
+	// (purchase_order.go) utk aturan status PO mana yang ikut dihitung.
+	OrderedQty   float64 `json:"ordered_qty"`
+	RemainingQty float64 `json:"remaining_qty"`
 }
 
 // POCreationAgingDays: hari antara purchase_requests.approved_at (PR yang
