@@ -135,6 +135,9 @@ func Register(r *gin.Engine) {
 
 	auth.GET("/projects/:id", handlers.GetProject)
 	auth.PUT("/projects/:id", handlers.UpdateProject)
+	auth.GET("/projects/:id/notes", handlers.ListProjectNotes)
+	auth.POST("/projects/:id/notes", handlers.CreateProjectNote)
+	auth.DELETE("/projects/:id/notes/:noteId", handlers.DeleteProjectNote)
 	auth.DELETE("/projects/:id", handlers.DeleteProject)
 
 	// ===============================

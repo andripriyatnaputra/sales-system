@@ -99,10 +99,6 @@ func CreateBOQItem(c *gin.Context) {
 
 func UpdateBOQItem(c *gin.Context) {
 	itemID := c.Param("itemId")
-	if !requireDepartment(c, "Product & Development") {
-		c.JSON(http.StatusForbidden, gin.H{"error": "forbidden: hanya Product & Development yang bisa mengubah BoQ item"})
-		return
-	}
 
 	var body struct {
 		ItemName             *string  `json:"item_name"`
@@ -116,6 +112,30 @@ func UpdateBOQItem(c *gin.Context) {
 	}
 	if err := c.ShouldBindJSON(&body); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid body"})
+		return
+	}
+
+	// Gate PER FIELD, bukan blanket ProDev -- mengikuti proses bisnis nyata:
+	// ProDev desain struktur (item/unit/qty/katalog/dokumen sumber),
+	// Procurement isi harga vendor, Operations isi biaya instalasi, Finance
+	// isi harga jual. Cuma dicek kalau field itu ADA di body (COALESCE
+	// partial-update di bawah tetap dipakai apa adanya).
+	if body.ItemName != nil || body.Unit != nil || body.Qty != nil || body.CatalogItemID != nil || body.SourceDocumentID != nil {
+		if !requireDepartment(c, "Product & Development") {
+			c.JSON(http.StatusForbidden, gin.H{"error": "forbidden: hanya Product & Development yang bisa mengubah struktur item"})
+			return
+		}
+	}
+	if body.EstimatedVendorCost != nil && !requireDepartment(c, "Procurement") {
+		c.JSON(http.StatusForbidden, gin.H{"error": "forbidden: hanya Procurement yang bisa mengubah harga vendor"})
+		return
+	}
+	if body.EstimatedInstallCost != nil && !requireDepartment(c, "Operations") {
+		c.JSON(http.StatusForbidden, gin.H{"error": "forbidden: hanya Operations yang bisa mengubah biaya instalasi"})
+		return
+	}
+	if body.ProposedSellPrice != nil && !requireDepartment(c, "Finance") {
+		c.JSON(http.StatusForbidden, gin.H{"error": "forbidden: hanya Finance yang bisa mengubah harga jual"})
 		return
 	}
 

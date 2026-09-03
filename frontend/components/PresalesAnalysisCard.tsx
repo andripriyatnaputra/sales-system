@@ -350,28 +350,31 @@ export function PresalesAnalysisCard({ projectId }: { projectId: number | string
                       <button className="text-blue-600 text-xs" onClick={() => setHistoryItem(it)}>
                         Riwayat
                       </button>
+                      {(canEdit("Product & Development") ||
+                        canEdit("Procurement") ||
+                        canEdit("Operations") ||
+                        canEdit("Finance")) && (
+                        <button
+                          className="text-blue-600 text-xs"
+                          onClick={() => {
+                            setEditingItem(it);
+                            setBoqModalOpen(true);
+                          }}
+                        >
+                          Edit
+                        </button>
+                      )}
                       {canEdit("Product & Development") && (
-                        <>
-                          <button
-                            className="text-blue-600 text-xs"
-                            onClick={() => {
-                              setEditingItem(it);
-                              setBoqModalOpen(true);
-                            }}
-                          >
-                            Edit
-                          </button>
-                          <button
-                            className="text-red-600 text-xs"
-                            onClick={async () => {
-                              if (!confirm(`Hapus item "${it.item_name}"?`)) return;
-                              await apiDeleteBOQItem(projectId, it.id);
-                              load();
-                            }}
-                          >
-                            Hapus
-                          </button>
-                        </>
+                        <button
+                          className="text-red-600 text-xs"
+                          onClick={async () => {
+                            if (!confirm(`Hapus item "${it.item_name}"?`)) return;
+                            await apiDeleteBOQItem(projectId, it.id);
+                            load();
+                          }}
+                        >
+                          Hapus
+                        </button>
                       )}
                     </td>
                   </tr>
@@ -682,6 +685,21 @@ function BOQItemModal({
   onSaved: () => void;
 }) {
   const isEdit = !!item;
+
+  // Gate per field, mirror backend UpdateBOQItem: struktur milik ProDev,
+  // harga vendor milik Procurement, biaya instalasi milik Operations, harga
+  // jual milik Finance. Saat CREATE (belum isEdit) semua field tetap terbuka
+  // utk ProDev -- CreateBOQItem backend belum di-field-gate (ProDev boleh isi
+  // estimasi awal), pembatasan departemen cuma berlaku saat EDIT.
+  const canEditStructure = canEdit("Product & Development");
+  const canEditVendor = canEdit("Procurement");
+  const canEditInstall = canEdit("Operations");
+  const canEditSell = canEdit("Finance");
+  const structureDisabled = isEdit && !canEditStructure;
+  const vendorDisabled = isEdit && !canEditVendor;
+  const installDisabled = isEdit && !canEditInstall;
+  const sellDisabled = isEdit && !canEditSell;
+
   const [itemName, setItemName] = useState(item?.item_name || "");
   const [unit, setUnit] = useState(item?.unit || "");
   const [qty, setQty] = useState(String(item?.qty ?? 1));
@@ -718,16 +736,28 @@ function BOQItemModal({
       setSaving(true);
       setError("");
 
-      const body = {
+      const structureFields = {
         item_name: itemName,
         unit: unit || null,
         qty: qty ? Number(qty) : 1,
-        estimated_vendor_cost: vendorCost ? Number(vendorCost) : null,
-        estimated_install_cost: installCost ? Number(installCost) : null,
-        proposed_sell_price: sellPrice ? Number(sellPrice) : null,
         catalog_item_id: catalogItemId ? Number(catalogItemId) : null,
         source_document_id: sourceDocumentId ? Number(sourceDocumentId) : null,
       };
+      const vendorFields = { estimated_vendor_cost: vendorCost ? Number(vendorCost) : null };
+      const installFields = { estimated_install_cost: installCost ? Number(installCost) : null };
+      const sellFields = { proposed_sell_price: sellPrice ? Number(sellPrice) : null };
+
+      // Saat edit, cuma kirim grup field yg departemen ini berwenang ubah --
+      // cocok dgn validasi per-field backend, dan mencegah nilai stale di
+      // state lokal (field yg didisable) ikut terkirim.
+      const body = isEdit
+        ? {
+            ...(canEditStructure ? structureFields : {}),
+            ...(canEditVendor ? vendorFields : {}),
+            ...(canEditInstall ? installFields : {}),
+            ...(canEditSell ? sellFields : {}),
+          }
+        : { ...structureFields, ...vendorFields, ...installFields, ...sellFields };
 
       if (isEdit) {
         await apiUpdateBOQItem(projectId, item!.id, body);
@@ -751,13 +781,19 @@ function BOQItemModal({
         </DialogHeader>
 
         <div className="space-y-3">
+          {isEdit && (
+            <div className="text-xs text-muted-foreground bg-muted/50 rounded-md px-3 py-2">
+              Field berwarna abu-abu hanya bisa diubah oleh departemen pemiliknya (ProDev: struktur item, Procurement: harga vendor, Operations: biaya instalasi, Finance: harga jual).
+            </div>
+          )}
           {catalog.length > 0 && (
             <div className="space-y-1">
               <div className="text-sm font-medium">Pilih dari Katalog (opsional)</div>
               <select
-                className="w-full border rounded-md px-3 py-2 text-sm"
+                className="w-full border rounded-md px-3 py-2 text-sm disabled:bg-muted disabled:text-muted-foreground"
                 value={catalogItemId}
                 onChange={(e) => pickFromCatalog(e.target.value)}
+                disabled={structureDisabled}
               >
                 <option value="">(Input manual)</option>
                 {catalog.map((c) => (
@@ -770,15 +806,16 @@ function BOQItemModal({
           )}
           <div className="space-y-1">
             <div className="text-sm font-medium">Nama Item</div>
-            <Input value={itemName} onChange={(e) => setItemName(e.target.value)} />
+            <Input value={itemName} onChange={(e) => setItemName(e.target.value)} disabled={structureDisabled} />
           </div>
           {sourceDocOptions.length > 0 && (
             <div className="space-y-1">
               <div className="text-sm font-medium">Dokumen Sumber (opsional)</div>
               <select
-                className="w-full border rounded-md px-3 py-2 text-sm"
+                className="w-full border rounded-md px-3 py-2 text-sm disabled:bg-muted disabled:text-muted-foreground"
                 value={sourceDocumentId}
                 onChange={(e) => setSourceDocumentId(e.target.value)}
+                disabled={structureDisabled}
               >
                 <option value="">(tidak ada)</option>
                 {sourceDocOptions.map((d) => (
@@ -792,24 +829,24 @@ function BOQItemModal({
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
               <div className="text-sm font-medium">Unit</div>
-              <Input value={unit} onChange={(e) => setUnit(e.target.value)} placeholder="unit / paket / dst" />
+              <Input value={unit} onChange={(e) => setUnit(e.target.value)} placeholder="unit / paket / dst" disabled={structureDisabled} />
             </div>
             <div className="space-y-1">
               <div className="text-sm font-medium">Qty</div>
-              <Input type="number" value={qty} onChange={(e) => setQty(e.target.value)} />
+              <Input type="number" value={qty} onChange={(e) => setQty(e.target.value)} disabled={structureDisabled} />
             </div>
           </div>
           <div className="space-y-1">
             <div className="text-sm font-medium">Estimasi Harga Vendor (Rp)</div>
-            <Input type="number" value={vendorCost} onChange={(e) => setVendorCost(e.target.value)} />
+            <Input type="number" value={vendorCost} onChange={(e) => setVendorCost(e.target.value)} disabled={vendorDisabled} />
           </div>
           <div className="space-y-1">
             <div className="text-sm font-medium">Estimasi Biaya Instalasi (Rp)</div>
-            <Input type="number" value={installCost} onChange={(e) => setInstallCost(e.target.value)} />
+            <Input type="number" value={installCost} onChange={(e) => setInstallCost(e.target.value)} disabled={installDisabled} />
           </div>
           <div className="space-y-1">
             <div className="text-sm font-medium">Harga Jual Diajukan (Rp)</div>
-            <Input type="number" value={sellPrice} onChange={(e) => setSellPrice(e.target.value)} />
+            <Input type="number" value={sellPrice} onChange={(e) => setSellPrice(e.target.value)} disabled={sellDisabled} />
           </div>
 
           {error && <div className="text-red-600 text-sm bg-red-50 p-2 rounded">{error}</div>}

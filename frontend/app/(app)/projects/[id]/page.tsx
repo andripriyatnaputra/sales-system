@@ -12,6 +12,7 @@ import { SALES_STAGE_PROBABILITY, STAGES } from "@/lib/constants";
 import { SalesStageBar } from "@/components/SalesStageBar";
 import { PresalesAnalysisCard } from "@/components/PresalesAnalysisCard";
 import { ProjectDocumentsCard } from "@/components/ProjectDocumentsCard";
+import { ProjectNotesCard } from "@/components/ProjectNotesCard";
 import { ProdevAssignmentCard } from "@/components/ProdevAssignmentCard";
 import { ProjectProfitabilityCard } from "@/components/ProjectProfitabilityCard";
 
@@ -433,6 +434,9 @@ export default function ProjectDetailPage() {
 
       {/* DOKUMEN PROJECT (RFQ/TOR/dll) */}
       <ProjectDocumentsCard projectId={id as string} />
+
+      {/* CATATAN / PENJELASAN REQUEST */}
+      <ProjectNotesCard projectId={id as string} />
 
       {/* ASSIGNMENT SUB-TIM PRODEV */}
       <ProdevAssignmentCard projectId={id as string} />

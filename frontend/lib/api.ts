@@ -425,6 +425,28 @@ export async function apiGetBOQItemHistory(projectId: number | string, itemId: n
   return apiGet<any[]>(`/projects/${projectId}/boq-items/${itemId}/history`);
 }
 
+// --- PROJECT NOTES (riwayat, mirror WorkRequestUpdate) ---
+export type ProjectNote = {
+  id: number;
+  project_id: number;
+  author_id: number;
+  author_username?: string;
+  note: string;
+  created_at: string;
+};
+
+export async function apiGetProjectNotes(projectId: number | string) {
+  return apiGet<ProjectNote[]>(`/projects/${projectId}/notes`);
+}
+
+export async function apiCreateProjectNote(projectId: number | string, note: string) {
+  return apiPost<{ id: number }>(`/projects/${projectId}/notes`, { note });
+}
+
+export async function apiDeleteProjectNote(projectId: number | string, noteId: number) {
+  return apiDelete<any>(`/projects/${projectId}/notes/${noteId}`);
+}
+
 // --- AUDIT LOGS ---
 export async function apiGetAuditLogs(params?: { entity_type?: string; entity_id?: string }) {
   const q = new URLSearchParams();

@@ -28,7 +28,13 @@ func NormalizeDivision(d string) string {
 
 	switch d {
 	// --- NETCO ---
+	// "network and communications" -- bentuk PERSIS org_unit "sales_netco"
+	// (migrasi 0002_rbac_seed.sql) & users.division hasil backfill (migrasi
+	// 0003) -- tanpa ini, NetCo Sales (mis. intan/sigit) gagal terus kena
+	// "invalid division" krn fallback ke strings.Title() bukan salah satu
+	// dari 3 nilai kanonik. BUG ditemukan 2026-08-13.
 	case "network communications", "network communication",
+		"network and communications", "network and communication",
 		"netco", "net co", "net-co", "net co.", "net-co.",
 		"nc", "network-communications":
 		return "NetCo"
