@@ -203,6 +203,36 @@ export default function ProjectsPage() {
 
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
 
+  const toggleSort = (key: typeof sortKey) => {
+    if (sortKey === key) {
+      setSortDir((prev) => (prev === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(key);
+      setSortDir("asc");
+    }
+  };
+
+  const sortIndicator = (key: typeof sortKey) => {
+    if (sortKey !== key) return null;
+    return <span className="ml-1">{sortDir === "asc" ? "▲" : "▼"}</span>;
+  };
+
+  const sortableTh = (
+    key: typeof sortKey,
+    label: string,
+    align: "left" | "right" = "left"
+  ) => (
+    <th
+      className={`px-3 py-2 ${align === "right" ? "text-right" : "text-left"} cursor-pointer select-none hover:bg-gray-200`}
+      onClick={() => toggleSort(key)}
+    >
+      <span className="inline-flex items-center">
+        {label}
+        {sortIndicator(key)}
+      </span>
+    </th>
+  );
+
   // Pagination
   const [page, setPage] = useState(1);
   const pageSize = 10;
@@ -1135,21 +1165,21 @@ return (
           <table className="w-full text-sm min-w-[1400px]">
             <thead className="bg-gray-100">
               <tr>
-                <th className="px-3 py-2 text-left">Code</th>
-                <th className="px-3 py-2 text-left">Description</th>
-                <th className="px-3 py-2 text-left">Customer</th>
-                <th className="px-3 py-2 text-left">Division</th>
-                <th className="px-3 py-2 text-left">Type</th>
-                <th className="px-3 py-2 text-left">Status</th>
-                <th className="px-3 py-2 text-left">Pipeline Status</th>
-                <th className="px-3 py-2 text-left">Stage</th>
-                <th className="px-3 py-2 text-left">SPH Released?</th>
-                <th className="px-3 py-2 text-left">SPH Status</th>
+                {sortableTh("project_code", "Code")}
+                {sortableTh("description", "Description")}
+                {sortableTh("customer_name", "Customer")}
+                {sortableTh("division", "Division")}
+                {sortableTh("project_type", "Type")}
+                {sortableTh("status", "Status")}
+                {sortableTh("pipeline_status", "Pipeline Status")}
+                {sortableTh("sales_stage", "Stage")}
+                {sortableTh("sph_release_status", "SPH Released?")}
+                {sortableTh("sph_status", "SPH Status")}
                 <th className="px-3 py-2 text-left">Reason</th>
-                <th className="px-3 py-2 text-right">Initial Target</th>
-                <th className="px-3 py-2 text-right">SPH Value</th>
-                <th className="px-3 py-2 text-right">Variance</th>
-                <th className="px-3 py-2 text-right">Total Realization</th>
+                {sortableTh("total_revenue", "Initial Target", "right")}
+                {sortableTh("total_sph_revenue", "SPH Value", "right")}
+                {sortableTh("sph_variance", "Variance", "right")}
+                {sortableTh("total_realization", "Total Realization", "right")}
                 <th className="px-3 py-2 text-right">Actions</th>
               </tr>
             </thead>
