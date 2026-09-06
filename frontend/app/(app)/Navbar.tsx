@@ -8,12 +8,14 @@ export default function Navbar() {
   const [role, setRole] = useState<string | null>(null);
   const [username, setUsername] = useState<string | null>(null);
   const [division, setDivision] = useState<string | null>(null);
+  const [readOnly, setReadOnly] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
   useEffect(() => {
     setRole(localStorage.getItem("role"));
     setUsername(localStorage.getItem("username"));
     setDivision(localStorage.getItem("division"));
+    setReadOnly(localStorage.getItem("read_only") === "true");
   }, []);
 
   const navLinks = [
@@ -84,7 +86,14 @@ export default function Navbar() {
             {/* User info – desktop only */}
             {username && (
               <div className="hidden sm:flex flex-col items-end leading-tight">
-                <span className="text-sm font-medium text-gray-900">{username}</span>
+                <span className="text-sm font-medium text-gray-900 flex items-center gap-1.5">
+                  {username}
+                  {readOnly && (
+                    <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-100 text-amber-700">
+                      Read Only
+                    </span>
+                  )}
+                </span>
                 <span className="text-xs text-gray-400">{division}</span>
               </div>
             )}
@@ -151,7 +160,14 @@ export default function Navbar() {
             <div className="pt-3 mt-2 border-t space-y-2 px-3">
               {username && (
                 <div>
-                  <div className="text-sm font-medium text-gray-900">{username}</div>
+                  <div className="text-sm font-medium text-gray-900 flex items-center gap-1.5">
+                    {username}
+                    {readOnly && (
+                      <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-100 text-amber-700">
+                        Read Only
+                      </span>
+                    )}
+                  </div>
                   <div className="text-xs text-gray-500">{division}</div>
                 </div>
               )}

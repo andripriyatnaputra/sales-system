@@ -22,6 +22,7 @@ export function setToken(token: string) {
 export function clearToken() {
   if (typeof window !== "undefined") {
     localStorage.removeItem("token");
+    localStorage.removeItem("read_only");
   }
 }
 
@@ -31,6 +32,10 @@ async function request<T>(
   url: string,
   body?: any
 ): Promise<T> {
+  if (method !== "GET" && url !== "/login" && isReadOnly()) {
+    throw new Error("Akun ini read-only, tidak bisa mengubah data.");
+  }
+
   const token = getToken();
 
   const headers: Record<string, string> = {
@@ -108,7 +113,17 @@ export type LoginResponse = {
   role: string;
   division: string;
   username: string;
+  read_only: boolean;
 };
+
+// --- READ-ONLY GUARD ---
+// Read-only accounts exist purely to share dashboards with people outside
+// the team (e.g. for analysis). Block writes on the client as a first line
+// of defense - the backend enforces this regardless.
+export function isReadOnly(): boolean {
+  if (typeof window === "undefined") return false;
+  return localStorage.getItem("read_only") === "true";
+}
 
 export async function login(
   username: string,

@@ -42,11 +42,32 @@ func AuthRequired() gin.HandlerFunc {
 		division := claims["division"].(string)
 		userID := int64(claims["user_id"].(float64))
 
+		readOnly, _ := claims["read_only"].(bool)
+
 		division = handlers.NormalizeDivision(division)
 
 		c.Set("role", role)
 		c.Set("division", division)
 		c.Set("user_id", userID)
+		c.Set("read_only", readOnly)
+
+		c.Next()
+	}
+}
+
+// BlockReadOnly rejects any mutating request (anything but GET) coming from
+// a read-only account. Read-only accounts exist purely for sharing dashboards
+// with people outside the team, so they must never be able to write data
+// even if the frontend happens to expose a button for it.
+func BlockReadOnly() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		readOnly, _ := c.Get("read_only")
+
+		if ro, ok := readOnly.(bool); ok && ro && c.Request.Method != http.MethodGet {
+			c.JSON(http.StatusForbidden, gin.H{"error": "read-only account: write access is disabled"})
+			c.Abort()
+			return
+		}
 
 		c.Next()
 	}

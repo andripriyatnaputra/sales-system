@@ -8,6 +8,7 @@ type User struct {
 	PasswordHash string    `json:"-"`
 	Role         string    `json:"role"`     // "admin" or "user"
 	Division     string    `json:"division"` // NetCo, Oil Gas & Mining, IT Solutions
+	ReadOnly     bool      `json:"read_only"`
 	CreatedAt    time.Time `json:"created_at"`
 	UpdatedAt    time.Time `json:"updated_at"`
 }

@@ -22,6 +22,7 @@ func UpdateUser(c *gin.Context) {
 		Password *string `json:"password"`
 		Role     string  `json:"role"`
 		Division string  `json:"division"`
+		ReadOnly bool    `json:"read_only"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -41,9 +42,9 @@ func UpdateUser(c *gin.Context) {
 	if passwordHash != nil {
 		_, err := database.Pool.Exec(c, `
 			UPDATE users
-			   SET username=$1, password_hash=$2, role=$3, division=$4, updated_at=NOW()
-			 WHERE id=$5
-		`, req.Username, *passwordHash, req.Role, NormalizeDivision(req.Division), id)
+			   SET username=$1, password_hash=$2, role=$3, division=$4, read_only=$5, updated_at=NOW()
+			 WHERE id=$6
+		`, req.Username, *passwordHash, req.Role, NormalizeDivision(req.Division), req.ReadOnly, id)
 
 		if err != nil {
 			c.JSON(500, gin.H{"error": "update failed"})
@@ -52,9 +53,9 @@ func UpdateUser(c *gin.Context) {
 	} else {
 		_, err := database.Pool.Exec(c, `
 			UPDATE users
-			   SET username=$1, role=$2, division=$3, updated_at=NOW()
-			 WHERE id=$4
-		`, req.Username, req.Role, NormalizeDivision(req.Division), id)
+			   SET username=$1, role=$2, division=$3, read_only=$4, updated_at=NOW()
+			 WHERE id=$5
+		`, req.Username, req.Role, NormalizeDivision(req.Division), req.ReadOnly, id)
 
 		if err != nil {
 			c.JSON(500, gin.H{"error": "update failed"})

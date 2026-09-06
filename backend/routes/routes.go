@@ -20,6 +20,7 @@ func Register(r *gin.Engine) {
 	// ===============================
 	auth := api.Group("/")
 	auth.Use(middleware.AuthRequired())
+	auth.Use(middleware.BlockReadOnly())
 
 	// Example: return user info
 	auth.GET("/me", handlers.Me)

@@ -19,11 +19,12 @@ export default function LoginPage() {
     try {
       const res = await login(username, password);
 
-      // backend returns: { token, role, division, username }
+      // backend returns: { token, role, division, username, read_only }
       localStorage.setItem("token", res.token);
       localStorage.setItem("role", res.role);
       localStorage.setItem("division", res.division);
       localStorage.setItem("username", res.username);
+      localStorage.setItem("read_only", String(!!res.read_only));
 
       router.replace("/dashboard");
     } catch (err: any) {

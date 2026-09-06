@@ -17,7 +17,7 @@ func ListUsers(c *gin.Context) {
 	}
 
 	rows, err := database.Pool.Query(c, `
-		SELECT id, username, role, division, created_at, updated_at
+		SELECT id, username, role, division, read_only, created_at, updated_at
 		FROM users
 		ORDER BY id
 	`)
@@ -31,7 +31,7 @@ func ListUsers(c *gin.Context) {
 
 	for rows.Next() {
 		var u models.User
-		err := rows.Scan(&u.ID, &u.Username, &u.Role, &u.Division, &u.CreatedAt, &u.UpdatedAt)
+		err := rows.Scan(&u.ID, &u.Username, &u.Role, &u.Division, &u.ReadOnly, &u.CreatedAt, &u.UpdatedAt)
 		if err == nil {
 			users = append(users, u)
 		}

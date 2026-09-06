@@ -14,6 +14,7 @@ type User = {
   username: string;
   role: string;
   division: string;
+  read_only: boolean;
 };
 
 export default function UsersPage() {
@@ -74,19 +75,20 @@ export default function UsersPage() {
                 <th className="px-3 py-2 text-left">Username</th>
                 <th className="px-3 py-2 text-left">Role</th>
                 <th className="px-3 py-2 text-left">Division</th>
+                <th className="px-3 py-2 text-left">Access</th>
                 <th className="px-3 py-2 text-right">Actions</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={4} className="p-4 text-center">
+                  <td colSpan={5} className="p-4 text-center">
                     Loading...
                   </td>
                 </tr>
               ) : users.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="p-4 text-center">
+                  <td colSpan={5} className="p-4 text-center">
                     No users found.
                   </td>
                 </tr>
@@ -96,6 +98,17 @@ export default function UsersPage() {
                     <td className="px-3 py-2">{u.username}</td>
                     <td className="px-3 py-2">{u.role}</td>
                     <td className="px-3 py-2">{u.division}</td>
+                    <td className="px-3 py-2">
+                      {u.read_only ? (
+                        <span className="px-2 py-1 rounded text-xs font-medium bg-amber-100 text-amber-700">
+                          Read Only
+                        </span>
+                      ) : (
+                        <span className="px-2 py-1 rounded text-xs font-medium bg-green-100 text-green-700">
+                          Read/Write
+                        </span>
+                      )}
+                    </td>
                     <td className="px-3 py-2 text-right space-x-3">
                       <button
                         onClick={() => openEdit(u)}
@@ -145,6 +158,7 @@ function UserModal({
   const [password, setPassword] = useState("");
   const [role, setRole] = useState(user?.role || "user");
   const [division, setDivision] = useState(user?.division || "IT Solutions");
+  const [readOnly, setReadOnly] = useState(user?.read_only || false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -159,6 +173,7 @@ function UserModal({
         username,
         role,
         division,
+        read_only: readOnly,
       };
 
       if (!isEdit) payload.password = password; // mandatory when creating new user
@@ -229,6 +244,18 @@ function UserModal({
             <option value="Oil Mining & Goverments">Oil Mining & Goverments</option>
             <option value="IT Solutions">IT Solutions</option>
           </select>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <input
+            id="read_only"
+            type="checkbox"
+            checked={readOnly}
+            onChange={(e) => setReadOnly(e.target.checked)}
+          />
+          <label htmlFor="read_only" className="text-sm">
+            Read Only <span className="text-gray-400">(hanya bisa lihat, tidak bisa ubah data — untuk dishare ke pihak luar)</span>
+          </label>
         </div>
 
         {error && (

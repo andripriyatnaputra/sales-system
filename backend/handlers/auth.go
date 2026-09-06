@@ -23,6 +23,7 @@ type LoginResponse struct {
 	Username string `json:"username"`
 	Role     string `json:"role"`
 	Division string `json:"division"`
+	ReadOnly bool   `json:"read_only"`
 }
 
 func Login(c *gin.Context) {
@@ -40,11 +41,11 @@ func Login(c *gin.Context) {
 
 	var user models.User
 	err := database.Pool.QueryRow(ctx,
-		`SELECT id, username, password_hash, role, division
+		`SELECT id, username, password_hash, role, division, read_only
          FROM users
          WHERE username = $1`,
 		req.Username,
-	).Scan(&user.ID, &user.Username, &user.PasswordHash, &user.Role, &user.Division)
+	).Scan(&user.ID, &user.Username, &user.PasswordHash, &user.Role, &user.Division, &user.ReadOnly)
 
 	if err != nil {
 		c.JSON(401, gin.H{"error": "invalid username/password"})
@@ -59,11 +60,12 @@ func Login(c *gin.Context) {
 	user.Division = NormalizeDivision(user.Division)
 
 	claims := jwt.MapClaims{
-		"user_id":  user.ID,
-		"role":     user.Role,
-		"division": user.Division,
-		"exp":      time.Now().Add(24 * time.Hour).Unix(),
-		"iat":      time.Now().Unix(),
+		"user_id":   user.ID,
+		"role":      user.Role,
+		"division":  user.Division,
+		"read_only": user.ReadOnly,
+		"exp":       time.Now().Add(24 * time.Hour).Unix(),
+		"iat":       time.Now().Unix(),
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
@@ -74,10 +76,11 @@ func Login(c *gin.Context) {
 	}
 
 	c.JSON(200, gin.H{
-		"token":    signed,
-		"role":     user.Role,
-		"division": user.Division,
-		"username": user.Username,
+		"token":     signed,
+		"role":      user.Role,
+		"division":  user.Division,
+		"username":  user.Username,
+		"read_only": user.ReadOnly,
 	})
 }
 
