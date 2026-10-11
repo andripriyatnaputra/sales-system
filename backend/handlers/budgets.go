@@ -137,11 +137,36 @@ func AddRealization(c *gin.Context) {
 // ======================================================
 
 func UpdateBudget(c *gin.Context) {
-	id, _ := strconv.ParseInt(c.Param("id"), 10, 64)
+	// route param is :budgetId (lihat routes.go) — dulu baca "id" sehingga selalu 0
+	id, err := strconv.ParseInt(c.Param("budgetId"), 10, 64)
+	if err != nil {
+		c.JSON(400, gin.H{"error": "invalid budget id"})
+		return
+	}
 
 	var req models.UpdateBudgetRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(400, gin.H{"error": "Invalid body"})
+		return
+	}
+
+	if req.BudgetAmount < 0 {
+		c.JSON(400, gin.H{"error": "budget amount must be >= 0"})
+		return
+	}
+
+	role := c.GetString("role")
+	userDiv := NormalizeDivision(c.GetString("division"))
+
+	var budgetDiv string
+	err = database.Pool.QueryRow(c, `SELECT division FROM budgets WHERE id=$1`, id).Scan(&budgetDiv)
+	if err != nil {
+		c.JSON(404, gin.H{"error": "budget not found"})
+		return
+	}
+
+	if role == "user" && NormalizeDivision(budgetDiv) != userDiv {
+		c.JSON(403, gin.H{"error": "forbidden"})
 		return
 	}
 
@@ -155,7 +180,7 @@ func UpdateBudget(c *gin.Context) {
 		return
 	}
 
-	_, err := database.Pool.Exec(
+	_, err = database.Pool.Exec(
 		c,
 		`UPDATE budgets
 		 SET budget_amount=$1, updated_at=NOW()
