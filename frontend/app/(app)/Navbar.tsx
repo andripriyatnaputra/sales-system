@@ -9,6 +9,7 @@ export default function Navbar() {
   const [username, setUsername] = useState<string | null>(null);
   const [division, setDivision] = useState<string | null>(null);
   const [readOnly, setReadOnly] = useState(false);
+  const [lastLogin, setLastLogin] = useState<string | null>(null);
   const [mobileOpen, setMobileOpen] = useState(false);
 
   useEffect(() => {
@@ -16,6 +17,12 @@ export default function Navbar() {
     setUsername(localStorage.getItem("username"));
     setDivision(localStorage.getItem("division"));
     setReadOnly(localStorage.getItem("read_only") === "true");
+    const ll = localStorage.getItem("last_login");
+    setLastLogin(
+      ll
+        ? new Date(ll).toLocaleString("id-ID", { dateStyle: "medium", timeStyle: "short" })
+        : null
+    );
   }, []);
 
   const navLinks = [
@@ -95,6 +102,9 @@ export default function Navbar() {
                   )}
                 </span>
                 <span className="text-xs text-gray-400">{division}</span>
+                {lastLogin && (
+                  <span className="text-[11px] text-gray-400">Last login: {lastLogin}</span>
+                )}
               </div>
             )}
 
@@ -169,6 +179,9 @@ export default function Navbar() {
                     )}
                   </div>
                   <div className="text-xs text-gray-500">{division}</div>
+                  {lastLogin && (
+                    <div className="text-[11px] text-gray-400">Last login: {lastLogin}</div>
+                  )}
                 </div>
               )}
               <button

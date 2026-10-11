@@ -23,6 +23,7 @@ export function clearToken() {
   if (typeof window !== "undefined") {
     localStorage.removeItem("token");
     localStorage.removeItem("read_only");
+    localStorage.removeItem("last_login");
   }
 }
 
@@ -114,6 +115,7 @@ export type LoginResponse = {
   division: string;
   username: string;
   read_only: boolean;
+  last_login: string | null;
 };
 
 // --- READ-ONLY GUARD ---

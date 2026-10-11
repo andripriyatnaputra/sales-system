@@ -35,17 +35,17 @@ func Login(c *gin.Context) {
 		return
 	}
 
-	fmt.Printf("REQ BODY: username=%q password=%q\n", req.Username, req.Password)
+	fmt.Printf("LOGIN ATTEMPT: username=%q\n", req.Username)
 
 	ctx := c.Request.Context()
 
 	var user models.User
 	err := database.Pool.QueryRow(ctx,
-		`SELECT id, username, password_hash, role, division, read_only
+		`SELECT id, username, password_hash, role, division, read_only, last_login
          FROM users
          WHERE username = $1`,
 		req.Username,
-	).Scan(&user.ID, &user.Username, &user.PasswordHash, &user.Role, &user.Division, &user.ReadOnly)
+	).Scan(&user.ID, &user.Username, &user.PasswordHash, &user.Role, &user.Division, &user.ReadOnly, &user.LastLogin)
 
 	if err != nil {
 		c.JSON(401, gin.H{"error": "invalid username/password"})
@@ -55,6 +55,10 @@ func Login(c *gin.Context) {
 	if !CheckPassword(req.Password, user.PasswordHash) {
 		c.JSON(401, gin.H{"error": "invalid username/password"})
 		return
+	}
+
+	if _, err := database.Pool.Exec(ctx, `UPDATE users SET last_login = NOW() WHERE id = $1`, user.ID); err != nil {
+		fmt.Println("failed to update last_login:", err)
 	}
 
 	user.Division = NormalizeDivision(user.Division)
@@ -81,6 +85,8 @@ func Login(c *gin.Context) {
 		"division":  user.Division,
 		"username":  user.Username,
 		"read_only": user.ReadOnly,
+		// waktu login sebelumnya (sebelum login ini), null jika pertama kali
+		"last_login": user.LastLogin,
 	})
 }
 

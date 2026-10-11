@@ -15,7 +15,16 @@ type User = {
   role: string;
   division: string;
   read_only: boolean;
+  last_login: string | null;
 };
+
+const formatLastLogin = (v: string | null) =>
+  v
+    ? new Date(v).toLocaleString("id-ID", {
+        dateStyle: "medium",
+        timeStyle: "short",
+      })
+    : "Never";
 
 export default function UsersPage() {
   const [users, setUsers] = useState<User[]>([]);
@@ -76,19 +85,20 @@ export default function UsersPage() {
                 <th className="px-3 py-2 text-left">Role</th>
                 <th className="px-3 py-2 text-left">Division</th>
                 <th className="px-3 py-2 text-left">Access</th>
+                <th className="px-3 py-2 text-left">Last Login</th>
                 <th className="px-3 py-2 text-right">Actions</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={5} className="p-4 text-center">
+                  <td colSpan={6} className="p-4 text-center">
                     Loading...
                   </td>
                 </tr>
               ) : users.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="p-4 text-center">
+                  <td colSpan={6} className="p-4 text-center">
                     No users found.
                   </td>
                 </tr>
@@ -108,6 +118,9 @@ export default function UsersPage() {
                           Read/Write
                         </span>
                       )}
+                    </td>
+                    <td className="px-3 py-2 text-gray-600 whitespace-nowrap">
+                      {formatLastLogin(u.last_login)}
                     </td>
                     <td className="px-3 py-2 text-right space-x-3">
                       <button
