@@ -127,6 +127,10 @@ func CreateProject(c *gin.Context) {
 		body.SphNumber = nil
 		body.SPHStatusReasonCategory = nil
 		body.SPHStatusReasonNote = nil
+		// SPH belum release -> tidak boleh ada nilai SPH
+		for i := range body.RevenuePlans {
+			body.RevenuePlans[i].SPHRevenue = nil
+		}
 	} else {
 		if body.SalesStage < 4 {
 			c.JSON(http.StatusBadRequest, gin.H{

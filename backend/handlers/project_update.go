@@ -124,6 +124,10 @@ func UpdateProject(c *gin.Context) {
 		body.SphNumber = nil
 		body.SPHStatusReasonCategory = nil
 		body.SPHStatusReasonNote = nil
+		// SPH belum release -> tidak boleh ada nilai SPH
+		for i := range body.RevenuePlans {
+			body.RevenuePlans[i].SPHRevenue = nil
+		}
 	} else {
 		if body.SalesStage < 4 {
 			c.JSON(http.StatusBadRequest, gin.H{
@@ -254,6 +258,21 @@ func UpdateProject(c *gin.Context) {
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{
 				"error": "failed upsert revenue plan",
+			})
+			return
+		}
+	}
+
+	// Upsert di atas mempertahankan sph_revenue lama (COALESCE), jadi kalau
+	// SPH Release diubah ke No, nilai SPH lama harus dihapus eksplisit -
+	// kalau tidak, project "No" tetap punya SPH Value (dan variance).
+	if body.SphReleaseStatus != "Yes" {
+		if _, err := tx.Exec(ctx,
+			`UPDATE project_revenue_plan SET sph_revenue = NULL WHERE project_id = $1 AND sph_revenue IS NOT NULL`,
+			id,
+		); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error": "failed to clear sph revenue",
 			})
 			return
 		}

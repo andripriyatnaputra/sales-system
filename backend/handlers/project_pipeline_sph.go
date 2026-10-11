@@ -227,7 +227,7 @@ func GetProjectPipelineSummary(c *gin.Context) {
 				p.sales_stage,
 				COALESCE(p.pipeline_status, 'Active') AS pipeline_status,
 				COALESCE(SUM(rp.target_revenue), 0)::float8 AS target_value,
-				COALESCE(SUM(rp.sph_revenue), 0)::float8 AS sph_value,
+				COALESCE(SUM(rp.sph_revenue) FILTER (WHERE p.sph_release_status = 'Yes'), 0)::float8 AS sph_value,
 				COALESCE(SUM(rp.target_realization), 0)::float8 AS realization_value
 			FROM projects p
 			LEFT JOIN customers cu ON cu.id = p.customer_id
@@ -327,7 +327,7 @@ func GetProjectPipelineDetails(c *gin.Context) {
 			p.sph_status_reason_category,
 			p.sph_status_reason_note,
 			COALESCE(SUM(rp.target_revenue), 0)::float8 AS target_value,
-			COALESCE(SUM(rp.sph_revenue), 0)::float8 AS sph_value,
+			COALESCE(SUM(rp.sph_revenue) FILTER (WHERE p.sph_release_status = 'Yes'), 0)::float8 AS sph_value,
 			COALESCE(SUM(rp.target_realization), 0)::float8 AS realization_value,
 			TO_CHAR(MIN(rp.month), 'YYYY-MM') AS start_month,
 			TO_CHAR(MAX(rp.month), 'YYYY-MM') AS end_month

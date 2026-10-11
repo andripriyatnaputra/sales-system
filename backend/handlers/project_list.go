@@ -101,9 +101,12 @@ func ListProjects(c *gin.Context) {
 	p.sph_status_reason_note,
 
 	COALESCE(SUM(rp.target_revenue), 0)::float8 AS total_revenue,
-	COALESCE(SUM(rp.sph_revenue), 0)::float8 AS total_sph_revenue,
+	-- nilai SPH & variance hanya berlaku untuk project dengan SPH Release = Yes
+	CASE WHEN COALESCE(p.sph_release_status, 'No') = 'Yes'
+	     THEN COALESCE(SUM(rp.sph_revenue), 0) ELSE 0
+	END::float8 AS total_sph_revenue,
 	-- variance hanya dari bulan yang punya nilai SPH; NULL jika belum ada SPH sama sekali
-	CASE WHEN COUNT(rp.sph_revenue) = 0 THEN NULL
+	CASE WHEN COALESCE(p.sph_release_status, 'No') <> 'Yes' OR COUNT(rp.sph_revenue) = 0 THEN NULL
 	     ELSE SUM(rp.sph_revenue - rp.target_revenue)
 	END::float8 AS sph_variance,
 	COALESCE(SUM(rp.target_realization), 0)::float8 AS total_realization,
@@ -619,8 +622,11 @@ SELECT
   COALESCE(p.sph_status_reason_note,'') AS reason_note,
 
   COALESCE(rp_year.total_revenue,'0') AS total_revenue,
-COALESCE(rp_year.total_sph_revenue,'0') AS total_sph_revenue,
-COALESCE(rp_year.sph_variance,'') AS sph_variance,
+  -- nilai SPH & variance hanya berlaku untuk project dengan SPH Release = Yes
+  CASE WHEN COALESCE(p.sph_release_status,'No') = 'Yes'
+       THEN COALESCE(rp_year.total_sph_revenue,'0') ELSE '0' END AS total_sph_revenue,
+  CASE WHEN COALESCE(p.sph_release_status,'No') = 'Yes'
+       THEN COALESCE(rp_year.sph_variance,'') ELSE '' END AS sph_variance,
 COALESCE(rp_year.total_realization,'0') AS total_realization,
 
   COALESCE(rp_year.target_jan,'0') AS target_jan,
