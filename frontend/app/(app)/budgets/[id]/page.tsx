@@ -54,6 +54,7 @@ const BUDGET_CATEGORIES = [
   "AKOMODASI TENDER",
   "PURCHASE ORDER",
   "FIELD TRIAL LITBANG",
+  "B.PROVISI JAMINAN UANG MUKA",
 ];
 
 // ========================
