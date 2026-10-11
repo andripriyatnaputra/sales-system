@@ -1632,8 +1632,13 @@ function ProjectModal({
 
       if (!p.month) {
         msg = "Bulan wajib diisi";
-      } else if (!p.target_revenue || p.target_revenue <= 0) {
-        msg = "Revenue harus > 0";
+      } else if (
+        p.target_revenue === null ||
+        p.target_revenue === undefined ||
+        Number.isNaN(Number(p.target_revenue)) ||
+        p.target_revenue < 0
+      ) {
+        msg = "Revenue wajib diisi (boleh 0)";
       } else if (
         sphReleaseStatus === "Yes" &&
         (
@@ -1706,8 +1711,9 @@ function ProjectModal({
           p &&
           typeof p === "object" &&
           p.month &&
-          p.target_revenue &&
-          p.target_revenue > 0
+          p.target_revenue !== null &&
+          p.target_revenue !== undefined &&
+          p.target_revenue >= 0
       )
       .map((p) => ({
         month: p.month,
@@ -2144,10 +2150,10 @@ useEffect(() => {
                               className={`border rounded-lg px-2 py-1 w-full ${
                                 rowErrors[idx] ? "border-red-500" : ""
                               }`}
-                              value={row.target_revenue || ""}
+                              value={row.target_revenue ?? ""}
                               placeholder="10000000"
                               onChange={(e) =>
-                                updateRow(idx, "target_revenue", safeNumber(e.target.value))
+                                updateRow(idx, "target_revenue", e.target.value === "" ? null : safeNumber(e.target.value))
                               }
                             />
                             {rowErrors[idx] && (
