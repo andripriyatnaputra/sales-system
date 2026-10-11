@@ -218,7 +218,7 @@ function getAgingDays(sphReleaseDate?: string | null) {
 function varianceOf(item: SPHDetailItem) {
   const sph = Number(item.sph_value || 0);
   const target = Number(item.target_value || 0);
-  if (sph <= 0 || target <= 0) return null;
+  if (sph <= 0) return null; // target 0 tetap valid (revenue plan boleh 0)
   return sph - target;
 }
 

@@ -102,10 +102,10 @@ func ListProjects(c *gin.Context) {
 
 	COALESCE(SUM(rp.target_revenue), 0)::float8 AS total_revenue,
 	COALESCE(SUM(rp.sph_revenue), 0)::float8 AS total_sph_revenue,
-	(
-		COALESCE(SUM(rp.sph_revenue), 0)
-		- COALESCE(SUM(rp.target_revenue), 0)
-	)::float8 AS sph_variance,
+	-- variance hanya dari bulan yang punya nilai SPH; NULL jika belum ada SPH sama sekali
+	CASE WHEN COUNT(rp.sph_revenue) = 0 THEN NULL
+	     ELSE SUM(rp.sph_revenue - rp.target_revenue)
+	END::float8 AS sph_variance,
 	COALESCE(SUM(rp.target_realization), 0)::float8 AS total_realization,
 
 	MIN(rp.month)::text AS start_month,
@@ -149,7 +149,7 @@ func ListProjects(c *gin.Context) {
 	m.stage3_status,
 	m.stage4_status,
 	m.stage5_status
-	ORDER BY %s %s
+	ORDER BY %s %s NULLS LAST
 	`, whereClause, col, sortDir)
 
 	rows, err := database.Pool.Query(ctx, query, args...)
@@ -178,7 +178,7 @@ func ListProjects(c *gin.Context) {
 		SPHStatusReasonNote     *string                   `json:"sph_status_reason_note,omitempty"`
 		TotalRevenue            float64                   `json:"total_revenue"`     // target awal
 		TotalSPHRevenue         float64                   `json:"total_sph_revenue"` // nilai sesuai SPH
-		SPHVariance             float64                   `json:"sph_variance"`      // SPH - target awal
+		SPHVariance             *float64                  `json:"sph_variance"`      // SPH - target awal, null jika belum ada SPH
 		TotalRealization        float64                   `json:"total_realization"`
 		StartMonth              *string                   `json:"start_month"`
 		EndMonth                *string                   `json:"end_month"`
@@ -546,7 +546,10 @@ rp_year AS (
     project_id,
     COALESCE(SUM(target_revenue),0)::text AS total_revenue,
 	COALESCE(SUM(sph_revenue),0)::text AS total_sph_revenue,
-	(COALESCE(SUM(sph_revenue),0) - COALESCE(SUM(target_revenue),0))::text AS sph_variance,
+	-- kosong jika belum ada nilai SPH (bukan -target)
+	CASE WHEN COUNT(sph_revenue) = 0 THEN ''
+	     ELSE SUM(sph_revenue - target_revenue)::text
+	END AS sph_variance,
 	COALESCE(SUM(target_realization),0)::text AS total_realization,
 
     COALESCE(SUM(CASE WHEN EXTRACT(MONTH FROM month)=1  THEN target_revenue ELSE 0 END),0)::text AS target_jan,
@@ -617,7 +620,7 @@ SELECT
 
   COALESCE(rp_year.total_revenue,'0') AS total_revenue,
 COALESCE(rp_year.total_sph_revenue,'0') AS total_sph_revenue,
-COALESCE(rp_year.sph_variance,'0') AS sph_variance,
+COALESCE(rp_year.sph_variance,'') AS sph_variance,
 COALESCE(rp_year.total_realization,'0') AS total_realization,
 
   COALESCE(rp_year.target_jan,'0') AS target_jan,

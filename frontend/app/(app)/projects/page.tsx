@@ -86,7 +86,7 @@ type Project = {
 
   total_revenue: number;       // target awal
   total_sph_revenue?: number;  // SPH value
-  sph_variance?: number;       // SPH - target
+  sph_variance?: number | null; // SPH - target, null jika belum ada SPH
   total_realization: number;
   start_month?: string | null;
   end_month?: string | null;
@@ -661,6 +661,10 @@ function ProjectsPageInner() {
       const bv = (b as any)[sortKey] ?? "";
 
       if (numericSortKeys.has(sortKey)) {
+        // project tanpa SPH (variance null) selalu di bawah
+        if (sortKey === "sph_variance" && (a.sph_variance == null) !== (b.sph_variance == null)) {
+          return a.sph_variance == null ? 1 : -1;
+        }
         const na = Number(av) || 0;
         const nb = Number(bv) || 0;
         return sortDir === "asc" ? na - nb : nb - na;
@@ -1400,7 +1404,7 @@ return (
                     </td>
 
                     <td className="px-3 py-2 text-right">
-                      {p.total_sph_revenue && p.total_sph_revenue > 0 ? (
+                      {p.sph_variance != null ? (
                         <span
                           className={`font-medium ${
                             (p.sph_variance || 0) > 0
