@@ -24,7 +24,7 @@ func GetRevenuePlan(c *gin.Context) {
 	// --- Fetch project division ---
 	var projectDivision string
 	err = database.Pool.QueryRow(ctx,
-		`SELECT division FROM projects WHERE id = $1`,
+		`SELECT division FROM projects WHERE id = $1 AND archived_at IS NULL`,
 		projectID,
 	).Scan(&projectDivision)
 

@@ -208,9 +208,24 @@ func UpdatePostPOMonitoring(c *gin.Context) {
 		return
 	}
 
+	// ACL sama seperti GetProject: pastikan user hanya update project divisinya
+	// (idealnya refactor ACL check jadi helper)
+	var projectDivision string
+	err := database.Pool.QueryRow(ctx, `SELECT division FROM projects WHERE id=$1 AND archived_at IS NULL`, projectID).Scan(&projectDivision)
+	if err != nil {
+		c.JSON(404, gin.H{"error": "project not found"})
+		return
+	}
+	role := c.GetString("role")
+	userDivision := NormalizeDivision(c.GetString("division"))
+	if role == "user" && (userDivision == "" || NormalizeDivision(projectDivision) != userDivision) {
+		c.JSON(403, gin.H{"error": "forbidden"})
+		return
+	}
+
 	var salesStage int
-	err := database.Pool.QueryRow(ctx,
-		`SELECT sales_stage FROM projects WHERE id=$1`, projectID).
+	err = database.Pool.QueryRow(ctx,
+		`SELECT sales_stage FROM projects WHERE id=$1 AND archived_at IS NULL`, projectID).
 		Scan(&salesStage)
 	if err != nil {
 		c.JSON(404, gin.H{"error": "project not found"})
