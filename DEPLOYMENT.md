@@ -22,6 +22,17 @@ Required variables:
 4. Confirm that the backup can be restored to an isolated database.
 5. Confirm the host environment variables are present.
 6. Run `docker compose config --quiet` with the host environment loaded.
+7. Apply any new SQL migration explicitly from the host, after reviewing its
+   target database:
+
+```bash
+DB_DSN='postgres://<user>:<password>@<host>:5432/<database>?sslmode=disable' \
+  ./ops/apply_migration.sh backend/database/migrations/<migration>.sql
+```
+
+The application does not run migrations automatically at startup. This is
+intentional until a versioned migration runner and a production baseline have
+been established.
 
 ## Startup verification
 
