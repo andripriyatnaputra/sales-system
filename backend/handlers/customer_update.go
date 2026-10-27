@@ -27,7 +27,7 @@ func UpdateCustomer(c *gin.Context) {
 			industry = COALESCE($2, industry),
 			region = COALESCE($3, region),
 			updated_at = NOW()
-		WHERE id=$4
+		WHERE id=$4 AND archived_at IS NULL
 	`, body.Name, body.Industry, body.Region, id)
 
 	if err != nil {

@@ -142,6 +142,7 @@ func Register(r *gin.Engine) {
 	auth.POST("/projects/:id/notes", handlers.CreateProjectNote)
 	auth.DELETE("/projects/:id/notes/:noteId", handlers.DeleteProjectNote)
 	auth.DELETE("/projects/:id", handlers.DeleteProject)
+	auth.POST("/projects/:id/restore", middleware.AdminOnly(), handlers.RestoreProject)
 
 	// ===============================
 	// DOKUMEN PROJECT (RFQ/TOR/SPH/PO/Kontrak/BAST/dll -- menempel sepanjang siklus hidup project)
@@ -252,6 +253,7 @@ func Register(r *gin.Engine) {
 	auth.POST("/customers", handlers.CreateCustomer)
 	auth.PUT("/customers/:id", handlers.UpdateCustomer)
 	auth.DELETE("/customers/:id", handlers.DeleteCustomer)
+	auth.POST("/customers/:id/restore", middleware.AdminOnly(), handlers.RestoreCustomer)
 
 	// ===============================
 	// NON-PROJECT WORK: POC/Demo & Internal Dev Request

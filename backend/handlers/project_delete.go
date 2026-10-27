@@ -31,7 +31,7 @@ func DeleteProject(c *gin.Context) {
 	// --- Ambil division project ---
 	var projectDivision, projectCode string
 	err = database.Pool.QueryRow(ctx,
-		`SELECT division, project_code FROM projects WHERE id = $1`,
+		`SELECT division, project_code FROM projects WHERE id = $1 AND archived_at IS NULL`,
 		id,
 	).Scan(&projectDivision, &projectCode)
 
@@ -54,8 +54,9 @@ func DeleteProject(c *gin.Context) {
 
 	// --- Delete project ---
 	cmdTag, err := database.Pool.Exec(ctx,
-		`DELETE FROM projects WHERE id = $1`,
-		id,
+		`UPDATE projects SET archived_at = NOW(), archived_by = $1, updated_at = NOW()
+		 WHERE id = $2 AND archived_at IS NULL`,
+		c.GetInt64("user_id"), id,
 	)
 
 	if err != nil {
@@ -68,7 +69,7 @@ func DeleteProject(c *gin.Context) {
 		return
 	}
 
-	LogAudit(c, c.GetInt64("user_id"), "delete", "project", idStr, projectCode, nil)
+	LogAudit(c, c.GetInt64("user_id"), "archive", "project", idStr, projectCode, nil)
 
 	c.Status(204)
 }

@@ -16,7 +16,7 @@ func GetCustomer(c *gin.Context) {
 
 	err := database.Pool.QueryRow(ctx,
 		`SELECT id, name, industry, region, created_at, updated_at
-		 FROM customers WHERE id=$1`,
+		 FROM customers WHERE id=$1 AND archived_at IS NULL`,
 		id,
 	).Scan(
 		&cust.ID,

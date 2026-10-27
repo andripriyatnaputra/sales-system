@@ -80,7 +80,7 @@ func GetProject(c *gin.Context) {
 		FROM projects p
 		LEFT JOIN customers c ON c.id = p.customer_id
 		LEFT JOIN org_units pou ON pou.id = p.prodev_org_unit_id
-		WHERE p.id = $1
+		WHERE p.id = $1 AND p.archived_at IS NULL
 	`, id).Scan(
 		&p.ID,
 		&p.ProjectCode,

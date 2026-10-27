@@ -13,6 +13,7 @@ func GetCustomers(c *gin.Context) {
 	rows, err := database.Pool.Query(ctx,
 		`SELECT id, name, industry, region, created_at, updated_at
 		 FROM customers
+		 WHERE archived_at IS NULL
 		 ORDER BY name ASC`,
 	)
 	if err != nil {

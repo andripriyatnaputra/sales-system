@@ -51,7 +51,7 @@ func normalizedSPHStatusExpr() string {
 func buildProjectAnalyticsFilter(c *gin.Context) (string, []any) {
 	userDiv := NormalizeDivision(strings.TrimSpace(c.GetString("division")))
 
-	conds := []string{"1=1"}
+	conds := []string{"p.archived_at IS NULL"}
 	args := []any{}
 	i := 1
 

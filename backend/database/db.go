@@ -59,20 +59,25 @@ func Ready(ctx context.Context) error {
 
 	var schemaReady bool
 	if err := Pool.QueryRow(ctx, `
-		SELECT EXISTS (
-			SELECT 1
-			FROM information_schema.columns
-			WHERE table_schema = 'public'
-			  AND table_name = 'users'
-			  AND column_name IN ('read_only', 'last_login')
-			GROUP BY table_schema, table_name
-			HAVING COUNT(*) = 2
-		)
+		SELECT
+			(
+				SELECT COUNT(*) = 4
+				FROM information_schema.columns
+				WHERE table_schema = 'public'
+				  AND (
+					(table_name = 'users' AND column_name IN ('read_only', 'last_login'))
+					OR (table_name = 'projects' AND column_name = 'archived_at')
+					OR (table_name = 'customers' AND column_name = 'archived_at')
+				  )
+			) AND EXISTS (
+				SELECT 1 FROM information_schema.tables
+				WHERE table_schema = 'public' AND table_name = 'audit_logs'
+			)
 	`).Scan(&schemaReady); err != nil {
 		return fmt.Errorf("schema check failed: %w", err)
 	}
 	if !schemaReady {
-		return fmt.Errorf("required users schema is not ready")
+		return fmt.Errorf("required production schema is not ready")
 	}
 	return nil
 }

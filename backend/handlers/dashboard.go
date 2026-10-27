@@ -715,7 +715,7 @@ func buildProjectDashboardFilter(
 	applyRevenueDate bool, // TRUE = revenue date (r.month), FALSE = project date (p.created_at)
 ) (string, []any) {
 
-	conds := []string{}
+	conds := []string{"p.archived_at IS NULL"}
 	args := []any{}
 	i := 1
 

@@ -52,7 +52,7 @@ func ListProjects(c *gin.Context) {
 	// --- ACL + FILTERS ---
 	userDiv := NormalizeDivision(c.GetString("division"))
 
-	whereParts := []string{}
+	whereParts := []string{"p.archived_at IS NULL"}
 	args := []any{}
 	i := 1
 
@@ -245,7 +245,7 @@ func GetProjectsSummary(c *gin.Context) {
 	divisionQ := NormalizeDivision(strings.TrimSpace(c.Query("division")))
 
 	// ACL + year filter
-	whereParts := []string{"1=1"}
+	whereParts := []string{"p.archived_at IS NULL"}
 	args := []any{}
 	idx := 1
 
@@ -273,7 +273,7 @@ func GetProjectsSummary(c *gin.Context) {
 	}
 
 	where := strings.Join(whereParts, " AND ")
-	revenueWhereParts := []string{"1=1"}
+	revenueWhereParts := []string{"p.archived_at IS NULL"}
 	revenueArgs := []any{}
 	revenueIdx := 1
 
@@ -420,7 +420,7 @@ func ExportProjectsCSV(c *gin.Context) {
 
 	args := []any{startYear} // $1 reserved for year
 	i := 2
-	whereParts := []string{"1=1"}
+	whereParts := []string{"p.archived_at IS NULL"}
 
 	// ACL: user locked to division
 	if isSalesDivisionLocked(c) {

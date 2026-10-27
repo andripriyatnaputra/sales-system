@@ -9,9 +9,12 @@ import (
 func DeleteCustomer(c *gin.Context) {
 	id := c.Param("id")
 	var name string
-	_ = database.Pool.QueryRow(c, `SELECT name FROM customers WHERE id=$1`, id).Scan(&name)
+	_ = database.Pool.QueryRow(c, `SELECT name FROM customers WHERE id=$1 AND archived_at IS NULL`, id).Scan(&name)
 
-	result, err := database.Pool.Exec(c, `DELETE FROM customers WHERE id=$1`, id)
+	result, err := database.Pool.Exec(c, `
+		UPDATE customers SET archived_at = NOW(), archived_by = $1, updated_at = NOW()
+		WHERE id = $2 AND archived_at IS NULL
+	`, c.GetInt64("user_id"), id)
 
 	if err != nil {
 		c.JSON(500, gin.H{"error": err.Error()})
@@ -22,7 +25,7 @@ func DeleteCustomer(c *gin.Context) {
 		return
 	}
 
-	LogAudit(c, c.GetInt64("user_id"), "delete", "customer", id, name, nil)
+	LogAudit(c, c.GetInt64("user_id"), "archive", "customer", id, name, nil)
 
 	c.JSON(200, gin.H{"status": "deleted"})
 }
