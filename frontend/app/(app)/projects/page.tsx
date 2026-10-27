@@ -23,7 +23,7 @@ import {
   formatIDR,
 } from "@/lib/utils";
 import { Card } from "@/components/ui/card";
-import { getToken, clearToken } from "@/lib/api";
+import { clearToken } from "@/lib/api";
 
 /* ---------------- Types ---------------- */
 
@@ -792,16 +792,9 @@ const handleExportCsv = async () => {
     if (executionFilter !== "all") params.set("execution", executionFilter);
     if (cardMode) params.set("card_mode", cardMode);
 
-    const token = getToken();
-    if (!token) {
-      alert("Session expired: missing token");
-      window.location.href = "/login";
-      return;
-    }
-
     const res = await fetch(`/api/projects/export/csv?${params.toString()}`, {
       method: "GET",
-      headers: { Authorization: `Bearer ${token}` },
+      credentials: "include",
     });
 
     if (res.status === 401) {

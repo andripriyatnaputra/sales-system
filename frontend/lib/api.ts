@@ -9,14 +9,14 @@ const API_BASE = "/api";
 // --- TOKEN HANDLER ---
 
 export function getToken(): string | null {
-  if (typeof window === "undefined") return null;
-  return localStorage.getItem("token");
+  // Authentication is carried by the HttpOnly sales_session cookie. The
+  // function remains for legacy callers during the migration, but never
+  // exposes a bearer token to JavaScript.
+  return null;
 }
 
 export function setToken(token: string) {
-  if (typeof window !== "undefined") {
-    localStorage.setItem("token", token);
-  }
+  void token;
 }
 
 export function clearToken() {
@@ -25,25 +25,45 @@ export function clearToken() {
   }
 }
 
+function getCookie(name: string): string | null {
+  if (typeof document === "undefined") return null;
+  const prefix = `${name}=`;
+  const value = document.cookie
+    .split(";")
+    .map((part) => part.trim())
+    .find((part) => part.startsWith(prefix));
+  return value ? decodeURIComponent(value.slice(prefix.length)) : null;
+}
+
+function getCsrfToken(): string | null {
+  return getCookie("sales_csrf");
+}
+
 // --- INTERNAL REQUEST WRAPPER ---
 async function request<T>(
   method: HttpMethod,
   url: string,
   body?: any
 ): Promise<T> {
-  const token = getToken();
+  // Authorization is enforced by the backend; the session is sent via the
+  // HttpOnly cookie and cannot be read from JavaScript.
 
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
   };
-
-  if (token && url !== "/login") {
-    headers["Authorization"] = `Bearer ${token}`;
+  if (method !== "GET" && method !== "DELETE" && url !== "/login") {
+    const csrfToken = getCsrfToken();
+    if (csrfToken) headers["X-CSRF-Token"] = csrfToken;
+  }
+  if (method === "DELETE") {
+    const csrfToken = getCsrfToken();
+    if (csrfToken) headers["X-CSRF-Token"] = csrfToken;
   }
 
   const res = await fetch(`${API_BASE}${url}`, {
     method,
     headers,
+    credentials: "include",
     body: body ? JSON.stringify(body) : undefined,
   });
 
@@ -123,12 +143,14 @@ export async function login(
 ): Promise<LoginResponse> {
   clearToken();
   const res = await apiPost<LoginResponse>("/login", { username, password });
-
-  setToken(res.token);
   return res;
 }
 
-export function logout() {
+export async function logout() {
+  await fetch(`${API_BASE}/logout`, {
+    method: "POST",
+    credentials: "include",
+  }).catch(() => undefined);
   clearToken();
   if (typeof window !== "undefined") {
     window.location.href = "/login";
@@ -988,18 +1010,9 @@ export async function apiDeletePresalesDocument(projectId: number | string, docI
 }
 
 export async function apiGetBlob(url: string): Promise<Blob> {
-  const token = getToken();
-
-  const headers: Record<string, string> = {};
-  if (token && url !== "/login") {
-    headers["Authorization"] = `Bearer ${token}`;
-  }
-
-  console.log("[API REQUEST]", `${API_BASE}${url}`);
-
   const res = await fetch(`${API_BASE}${url}`, {
     method: "GET",
-    headers,
+    credentials: "include",
   });
 
   if (res.status === 401) {

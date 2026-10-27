@@ -3,5 +3,8 @@
 !.env.example
 node_modules/
 ops/backups/
+backend/.env
+frontend/.env.local
+backend/uploads/
 *.dump
 *.dump.sha256

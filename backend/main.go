@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"sales-system-backend/database"
+	"sales-system-backend/handlers"
 	"sales-system-backend/routes"
 
 	"github.com/gin-contrib/cors"
@@ -20,6 +21,9 @@ import (
 func main() {
 	// Load environment variables
 	_ = godotenv.Load()
+	if _, err := handlers.GetJWTSecret(); err != nil {
+		log.Fatalf("JWT configuration failed: %v", err)
+	}
 
 	// Initialize database
 	if err := database.Init(); err != nil {
@@ -57,6 +61,16 @@ func main() {
 	// Health check
 	r.GET("/health", func(c *gin.Context) {
 		c.JSON(200, gin.H{"status": "ok"})
+	})
+
+	r.GET("/ready", func(c *gin.Context) {
+		ctx, cancel := context.WithTimeout(c.Request.Context(), 2*time.Second)
+		defer cancel()
+		if err := database.Ready(ctx); err != nil {
+			c.JSON(http.StatusServiceUnavailable, gin.H{"status": "not_ready"})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"status": "ready"})
 	})
 
 	// Port configuration

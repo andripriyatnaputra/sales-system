@@ -23,8 +23,8 @@ export default function LoginPage() {
     try {
       const res = await login(username, password);
 
-      // backend returns: { token, role, division, username, role_key, department, level, permissions }
-      localStorage.setItem("token", res.token);
+      // The JWT is stored by the backend in an HttpOnly cookie. These values
+      // are display hints only; authorization remains server-side.
       localStorage.setItem("role", res.role);
       localStorage.setItem("division", res.division);
       localStorage.setItem("username", res.username);

@@ -13,13 +13,16 @@ func Register(r *gin.Engine) {
 	// PUBLIC ROUTES (NO AUTH)
 	// ===============================
 	api := r.Group("/api")
-	api.POST("/login", handlers.Login)
+	api.POST("/login", middleware.LoginRateLimit(), handlers.Login)
+	api.POST("/logout", handlers.Logout)
 
 	// ===============================
 	// PROTECTED ROUTES (JWT REQUIRED)
 	// ===============================
 	auth := api.Group("/")
 	auth.Use(middleware.AuthRequired())
+	auth.Use(middleware.CSRFProtection())
+	auth.Use(middleware.BlockReadOnly())
 
 	// Example: return user info
 	auth.GET("/me", handlers.Me)

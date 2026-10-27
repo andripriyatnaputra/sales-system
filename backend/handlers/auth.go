@@ -80,12 +80,23 @@ func Login(c *gin.Context) {
 		"iat":         time.Now().Unix(),
 	}
 
+	secret, err := GetJWTSecret()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "JWT secret is not configured"})
+		return
+	}
+
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	signed, err := token.SignedString(JwtSecret)
+	signed, err := token.SignedString(secret)
 	if err != nil {
 		c.JSON(500, gin.H{"error": "failed to sign token"})
 		return
 	}
+	if err := SetCSRFCookie(c); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to initialize session security"})
+		return
+	}
+	SetAuthCookie(c, signed)
 
 	c.JSON(200, gin.H{
 		"token":       signed,

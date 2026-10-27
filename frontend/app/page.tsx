@@ -2,18 +2,17 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { getToken } from "@/lib/api";
+import { apiGet } from "@/lib/api";
 
 export default function HomePage() {
   const router = useRouter();
 
   useEffect(() => {
-    const token = getToken();
-    if (token) {
-      router.replace("/dashboard");
-    } else {
+    apiGet("/me")
+      .then(() => router.replace("/dashboard"))
+      .catch(() => {
       router.replace("/login");
-    }
+      });
   }, [router]);
 
   return null;

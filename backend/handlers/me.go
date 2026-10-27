@@ -12,6 +12,8 @@ func Me(c *gin.Context) {
 	division, _ := c.Get("division")
 	department, _ := c.Get("department")
 	orgUnit, _ := c.Get("org_unit")
+	permissions, _ := c.Get("permissions")
+	readOnly, _ := c.Get("read_only")
 
 	c.JSON(http.StatusOK, gin.H{
 		"id":         userID,
@@ -19,5 +21,7 @@ func Me(c *gin.Context) {
 		"division":   division,
 		"department": department,
 		"org_unit":   orgUnit,
+		"permissions": permissions,
+		"read_only":   readOnly,
 	})
 }

@@ -1,28 +1,49 @@
 package middleware
 
 import (
+	"errors"
+	"fmt"
+	"math"
 	"net/http"
 	"strings"
 
+	"sales-system-backend/database"
 	"sales-system-backend/handlers"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/jackc/pgx/v5"
 )
 
 func AuthRequired() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		auth := c.GetHeader("Authorization")
-		if auth == "" || !strings.HasPrefix(auth, "Bearer ") {
+		tokenString := ""
+		if auth != "" {
+			if !strings.HasPrefix(auth, "Bearer ") {
+				c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid authorization header"})
+				c.Abort()
+				return
+			}
+			tokenString = strings.TrimPrefix(auth, "Bearer ")
+		}
+		if tokenString == "" {
+			cookieToken, cookieErr := c.Cookie("sales_session")
+			if cookieErr == nil {
+				tokenString = cookieToken
+			}
+		}
+		if tokenString == "" {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "missing token"})
 			c.Abort()
 			return
 		}
 
-		tokenString := strings.TrimPrefix(auth, "Bearer ")
-
 		token, err := jwt.Parse(tokenString, func(t *jwt.Token) (interface{}, error) {
-			return handlers.JwtSecret, nil
+			if t.Method != jwt.SigningMethodHS256 {
+				return nil, fmt.Errorf("unexpected signing method")
+			}
+			return handlers.GetJWTSecret()
 		})
 
 		if err != nil || !token.Valid {
@@ -38,15 +59,38 @@ func AuthRequired() gin.HandlerFunc {
 			return
 		}
 
-		role := claims["role"].(string)
-		division := claims["division"].(string)
-		userID := int64(claims["user_id"].(float64))
+		userIDValue, ok := claims["user_id"].(float64)
+		if !ok || userIDValue <= 0 || math.Trunc(userIDValue) != userIDValue {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid token user id"})
+			c.Abort()
+			return
+		}
+		userID := int64(userIDValue)
 
+		// Claims are not the source of truth for authorization. Re-read the
+		// current user record so deleted users and changed role/division/read-only
+		// settings take effect immediately instead of waiting for token expiry.
+		var role, division string
+		var readOnly bool
+		if err := database.Pool.QueryRow(c.Request.Context(), `
+			SELECT role, division, read_only
+			FROM users
+			WHERE id = $1
+		`, userID).Scan(&role, &division, &readOnly); err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				c.JSON(http.StatusUnauthorized, gin.H{"error": "user is no longer active"})
+			} else {
+				c.JSON(http.StatusServiceUnavailable, gin.H{"error": "authentication service unavailable"})
+			}
+			c.Abort()
+			return
+		}
 		division = handlers.NormalizeDivision(division)
 
 		c.Set("role", role)
 		c.Set("division", division)
 		c.Set("user_id", userID)
+		c.Set("read_only", readOnly)
 
 		// Claims RBAC tambahan (additive) -- token lama tanpa claims ini masih
 		// bisa lolos, cukup diperlakukan sebagai role_key/department/level kosong
