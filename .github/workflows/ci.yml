@@ -187,13 +187,27 @@ jobs:
             set -a
             source .env.staging
             set +a
-            docker compose -f docker-compose.staging-server.yml -p sales-staging pull
-            docker compose -f docker-compose.staging-server.yml -p sales-staging up -d
+            POSTGRES_USER_STAGING="${POSTGRES_USER_STAGING:-sales_staging}"
+            POSTGRES_DB_STAGING="${POSTGRES_DB_STAGING:-salesdb_staging}"
+            compose="docker compose -f docker-compose.staging-server.yml -p sales-staging"
+            $compose pull
+            $compose up -d postgres
+            until $compose exec -T postgres pg_isready -U "$POSTGRES_USER_STAGING" -d "$POSTGRES_DB_STAGING"; do sleep 2; done
+            for migration in \
+              backend/database/migrations/0000_staging_catchup_schema_drift.sql \
+              backend/database/migrations/2026-10-27_auth_user_columns.sql \
+              backend/database/migrations/2026-10-27_archive_entities.sql \
+              backend/database/migrations/2026-10-27_audit_logs.sql
+            do
+              $compose exec -T postgres psql -U "$POSTGRES_USER_STAGING" -d "$POSTGRES_DB_STAGING" --set ON_ERROR_STOP=1 < "$migration"
+            done
+            $compose up -d backend frontend
 
       - name: Health check
         run: |
           sleep 5
           curl -f http://${{ secrets.STAGING_SSH_HOST }}:8091/health
+          curl -f http://${{ secrets.STAGING_SSH_HOST }}:8091/ready
 
   # Manual post-deployment smoke check. It is intentionally not run on every
   # push because this workflow does not deploy production automatically.
