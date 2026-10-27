@@ -190,6 +190,10 @@ function UserModal({
   const [managerId, setManagerId] = useState<number | "">(user?.manager_id || "");
   const [readOnly, setReadOnly] = useState(user?.read_only || false);
 
+  const eligibleManagers = allUsers.filter(
+    (u) => !u.read_only && ["manager", "gm", "executive"].includes(u.role_level || "")
+  );
+
   // daftar user lain (buat pilih atasan langsung / manager_id) -- exclude diri sendiri
   useEffect(() => {
     apiGetUsers()
@@ -385,7 +389,7 @@ function UserModal({
             onChange={(e) => setManagerId(e.target.value ? Number(e.target.value) : "")}
           >
             <option value="">-- tidak ada / belum ditentukan --</option>
-            {allUsers.map((u) => (
+            {eligibleManagers.map((u) => (
               <option key={u.id} value={u.id}>
                 {u.username} {u.role_label ? `(${u.role_label})` : ""}
               </option>

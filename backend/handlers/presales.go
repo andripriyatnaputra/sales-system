@@ -259,7 +259,7 @@ func GetPresalesAnalysis(c *gin.Context) {
 // approval manager staff (approver_type='requester_manager', entity_type=
 // 'presales_prodev_submission', lihat migrasi 0033). Kalau requester tidak
 // py manager_id (mis. GM ProDev sendiri yang requester), SubmitForApproval
-// auto-skip -> langsung 'submitted' spt sebelumnya, tidak ada blokir baru
+// menolak submission sampai manager yang sah ditetapkan.
 // utk kasus itu. Scope SENGAJA cuma bagian ini, lihat komentar migrasi.
 func UpdateProdevSection(c *gin.Context) {
 	projectID, err := strconv.ParseInt(c.Param("id"), 10, 64)
@@ -319,7 +319,7 @@ func UpdateProdevSection(c *gin.Context) {
 
 		ar, err := SubmitForApproval(c, "presales_prodev_submission", strconv.FormatInt(projectID, 10), &label, nil, prodevDeptID, c.GetInt64("user_id"))
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			c.JSON(approvalSubmissionHTTPStatus(err), gin.H{"error": err.Error()})
 			return
 		}
 

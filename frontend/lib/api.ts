@@ -477,6 +477,23 @@ export async function apiGetAuditLogs(params?: { entity_type?: string; entity_id
   return apiGet<any[]>(`/audit-logs${query}`);
 }
 
+// --- APPROVAL MATRIX ADMINISTRATION ---
+export async function apiGetApprovalMatrices() {
+  return apiGet<any[]>("/approval-matrices");
+}
+
+export async function apiCreateApprovalMatrix(body: any) {
+  return apiPost<any>("/approval-matrices", body);
+}
+
+export async function apiUpdateApprovalMatrix(id: number, body: any) {
+  return apiPut<any>(`/approval-matrices/${id}`, body);
+}
+
+export async function apiDeleteApprovalMatrix(id: number) {
+  return apiDelete<any>(`/approval-matrices/${id}`);
+}
+
 // --- PERMISSION HELPER (UX gating saja, backend tetap source of truth) ---
 export function hasPermission(key: string): boolean {
   if (typeof window === "undefined") return false;

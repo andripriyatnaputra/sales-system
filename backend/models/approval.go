@@ -20,8 +20,9 @@ type ApprovalRequest struct {
 // ApprovalStep: approver BISA role tetap (ApproverRoleID, dipakai utk GM -- cuma
 // 1 per departemen) ATAU orang spesifik (ApproverUserID, dipakai utk "manager
 // langsung" -- dinamis, di-resolve dari manager_id requester saat submit).
-// Kalau requester belum punya manager_id, step 'requester_manager' otomatis
-// Status='skipped' (bukan pending selamanya) -- lihat ApproverSkippedReason.
+// Kalau requester belum punya manager_id, submission ditolak dan tidak dibuatkan
+// approval request. Semua approval step yang dibuat harus tetap pending sampai
+// approver yang sah mengambil keputusan.
 type ApprovalStep struct {
 	ID                   int64      `json:"id"`
 	ApprovalRequestID    int64      `json:"approval_request_id"`
@@ -39,12 +40,16 @@ type ApprovalStep struct {
 }
 
 type ApprovalMatrixRule struct {
-	ID             int64    `json:"id"`
-	EntityType     string   `json:"entity_type"`
-	DepartmentID   *int64   `json:"department_id,omitempty"`
-	MinAmount      float64  `json:"min_amount"`
-	MaxAmount      *float64 `json:"max_amount,omitempty"`
-	StepOrder      int      `json:"step_order"`
-	ApproverType   string   `json:"approver_type"` // 'role' | 'requester_manager'
-	ApproverRoleID *int64   `json:"approver_role_id,omitempty"`
+	ID                int64     `json:"id"`
+	EntityType        string    `json:"entity_type"`
+	DepartmentID      *int64    `json:"department_id,omitempty"`
+	DepartmentName    string    `json:"department_name,omitempty"`
+	MinAmount         float64   `json:"min_amount"`
+	MaxAmount         *float64  `json:"max_amount,omitempty"`
+	StepOrder         int       `json:"step_order"`
+	ApproverType      string    `json:"approver_type"` // 'role' | 'requester_manager'
+	ApproverRoleID    *int64    `json:"approver_role_id,omitempty"`
+	ApproverRoleLabel string    `json:"approver_role_label,omitempty"`
+	CreatedAt         time.Time `json:"created_at,omitempty"`
+	UpdatedAt         time.Time `json:"updated_at,omitempty"`
 }

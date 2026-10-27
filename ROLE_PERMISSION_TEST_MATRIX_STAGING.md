@@ -33,6 +33,26 @@ dianggap sebagai aturan final Mini ERP.
 | Hourly rate | Finance/HR GA & Legal | Hanya departemen terkait yang menulis |
 | Executive dashboard | level GM atau lebih tinggi | Baca agregat, bukan otomatis hak mengubah transaksi |
 
+## Kontrol approval yang wajib
+
+| Kondisi | Perilaku backend |
+| --- | --- |
+| Matrix tidak ditemukan | Submission ditolak (`422`); tidak pernah auto-approved |
+| Requester tidak punya manager | Submission ditolak (`422`); tidak ada step yang di-skip |
+| Role approver tidak punya user yang dapat bertindak | Submission ditolak (`422`) |
+| Requester mencoba approve/reject dokumen sendiri | Ditolak |
+| Rejection tanpa alasan | Ditolak |
+| Dua approver memproses step yang sama | Hanya satu yang berhasil; lainnya diminta refresh |
+| Approval berhasil | Step dan status request diperbarui dalam satu transaksi |
+
+Konfigurasi matrix dikelola melalui menu **Approval Matrix** oleh System Admin
+saja. Perubahan create/update/delete masuk audit log. Migration tidak mengisi
+threshold bisnis secara otomatis; setiap rule harus disahkan pemilik proses.
+
+Approval request yang sudah dibuat harus selalu memiliki minimal satu step
+`pending` sampai approver yang sah mengambil keputusan. Konfigurasi matrix dan
+penetapan `manager_id` wajib diselesaikan sebelum uji end-to-end Mini ERP.
+
 ## Temuan dan keputusan
 
 Role `executive` menggunakan `legacy_role = 'admin'` untuk kompatibilitas

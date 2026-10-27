@@ -3,23 +3,51 @@ package handlers
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"sales-system-backend/database"
 	"sales-system-backend/models"
 
 	"github.com/gin-gonic/gin"
+	"github.com/jackc/pgx/v5"
 )
+
+var (
+	// These errors are policy/configuration failures, not server failures. Callers
+	// should surface them as a 422 so the business user knows the submission is
+	// blocked pending governance configuration.
+	ErrApprovalMatrixNotConfigured = errors.New("approval matrix is not configured")
+	ErrApprovalManagerRequired     = errors.New("requester must have a manager before submitting for approval")
+	ErrApprovalApproverUnavailable = errors.New("approval role has no assigned approver")
+)
+
+// IsApprovalPolicyError reports whether an approval submission was blocked by
+// governance configuration or policy. It is intentionally exported so HTTP
+// handlers can return a useful 422 instead of masking the issue as a 500.
+func IsApprovalPolicyError(err error) bool {
+	return errors.Is(err, ErrApprovalMatrixNotConfigured) ||
+		errors.Is(err, ErrApprovalManagerRequired) ||
+		errors.Is(err, ErrApprovalApproverUnavailable)
+}
+
+func approvalSubmissionHTTPStatus(err error) int {
+	if IsApprovalPolicyError(err) {
+		return http.StatusUnprocessableEntity
+	}
+	return http.StatusInternalServerError
+}
 
 // SubmitForApproval mencari approval_matrices yang cocok (entity_type + department_id
 // + amount), lalu membuat approval_requests + approval_steps sesuai konfigurasi.
 // Dipanggil langsung (bukan lewat HTTP) oleh handler modul lain (PR/PO/payment, dst)
 // saat entity tersebut butuh approval sebelum diproses lebih lanjut.
 //
-// Kalau tidak ada matrix rule yang cocok untuk entity_type itu, approval request
-// TETAP dibuat tapi langsung berstatus 'approved' tanpa steps -- artinya entity_type
-// itu belum dikonfigurasi butuh approval, bukan dianggap error.
+// Approval sengaja fail-closed: matrix yang belum dikonfigurasi atau requester yang
+// belum memiliki manager tidak boleh menghasilkan approval otomatis. Ini mencegah
+// dokumen bisnis melewati kontrol hanya karena konfigurasi belum lengkap.
 func SubmitForApproval(ctx context.Context, entityType, entityID string, entityLabel *string, amount *float64, departmentID *int64, requestedBy int64) (*models.ApprovalRequest, error) {
 	amt := 0.0
 	if amount != nil {
@@ -30,57 +58,91 @@ func SubmitForApproval(ctx context.Context, entityType, entityID string, entityL
 	if err != nil {
 		return nil, err
 	}
-
-	status := "pending"
 	if len(rules) == 0 {
-		status = "approved"
+		return nil, fmt.Errorf("%w: entity_type=%s", ErrApprovalMatrixNotConfigured, entityType)
 	}
 
+	// Resolve all dynamic approvers and verify role-based approvers before
+	// creating the request. This prevents partial/orphaned approval requests.
+	managerByRule := make(map[int64]int64)
+	approversByRole := make(map[int64][]int64)
+	for _, r := range rules {
+		if r.ApproverType == "requester_manager" {
+			var managerID *int64
+			var managerReadOnly bool
+			if err := database.Pool.QueryRow(ctx, `
+				SELECT u.manager_id, COALESCE(m.read_only, false)
+				FROM users u
+				LEFT JOIN users m ON m.id = u.manager_id
+				WHERE u.id = $1
+			`, requestedBy).Scan(&managerID, &managerReadOnly); err != nil {
+				return nil, fmt.Errorf("%w: requester_id=%d: %v", ErrApprovalManagerRequired, requestedBy, err)
+			}
+			if managerID == nil || *managerID == requestedBy {
+				return nil, fmt.Errorf("%w: requester_id=%d", ErrApprovalManagerRequired, requestedBy)
+			}
+			if managerReadOnly {
+				return nil, fmt.Errorf("%w: manager_id=%d is read-only", ErrApprovalApproverUnavailable, *managerID)
+			}
+			managerByRule[r.ID] = *managerID
+			continue
+		}
+
+		if r.ApproverRoleID == nil {
+			return nil, fmt.Errorf("%w: matrix_rule_id=%d has no approver role", ErrApprovalMatrixNotConfigured, r.ID)
+		}
+		approverIDs, err := usersWithRole(ctx, *r.ApproverRoleID)
+		if err != nil {
+			return nil, err
+		}
+		if len(approverIDs) == 0 {
+			return nil, fmt.Errorf("%w: role_id=%d", ErrApprovalApproverUnavailable, *r.ApproverRoleID)
+		}
+		approversByRole[*r.ApproverRoleID] = approverIDs
+	}
+
+	tx, err := database.Pool.Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback(ctx)
+
 	var reqID int64
-	err = database.Pool.QueryRow(ctx, `
+	err = tx.QueryRow(ctx, `
 		INSERT INTO approval_requests (entity_type, entity_id, entity_label, amount, department_id, requested_by, status)
 		VALUES ($1, $2, $3, $4, $5, $6, $7)
 		RETURNING id
-	`, entityType, entityID, entityLabel, amount, departmentID, requestedBy, status).Scan(&reqID)
+	`, entityType, entityID, entityLabel, amount, departmentID, requestedBy, "pending").Scan(&reqID)
 	if err != nil {
 		return nil, err
 	}
 
+	type approvalNotification struct {
+		stepID  int64
+		userIDs []int64
+	}
+	notifications := make([]approvalNotification, 0, len(rules))
 	for _, r := range rules {
 		if r.ApproverType == "requester_manager" {
-			var managerID *int64
-			_ = database.Pool.QueryRow(ctx, `SELECT manager_id FROM users WHERE id = $1`, requestedBy).Scan(&managerID)
-			if managerID == nil {
-				// requester belum punya manager_id -- skip step ini (bukan blok
-				// selamanya). Begitu manager_id requester diisi, submission
-				// BERIKUTNYA otomatis kena gate sesungguhnya.
-				_, err = database.Pool.Exec(ctx, `
-					INSERT INTO approval_steps (approval_request_id, step_order, status, comment)
-					VALUES ($1, $2, 'skipped', 'auto-skip: requester belum punya manager_id')
-				`, reqID, r.StepOrder)
-			} else {
-				var stepID int64
-				err = database.Pool.QueryRow(ctx, `
-					INSERT INTO approval_steps (approval_request_id, step_order, approver_user_id, status)
-					VALUES ($1, $2, $3, 'pending')
-					RETURNING id
-				`, reqID, r.StepOrder, *managerID).Scan(&stepID)
-				if err == nil {
-					notifyApprovalStep(ctx, stepID, []int64{*managerID}, entityLabel)
-				}
+			managerID := managerByRule[r.ID]
+			var stepID int64
+			err = tx.QueryRow(ctx, `
+				INSERT INTO approval_steps (approval_request_id, step_order, approver_user_id, status)
+				VALUES ($1, $2, $3, 'pending')
+				RETURNING id
+			`, reqID, r.StepOrder, managerID).Scan(&stepID)
+			if err == nil {
+				notifications = append(notifications, approvalNotification{stepID: stepID, userIDs: []int64{managerID}})
 			}
 		} else {
 			var stepID int64
-			err = database.Pool.QueryRow(ctx, `
+			err = tx.QueryRow(ctx, `
 				INSERT INTO approval_steps (approval_request_id, step_order, approver_role_id, status)
 				VALUES ($1, $2, $3, 'pending')
 				RETURNING id
 			`, reqID, r.StepOrder, r.ApproverRoleID).Scan(&stepID)
 			if err == nil {
-				approverIDs, aerr := usersWithRole(ctx, *r.ApproverRoleID)
-				if aerr == nil {
-					notifyApprovalStep(ctx, stepID, approverIDs, entityLabel)
-				}
+				notifications = append(notifications, approvalNotification{stepID: stepID, userIDs: approversByRole[*r.ApproverRoleID]})
 			}
 		}
 		if err != nil {
@@ -88,28 +150,22 @@ func SubmitForApproval(ctx context.Context, entityType, entityID string, entityL
 		}
 	}
 
-	// Kalau SEMUA step ternyata di-skip (mis. semua butuh requester_manager tapi
-	// tidak ada yang punya manager_id), approval_request otomatis 'approved' --
-	// konsisten dengan fallback "tidak ada rule = auto-approved".
-	if status == "pending" {
-		var pendingCount int
-		_ = database.Pool.QueryRow(ctx, `SELECT count(*) FROM approval_steps WHERE approval_request_id = $1 AND status = 'pending'`, reqID).Scan(&pendingCount)
-		if pendingCount == 0 {
-			_, err = database.Pool.Exec(ctx, `UPDATE approval_requests SET status = 'approved', updated_at = NOW() WHERE id = $1`, reqID)
-			if err != nil {
-				return nil, err
-			}
-		}
+	if err := tx.Commit(ctx); err != nil {
+		return nil, err
+	}
+
+	for _, notification := range notifications {
+		notifyApprovalStep(ctx, notification.stepID, notification.userIDs, entityLabel)
 	}
 
 	return GetApprovalRequest(ctx, reqID)
 }
 
-// usersWithRole: semua user aktif dgn role_id tertentu -- dipakai
+// usersWithRole: semua user dengan role_id tertentu -- dipakai
 // notifyApprovalStep supaya SEMUA orang yang berwenang bertindak di step
 // role-based (bukan cuma 1 orang) dapat notifikasi masing-masing.
 func usersWithRole(ctx context.Context, roleID int64) ([]int64, error) {
-	rows, err := database.Pool.Query(ctx, `SELECT id FROM users WHERE role_id = $1`, roleID)
+	rows, err := database.Pool.Query(ctx, `SELECT id FROM users WHERE role_id = $1 AND read_only = false`, roleID)
 	if err != nil {
 		return nil, err
 	}
@@ -245,6 +301,9 @@ func ActOnNextStep(ctx context.Context, approvalRequestID int64, actorUserID int
 	if decision != "approve" && decision != "reject" {
 		return nil, errors.New("invalid decision")
 	}
+	if decision == "reject" && (comment == nil || strings.TrimSpace(*comment) == "") {
+		return nil, errors.New("rejection reason is required")
+	}
 
 	ar, err := GetApprovalRequest(ctx, approvalRequestID)
 	if err != nil {
@@ -252,6 +311,9 @@ func ActOnNextStep(ctx context.Context, approvalRequestID int64, actorUserID int
 	}
 	if ar.Status != "pending" {
 		return nil, errors.New("approval request already finalized (status: " + ar.Status + ")")
+	}
+	if ar.RequestedBy == actorUserID {
+		return nil, errors.New("forbidden: requester cannot approve or reject their own request")
 	}
 
 	var currentStep *models.ApprovalStep
@@ -290,39 +352,77 @@ func ActOnNextStep(ctx context.Context, approvalRequestID int64, actorUserID int
 		newStepStatus = "rejected"
 	}
 
-	_, err = database.Pool.Exec(ctx, `
+	// Serialize decisions for one request. Without a request lock, two
+	// concurrent approvers can both act on the same pending step or leave the
+	// step and request status out of sync after a partial failure.
+	tx, err := database.Pool.Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback(ctx)
+
+	var lockedStepID int64
+	var lockedStepStatus string
+	err = tx.QueryRow(ctx, `
+		SELECT s.id, s.status
+		FROM approval_requests ar
+		JOIN approval_steps s ON s.approval_request_id = ar.id
+		WHERE ar.id = $1
+		  AND ar.status = 'pending'
+		  AND s.status = 'pending'
+		ORDER BY s.step_order
+		LIMIT 1
+		FOR UPDATE OF ar, s
+	`, approvalRequestID).Scan(&lockedStepID, &lockedStepStatus)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, errors.New("approval request or pending step changed; refresh and try again")
+		}
+		return nil, err
+	}
+	if lockedStepID != currentStep.ID || lockedStepStatus != "pending" {
+		return nil, errors.New("approval step changed; refresh and try again")
+	}
+
+	result, err := tx.Exec(ctx, `
 		UPDATE approval_steps
 		   SET status = $1, acted_by = $2, acted_at = NOW(), comment = $3
-		 WHERE id = $4
+		 WHERE id = $4 AND status = 'pending'
 	`, newStepStatus, actorUserID, comment, currentStep.ID)
 	if err != nil {
 		return nil, err
+	}
+	if result.RowsAffected() != 1 {
+		return nil, errors.New("approval step was already processed; refresh and try again")
 	}
 
 	newRequestStatus := ar.Status
 	if decision == "reject" {
 		newRequestStatus = "rejected"
 	} else {
-		allApproved := true
-		for _, s := range ar.Steps {
-			if s.ID == currentStep.ID {
-				continue
-			}
-			if s.Status == "pending" {
-				allApproved = false
-				break
-			}
+		var hasPendingStep bool
+		err = tx.QueryRow(ctx, `
+			SELECT EXISTS(
+				SELECT 1 FROM approval_steps
+				WHERE approval_request_id = $1 AND status = 'pending'
+			)
+		`, approvalRequestID).Scan(&hasPendingStep)
+		if err != nil {
+			return nil, err
 		}
-		if allApproved {
+		if !hasPendingStep {
 			newRequestStatus = "approved"
 		}
 	}
 
 	if newRequestStatus != ar.Status {
-		_, err = database.Pool.Exec(ctx, `UPDATE approval_requests SET status = $1, updated_at = NOW() WHERE id = $2`, newRequestStatus, approvalRequestID)
+		_, err = tx.Exec(ctx, `UPDATE approval_requests SET status = $1, updated_at = NOW() WHERE id = $2`, newRequestStatus, approvalRequestID)
 		if err != nil {
 			return nil, err
 		}
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return nil, err
 	}
 
 	entityLabel := ""

@@ -169,7 +169,7 @@ func SubmitBillingRequest(c *gin.Context) {
 	label := br.METANumber
 	ar, err := SubmitForApproval(c, "billing_request", strconv.FormatInt(id, 10), &label, &br.Amount, deptID, c.GetInt64("user_id"))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(approvalSubmissionHTTPStatus(err), gin.H{"error": err.Error()})
 		return
 	}
 

@@ -36,6 +36,10 @@ func UpdateUser(c *gin.Context) {
 		c.JSON(400, gin.H{"error": "invalid role_id: " + err.Error()})
 		return
 	}
+	if err := validateManagerAssignment(c, req.ManagerID, &id); err != nil {
+		c.JSON(400, gin.H{"error": err.Error()})
+		return
+	}
 
 	division := strings.TrimSpace(req.Division)
 	if division == "" {

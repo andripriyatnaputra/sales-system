@@ -1,9 +1,12 @@
 package handlers
 
 import (
-	"sales-system-backend/database"
+	"context"
+	"fmt"
 	"strconv"
 	"strings"
+
+	"sales-system-backend/database"
 
 	"github.com/gin-gonic/gin"
 	"golang.org/x/crypto/bcrypt"
@@ -41,6 +44,10 @@ func CreateUser(c *gin.Context) {
 	legacyRole, defaultDivision, err := resolveRoleForUser(c, req.RoleID)
 	if err != nil {
 		c.JSON(400, gin.H{"error": "invalid role_id: " + err.Error()})
+		return
+	}
+	if err := validateManagerAssignment(c, req.ManagerID, nil); err != nil {
+		c.JSON(400, gin.H{"error": err.Error()})
 		return
 	}
 
@@ -102,6 +109,65 @@ func CreateUser(c *gin.Context) {
 		"division": division,
 		"role_id":  req.RoleID,
 	})
+}
+
+// validateManagerAssignment menjaga manager_id tetap dapat dipakai oleh
+// approval engine: atasan harus ada, bukan akun read-only/system_admin, dan
+// tidak boleh membentuk self-reference atau siklus organisasi.
+func validateManagerAssignment(ctx context.Context, managerID *int64, targetUserID *int64) error {
+	if managerID == nil {
+		return nil
+	}
+	if targetUserID != nil && *managerID == *targetUserID {
+		return fmt.Errorf("manager tidak boleh sama dengan user")
+	}
+
+	var managerReadOnly bool
+	var managerLevel string
+	err := database.Pool.QueryRow(ctx, `
+		SELECT u.read_only, COALESCE(r.level, '')
+		FROM users u
+		LEFT JOIN roles r ON r.id = u.role_id
+		WHERE u.id = $1
+	`, *managerID).Scan(&managerReadOnly, &managerLevel)
+	if err != nil {
+		return fmt.Errorf("manager tidak ditemukan")
+	}
+	if managerReadOnly {
+		return fmt.Errorf("manager read-only tidak dapat menjadi approver")
+	}
+	if !isApprovalManagerLevel(managerLevel) {
+		return fmt.Errorf("manager harus memiliki level Manager, GM, atau Executive")
+	}
+
+	if targetUserID != nil {
+		var cycle bool
+		err = database.Pool.QueryRow(ctx, `
+			WITH RECURSIVE manager_chain AS (
+				SELECT id, manager_id, 1 AS depth
+				FROM users
+				WHERE id = $1
+				UNION ALL
+				SELECT u.id, u.manager_id, mc.depth + 1
+				FROM users u
+				JOIN manager_chain mc ON mc.manager_id = u.id
+				WHERE mc.depth < 100
+			)
+			SELECT EXISTS (SELECT 1 FROM manager_chain WHERE id = $2)
+		`, *managerID, *targetUserID).Scan(&cycle)
+		if err != nil {
+			return fmt.Errorf("gagal memvalidasi struktur atasan")
+		}
+		if cycle {
+			return fmt.Errorf("manager_id membentuk siklus dalam struktur organisasi")
+		}
+	}
+
+	return nil
+}
+
+func isApprovalManagerLevel(level string) bool {
+	return level == "manager" || level == "gm" || level == "executive"
 }
 
 // resolveRoleForUser mengambil legacy_role (admin/user, buat kompatibilitas kolom

@@ -31,6 +31,7 @@ import {
   ShieldCheck,
   KeyRound,
   Network,
+  GitBranch,
   FlaskConical,
   Wrench,
   type LucideIcon,
@@ -117,6 +118,7 @@ const ADMIN_ITEMS: NavItem[] = [
   { href: "/users", label: "Users", icon: Users },
   { href: "/audit-logs", label: "Audit Logs", icon: ShieldCheck },
   { href: "/org-structure", label: "Org Structure", icon: Network },
+  { href: "/approval-matrices", label: "Approval Matrix", icon: GitBranch },
 ];
 
 const DEPARTMENT_LINKS: Record<string, string[]> = {

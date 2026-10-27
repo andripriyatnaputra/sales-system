@@ -283,7 +283,7 @@ func SubmitPurchaseRequest(c *gin.Context) {
 	label := pr.PRNumber
 	ar, err := SubmitForApproval(c, "purchase_request", strconv.FormatInt(id, 10), &label, &pr.TotalEstimatedValue, deptID, c.GetInt64("user_id"))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(approvalSubmissionHTTPStatus(err), gin.H{"error": err.Error()})
 		return
 	}
 

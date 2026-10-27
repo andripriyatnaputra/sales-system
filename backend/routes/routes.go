@@ -65,6 +65,10 @@ func Register(r *gin.Engine) {
 	auth.GET("/approvals/:id", handlers.GetApproval)
 	auth.POST("/approvals/:id/approve", handlers.ActOnApproval("approve"))
 	auth.POST("/approvals/:id/reject", handlers.ActOnApproval("reject"))
+	auth.GET("/approval-matrices", middleware.RequirePermission("approval.matrix.manage"), handlers.ListApprovalMatrices)
+	auth.POST("/approval-matrices", middleware.RequirePermission("approval.matrix.manage"), handlers.CreateApprovalMatrix)
+	auth.PUT("/approval-matrices/:id", middleware.RequirePermission("approval.matrix.manage"), handlers.UpdateApprovalMatrix)
+	auth.DELETE("/approval-matrices/:id", middleware.RequirePermission("approval.matrix.manage"), handlers.DeleteApprovalMatrix)
 
 	// ===============================
 	// NOTIFIKASI (Fase 4 Langkah 4 -- event-driven approval_pending +
