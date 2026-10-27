@@ -6,6 +6,7 @@ import {
   apiUploadWorkRequestAttachment,
   apiDownloadWorkRequestAttachment,
   apiDeleteWorkRequestAttachment,
+  isSystemAdmin,
   type WorkRequestAttachment,
 } from "@/lib/api";
 import { Button } from "@/components/ui/button";
@@ -42,7 +43,7 @@ export function WorkRequestAttachmentsModal({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const username = typeof window !== "undefined" ? localStorage.getItem("username") : null;
-  const isAdmin = typeof window !== "undefined" ? localStorage.getItem("role") === "admin" : false;
+  const isAdmin = isSystemAdmin();
 
   const load = async () => {
     setLoading(true);

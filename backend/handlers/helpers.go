@@ -88,13 +88,16 @@ func isSalesDivisionLocked(c *gin.Context) bool {
 }
 
 // canManageProjectCore: cuma Sales (pemilik proses New Project/Quotation/Closing)
-// dan admin yang boleh create/edit/delete field inti project (division, status,
+// dan System Admin yang boleh create/edit/delete field inti project (division, status,
 // customer, SPH, revenue plan). Departemen lain (ProDev/Ops/Procurement/Finance/HR)
 // hanya boleh baca + isi bagian mereka sendiri (presales section, BoQ, PR/PO, BAST)
 // lewat endpoint masing-masing yang sudah requireDepartment.
 func canManageProjectCore(c *gin.Context) bool {
-	if c.GetString("role") == "admin" {
+	if c.GetString("role_key") == "system_admin" || c.GetString("level") == "system_admin" {
 		return true
+	}
+	if c.GetString("level") == "executive" {
+		return false
 	}
 	return c.GetString("department") == "Sales"
 }

@@ -101,6 +101,8 @@ type ProjectWithPlans = Project & {
 
 type Me = {
   role: string;
+  role_key?: string;
+  level?: string;
   division: string;
   department: string;
 };
@@ -193,7 +195,10 @@ function ProjectsPageInner() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [me, setMe] = useState<Me | null>(null);
-  const canManageProject = me?.role === "admin" || me?.department === "Sales";
+  const canManageProject =
+    me?.role_key === "system_admin" ||
+    me?.level === "system_admin" ||
+    (me?.level !== "executive" && me?.department === "Sales");
 
   const [loading, setLoading] = useState(false);
   const [loadingError, setLoadingError] = useState<string | null>(null);
@@ -302,6 +307,8 @@ function ProjectsPageInner() {
       const res = await apiGet<any>("/me");
       setMe({
         role: String(res?.role || ""),
+        role_key: res?.role_key ? String(res.role_key) : undefined,
+        level: res?.level ? String(res.level) : undefined,
         division: String(res?.division || ""),
         department: String(res?.department || ""),
       });

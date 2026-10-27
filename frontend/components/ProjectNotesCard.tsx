@@ -6,6 +6,7 @@ import {
   apiCreateProjectNote,
   apiDeleteProjectNote,
   canEditDepartment,
+  isSystemAdmin,
   type ProjectNote,
 } from "@/lib/api";
 import { Card } from "@/components/ui/card";
@@ -20,7 +21,7 @@ export function ProjectNotesCard({ projectId }: { projectId: string | number }) 
 
   const canPost = canEditDepartment("Sales");
   const username = typeof window !== "undefined" ? localStorage.getItem("username") : null;
-  const isAdmin = typeof window !== "undefined" ? localStorage.getItem("role") === "admin" : false;
+  const isAdmin = isSystemAdmin();
 
   const load = async () => {
     setLoading(true);

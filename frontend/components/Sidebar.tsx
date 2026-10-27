@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { canAccessLevel, logout } from "@/lib/api";
+import { canAccessLevel, isSystemAdmin, logout } from "@/lib/api";
 import {
   LayoutDashboard,
   ListTodo,
@@ -190,7 +190,6 @@ export function Sidebar({
   mobileOpen: boolean;
   onMobileClose: () => void;
 }) {
-  const [role, setRole] = useState<string | null>(null);
   const [username, setUsername] = useState<string | null>(null);
   const [division, setDivision] = useState<string | null>(null);
   const [department, setDepartment] = useState<string | null>(null);
@@ -199,18 +198,17 @@ export function Sidebar({
   );
 
   useEffect(() => {
-    setRole(localStorage.getItem("role"));
     setUsername(localStorage.getItem("username"));
     setDivision(localStorage.getItem("division"));
     setDepartment(localStorage.getItem("department"));
   }, []);
 
-  const isAdmin = role === "admin" || role === "system_admin";
-  const canSeeExecutiveDashboard = username != null && (isAdmin || canAccessLevel("gm"));
+  const systemAdmin = isSystemAdmin();
+  const canSeeExecutiveDashboard = username != null && canAccessLevel("gm");
   const allowedHrefs = department ? DEPARTMENT_LINKS[department] : undefined;
 
   const filterItems = (items: NavItem[]) =>
-    isAdmin || !allowedHrefs ? items : items.filter((i) => allowedHrefs.includes(i.href));
+    systemAdmin || !allowedHrefs ? items : items.filter((i) => allowedHrefs.includes(i.href));
 
   const groups = NAV_GROUPS.map((g) => ({ ...g, items: filterItems(g.items) }));
   const overviewExtra: NavItem[] = canSeeExecutiveDashboard
@@ -242,7 +240,7 @@ export function Sidebar({
           />
         ))}
 
-        {isAdmin && (
+        {systemAdmin && (
           <GroupSection
             group={{ label: "Admin", items: ADMIN_ITEMS }}
             openGroups={openGroups}

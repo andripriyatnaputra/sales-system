@@ -488,14 +488,22 @@ export function hasPermission(key: string): boolean {
   }
 }
 
+export function isSystemAdmin(): boolean {
+  if (typeof window === "undefined") return false;
+  return (
+    localStorage.getItem("role_key") === "system_admin" ||
+    localStorage.getItem("level") === "system_admin"
+  );
+}
+
 // canEditDepartment: dipakai modul yang di-gate requireDepartment() di backend
 // (Presales, Purchase Request/Order), bukan permission generik -- system_admin
-// (legacy role "admin") selalu bisa bypass, sama seperti backend.
+// Hanya System Admin yang boleh bypass gate departemen, sama seperti backend.
 export function canEditDepartment(department: string): boolean {
   if (typeof window === "undefined") return false;
-  const myRole = localStorage.getItem("role");
   const myDept = localStorage.getItem("department");
-  return myRole === "admin" || myDept === department;
+  const myLevel = localStorage.getItem("level");
+  return isSystemAdmin() || (myLevel !== "executive" && myDept === department);
 }
 
 // levelRank: SAMA PERSIS map di backend (handlers/executive_dashboard.go) --
@@ -512,8 +520,6 @@ const levelRank: Record<string, number> = {
 // (bukan department) -- dipakai Dashboard Eksekutif (Fase 5 area 2).
 export function canAccessLevel(minLevel: string): boolean {
   if (typeof window === "undefined") return false;
-  const myRole = localStorage.getItem("role");
-  if (myRole === "admin") return true;
   const myLevel = localStorage.getItem("level") || "";
   return (levelRank[myLevel] || 0) >= (levelRank[minLevel] || 0);
 }

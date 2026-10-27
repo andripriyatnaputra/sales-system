@@ -15,9 +15,13 @@ export function AuthGuard({ children, requireAdmin, requirePermission }: AuthGua
   const [checking, setChecking] = useState(true);
 
   useEffect(() => {
-    apiGet<{ role: string; permissions?: string[] }>("/me")
+    apiGet<{ role: string; role_key?: string; level?: string; permissions?: string[] }>("/me")
       .then((me) => {
-        if (requireAdmin && me.role !== "admin") {
+        if (
+          requireAdmin &&
+          me.role_key !== "system_admin" &&
+          me.level !== "system_admin"
+        ) {
           router.replace("/dashboard");
           return;
         }

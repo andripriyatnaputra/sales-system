@@ -19,8 +19,11 @@ import (
 // Operations, Procurement, Finance) -- bukan permission generik karena ini soal
 // "departemen mana", bukan "boleh akses modul atau tidak".
 func requireDepartment(c *gin.Context, department string) bool {
-	if c.GetString("role") == "admin" {
+	if c.GetString("role_key") == "system_admin" || c.GetString("level") == "system_admin" {
 		return true
+	}
+	if c.GetString("level") == "executive" {
+		return false
 	}
 	return c.GetString("department") == department
 }

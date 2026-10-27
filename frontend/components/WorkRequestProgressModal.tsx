@@ -5,6 +5,7 @@ import {
   apiGetWorkRequestUpdates,
   apiCreateWorkRequestUpdate,
   apiDeleteWorkRequestUpdate,
+  isSystemAdmin,
   type WorkRequestUpdate,
 } from "@/lib/api";
 import { Button } from "@/components/ui/button";
@@ -34,7 +35,7 @@ export function WorkRequestProgressModal({
   const [error, setError] = useState("");
 
   const username = typeof window !== "undefined" ? localStorage.getItem("username") : null;
-  const isAdmin = typeof window !== "undefined" ? localStorage.getItem("role") === "admin" : false;
+  const isAdmin = isSystemAdmin();
 
   const load = async () => {
     setLoading(true);
