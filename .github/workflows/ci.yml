@@ -176,6 +176,30 @@ jobs:
     if: github.ref == 'refs/heads/staging'
 
     steps:
+      - name: Checkout deployment files
+        uses: actions/checkout@v4
+
+      - name: Upload staging Compose configuration
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.STAGING_SSH_HOST }}
+          username: ${{ secrets.STAGING_SSH_USER }}
+          key: ${{ secrets.STAGING_SSH_KEY }}
+          source: "docker-compose.staging-server.yml"
+          target: "~/sales-system-staging"
+          overwrite: true
+
+      - name: Upload staging migrations
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.STAGING_SSH_HOST }}
+          username: ${{ secrets.STAGING_SSH_USER }}
+          key: ${{ secrets.STAGING_SSH_KEY }}
+          source: "backend/database/migrations/*.sql"
+          target: "~/sales-system-staging/backend/database"
+          strip_components: 2
+          overwrite: true
+
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1
         with:
@@ -185,9 +209,6 @@ jobs:
           script: |
             cd ~/sales-system-staging
             set -euo pipefail
-            git fetch origin staging
-            git checkout staging
-            git merge --ff-only FETCH_HEAD
             set -a
             source .env.staging
             set +a
