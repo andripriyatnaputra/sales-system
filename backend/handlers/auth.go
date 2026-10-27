@@ -21,7 +21,6 @@ type LoginRequest struct {
 }
 
 type LoginResponse struct {
-	Token    string `json:"token"`
 	Username string `json:"username"`
 	Role     string `json:"role"`
 	Division string `json:"division"`
@@ -36,7 +35,7 @@ func Login(c *gin.Context) {
 		return
 	}
 
-	fmt.Printf("REQ BODY: username=%q password=%q\n", req.Username, req.Password)
+	fmt.Printf("login attempt: username=%q\n", req.Username)
 
 	ctx := c.Request.Context()
 
@@ -99,7 +98,6 @@ func Login(c *gin.Context) {
 	SetAuthCookie(c, signed)
 
 	c.JSON(200, gin.H{
-		"token":       signed,
 		"role":        user.Role,
 		"division":    user.Division,
 		"username":    user.Username,

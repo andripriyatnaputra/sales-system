@@ -127,7 +127,6 @@ export async function apiDelete<T>(url: string): Promise<T> {
 // --- LOGIN & LOGOUT HELPERS ---
 
 export type LoginResponse = {
-  token: string;
   role: string;
   division: string;
   username: string;

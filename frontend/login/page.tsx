@@ -19,7 +19,7 @@ export default function LoginPage() {
     try {
       const res = await login(username, password);
 
-      // backend returns: { token, role, division, username }
+      // The session is carried by the HttpOnly cookie.
       localStorage.setItem("role", res.role);
       localStorage.setItem("division", res.division);
       localStorage.setItem("username", res.username);
