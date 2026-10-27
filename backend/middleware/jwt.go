@@ -72,11 +72,20 @@ func AuthRequired() gin.HandlerFunc {
 		// settings take effect immediately instead of waiting for token expiry.
 		var role, division string
 		var readOnly bool
+		var roleKey, department, level, orgUnit string
 		if err := database.Pool.QueryRow(c.Request.Context(), `
-			SELECT role, division, read_only
-			FROM users
-			WHERE id = $1
-		`, userID).Scan(&role, &division, &readOnly); err != nil {
+			SELECT u.role, u.division, u.read_only,
+			       COALESCE(r.key, ''),
+			       COALESCE(d.name, ou_dept.name, ''),
+			       COALESCE(r.level, ''),
+			       COALESCE(ou.name, '')
+			FROM users u
+			LEFT JOIN roles r ON r.id = u.role_id
+			LEFT JOIN departments d ON d.id = r.department_id
+			LEFT JOIN org_units ou ON ou.id = r.org_unit_id
+			LEFT JOIN departments ou_dept ON ou_dept.id = ou.department_id
+			WHERE u.id = $1
+		`, userID).Scan(&role, &division, &readOnly, &roleKey, &department, &level, &orgUnit); err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				c.JSON(http.StatusUnauthorized, gin.H{"error": "user is no longer active"})
 			} else {
@@ -92,30 +101,45 @@ func AuthRequired() gin.HandlerFunc {
 		c.Set("user_id", userID)
 		c.Set("read_only", readOnly)
 
-		// Claims RBAC tambahan (additive) -- token lama tanpa claims ini masih
-		// bisa lolos, cukup diperlakukan sebagai role_key/department/level kosong
-		// dan permissions kosong (RequirePermission akan menolak, bukan panic).
-		if roleKey, ok := claims["role_key"].(string); ok {
-			c.Set("role_key", roleKey)
+		// Authorization context is read from the current database state rather
+		// than copied from the JWT. Role/department/permission changes therefore
+		// take effect immediately, without waiting for token expiry.
+		permissions := make([]string, 0)
+		rows, err := database.Pool.Query(c.Request.Context(), `
+			SELECT p.key
+			FROM role_permissions rp
+			JOIN permissions p ON p.id = rp.permission_id
+			JOIN users u ON u.role_id = rp.role_id
+			WHERE u.id = $1
+		`, userID)
+		if err != nil {
+			c.JSON(http.StatusServiceUnavailable, gin.H{"error": "authorization service unavailable"})
+			c.Abort()
+			return
 		}
-		if department, ok := claims["department"].(string); ok {
-			c.Set("department", department)
-		}
-		if level, ok := claims["level"].(string); ok {
-			c.Set("level", level)
-		}
-		if orgUnit, ok := claims["org_unit"].(string); ok {
-			c.Set("org_unit", orgUnit)
-		}
-		if permsRaw, ok := claims["permissions"].([]interface{}); ok {
-			perms := make([]string, 0, len(permsRaw))
-			for _, p := range permsRaw {
-				if s, ok := p.(string); ok {
-					perms = append(perms, s)
-				}
+		for rows.Next() {
+			var permission string
+			if err := rows.Scan(&permission); err != nil {
+				rows.Close()
+				c.JSON(http.StatusServiceUnavailable, gin.H{"error": "authorization service unavailable"})
+				c.Abort()
+				return
 			}
-			c.Set("permissions", perms)
+			permissions = append(permissions, permission)
 		}
+		if err := rows.Err(); err != nil {
+			rows.Close()
+			c.JSON(http.StatusServiceUnavailable, gin.H{"error": "authorization service unavailable"})
+			c.Abort()
+			return
+		}
+		rows.Close()
+
+		c.Set("role_key", roleKey)
+		c.Set("department", department)
+		c.Set("level", level)
+		c.Set("org_unit", orgUnit)
+		c.Set("permissions", permissions)
 
 		c.Next()
 	}
