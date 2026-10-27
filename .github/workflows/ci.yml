@@ -184,6 +184,10 @@ jobs:
           key: ${{ secrets.STAGING_SSH_KEY }}
           script: |
             cd ~/sales-system-staging
+            set -euo pipefail
+            git fetch origin staging
+            git checkout staging
+            git merge --ff-only FETCH_HEAD
             set -a
             source .env.staging
             set +a
@@ -199,6 +203,7 @@ jobs:
               backend/database/migrations/2026-10-27_archive_entities.sql \
               backend/database/migrations/2026-10-27_audit_logs.sql
             do
+              test -f "$migration"
               $compose exec -T postgres psql -U "$POSTGRES_USER_STAGING" -d "$POSTGRES_DB_STAGING" --set ON_ERROR_STOP=1 < "$migration"
             done
             $compose up -d backend frontend
