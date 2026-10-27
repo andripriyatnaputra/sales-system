@@ -16,11 +16,11 @@ func Me(c *gin.Context) {
 	readOnly, _ := c.Get("read_only")
 
 	c.JSON(http.StatusOK, gin.H{
-		"id":         userID,
-		"role":       role,
-		"division":   division,
-		"department": department,
-		"org_unit":   orgUnit,
+		"id":          userID,
+		"role":        role,
+		"division":    division,
+		"department":  department,
+		"org_unit":    orgUnit,
 		"permissions": permissions,
 		"read_only":   readOnly,
 	})
