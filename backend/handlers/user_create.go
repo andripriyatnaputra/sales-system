@@ -17,6 +17,7 @@ func CreateUser(c *gin.Context) {
 		Division  string  `json:"division"`
 		ManagerID *int64  `json:"manager_id"`
 		Email     *string `json:"email"`
+		ReadOnly  bool    `json:"read_only"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -60,8 +61,8 @@ func CreateUser(c *gin.Context) {
 	err = database.Pool.QueryRow(
 		c,
 		`
-		INSERT INTO users (username, password_hash, role, division, role_id, manager_id, email)
-		VALUES ($1, $2, $3, $4, $5, $6, NULLIF($7, ''))
+		INSERT INTO users (username, password_hash, role, division, role_id, manager_id, email, read_only)
+		VALUES ($1, $2, $3, $4, $5, $6, NULLIF($7, ''), $8)
 		RETURNING id
 		`,
 		req.Username,
@@ -71,6 +72,7 @@ func CreateUser(c *gin.Context) {
 		req.RoleID,
 		req.ManagerID,
 		req.Email,
+		req.ReadOnly,
 	).Scan(&id)
 
 	if err != nil {
@@ -88,8 +90,9 @@ func CreateUser(c *gin.Context) {
 	}
 
 	LogAudit(c, c.GetInt64("user_id"), "create", "user", strconv.FormatInt(id, 10), req.Username, gin.H{
-		"role_id":  req.RoleID,
-		"division": division,
+		"role_id":   req.RoleID,
+		"division":  division,
+		"read_only": req.ReadOnly,
 	})
 
 	c.JSON(201, gin.H{

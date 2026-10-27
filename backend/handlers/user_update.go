@@ -19,6 +19,7 @@ func UpdateUser(c *gin.Context) {
 		Division  string  `json:"division"`
 		ManagerID *int64  `json:"manager_id"`
 		Email     string  `json:"email"`
+		ReadOnly  *bool   `json:"read_only"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -54,13 +55,29 @@ func UpdateUser(c *gin.Context) {
 	// (string kosong / nil) TIDAK menimpa nilai lama -- partial update, konsisten
 	// dengan UpdateVendor/UpdateCustomer. Sebelumnya username selalu ditimpa
 	// walau kosong (bug, ditemukan 2026-07-15 saat testing modul lain).
-	if passwordHash != nil {
+	if passwordHash != nil && req.ReadOnly != nil {
+		_, err = database.Pool.Exec(c, `
+			UPDATE users
+			   SET username=COALESCE(NULLIF($1, ''), username), password_hash=$2, role=$3, division=$4,
+			       role_id=$5, manager_id=COALESCE($6, manager_id), email=COALESCE(NULLIF($7, ''), email),
+			       read_only=$8, updated_at=NOW()
+			 WHERE id=$9
+		`, req.Username, *passwordHash, legacyRole, division, req.RoleID, req.ManagerID, req.Email, *req.ReadOnly, id)
+	} else if passwordHash != nil {
 		_, err = database.Pool.Exec(c, `
 			UPDATE users
 			   SET username=COALESCE(NULLIF($1, ''), username), password_hash=$2, role=$3, division=$4,
 			       role_id=$5, manager_id=COALESCE($6, manager_id), email=COALESCE(NULLIF($7, ''), email), updated_at=NOW()
 			 WHERE id=$8
 		`, req.Username, *passwordHash, legacyRole, division, req.RoleID, req.ManagerID, req.Email, id)
+	} else if req.ReadOnly != nil {
+		_, err = database.Pool.Exec(c, `
+			UPDATE users
+			   SET username=COALESCE(NULLIF($1, ''), username), role=$2, division=$3,
+			       role_id=$4, manager_id=COALESCE($5, manager_id), email=COALESCE(NULLIF($6, ''), email),
+			       read_only=$7, updated_at=NOW()
+			 WHERE id=$8
+		`, req.Username, legacyRole, division, req.RoleID, req.ManagerID, req.Email, *req.ReadOnly, id)
 	} else {
 		_, err = database.Pool.Exec(c, `
 			UPDATE users
@@ -82,6 +99,7 @@ func UpdateUser(c *gin.Context) {
 	LogAudit(c, c.GetInt64("user_id"), "update", "user", strconv.FormatInt(id, 10), req.Username, gin.H{
 		"role_id":          req.RoleID,
 		"division":         division,
+		"read_only":        req.ReadOnly,
 		"password_changed": passwordHash != nil,
 	})
 

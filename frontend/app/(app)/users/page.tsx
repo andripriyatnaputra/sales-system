@@ -18,6 +18,7 @@ type User = {
   role: string;
   division: string;
   email?: string;
+  read_only: boolean;
   role_id?: number;
   role_key?: string;
   role_label?: string;
@@ -89,6 +90,7 @@ export default function UsersPage() {
                 <th className="px-3 py-2 text-left">Email</th>
                 <th className="px-3 py-2 text-left">Department</th>
                 <th className="px-3 py-2 text-left">Role</th>
+                <th className="px-3 py-2 text-left">Access</th>
                 <th className="px-3 py-2 text-left">Manager</th>
                 <th className="px-3 py-2 text-left">Division (vertikal)</th>
                 <th className="px-3 py-2 text-right">Actions</th>
@@ -97,13 +99,13 @@ export default function UsersPage() {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={7} className="p-4 text-center">
+                  <td colSpan={8} className="p-4 text-center">
                     Loading...
                   </td>
                 </tr>
               ) : users.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="p-4 text-center">
+                  <td colSpan={8} className="p-4 text-center">
                     No users found.
                   </td>
                 </tr>
@@ -114,6 +116,13 @@ export default function UsersPage() {
                     <td className="px-3 py-2">{u.email || "-"}</td>
                     <td className="px-3 py-2">{u.role_department || "-"}</td>
                     <td className="px-3 py-2">{u.role_label || u.role}</td>
+                    <td className="px-3 py-2">
+                      {u.read_only ? (
+                        <span className="text-amber-700 font-medium">Read-only</span>
+                      ) : (
+                        <span className="text-green-700">Write</span>
+                      )}
+                    </td>
                     <td className="px-3 py-2">
                       {u.manager_id ? users.find((m) => m.id === u.manager_id)?.username || `#${u.manager_id}` : "-"}
                     </td>
@@ -179,6 +188,7 @@ function UserModal({
   const [orgUnitId, setOrgUnitId] = useState<number | "">("");
   const [roleId, setRoleId] = useState<number | "">(user?.role_id || "");
   const [managerId, setManagerId] = useState<number | "">(user?.manager_id || "");
+  const [readOnly, setReadOnly] = useState(user?.read_only || false);
 
   // daftar user lain (buat pilih atasan langsung / manager_id) -- exclude diri sendiri
   useEffect(() => {
@@ -242,6 +252,7 @@ function UserModal({
       const payload: any = {
         username,
         role_id: roleId,
+        read_only: readOnly,
       };
       if (email.trim()) payload.email = email.trim();
       if (division.trim()) payload.division = division;
@@ -396,6 +407,21 @@ function UserModal({
             placeholder="kosongkan untuk default otomatis"
           />
         </div>
+
+        <label className="flex items-start gap-2 text-sm border rounded-md p-3 bg-amber-50">
+          <input
+            type="checkbox"
+            className="mt-0.5"
+            checked={readOnly}
+            onChange={(e) => setReadOnly(e.target.checked)}
+          />
+          <span>
+            <span className="block font-medium">Read-only</span>
+            <span className="block text-xs text-gray-600">
+              User dapat melihat data dan dashboard, tetapi semua perubahan data akan ditolak.
+            </span>
+          </span>
+        </label>
 
         {error && (
           <div className="text-red-600 text-sm bg-red-50 p-2 rounded">

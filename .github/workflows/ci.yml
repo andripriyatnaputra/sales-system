@@ -220,6 +220,7 @@ jobs:
             until $compose exec -T postgres pg_isready -U "$POSTGRES_USER_STAGING" -d "$POSTGRES_DB_STAGING"; do sleep 2; done
             for migration in \
               backend/database/migrations/0000_staging_catchup_schema_drift.sql \
+              backend/database/migrations/0035_users_email.sql \
               backend/database/migrations/2026-10-27_auth_user_columns.sql \
               backend/database/migrations/2026-10-27_archive_entities.sql \
               backend/database/migrations/2026-10-27_audit_logs.sql

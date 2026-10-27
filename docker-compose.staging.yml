@@ -24,6 +24,8 @@ services:
     environment:
       APP_PORT: 8081
       DB_DSN: postgres://sales_staging:staging_local_only@postgres-staging:5432/salesdb_staging?sslmode=disable
+      JWT_SECRET: ${JWT_SECRET_STAGING}
+      AUTH_COOKIE_SECURE: ${AUTH_COOKIE_SECURE_STAGING:-false}
     ports:
       - "8091:8081"   # beda dari produksi/lokal existing (8081)
     networks:
@@ -39,6 +41,7 @@ services:
     environment:
       NEXT_PUBLIC_API_BASE_URL: http://localhost:8091
       DATABASE_URL: postgres://sales_staging:staging_local_only@postgres-staging:5432/salesdb_staging?sslmode=disable
+      LEADGEN_BACKEND_URL: ${LEADGEN_BACKEND_URL_STAGING:-http://localhost:3100}
     ports:
       - "3010:3000"   # beda dari produksi/lokal existing (3000)
     networks:
