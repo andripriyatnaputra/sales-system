@@ -23,6 +23,7 @@ func Register(r *gin.Engine) {
 	auth.Use(middleware.AuthRequired())
 	auth.Use(middleware.CSRFProtection())
 	auth.Use(middleware.BlockReadOnly())
+	auth.Use(middleware.BlockExecutiveWrites())
 
 	// Example: return user info
 	auth.GET("/me", handlers.Me)

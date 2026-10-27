@@ -13,7 +13,7 @@ dianggap sebagai aturan final Mini ERP.
 | Staff | org unit | Belum dibuat akun test khusus |
 | Manager | org unit | Belum dibuat akun test khusus |
 | GM | departemen tertentu | Belum dibuat akun test khusus |
-| Executive | lintas departemen | Belum dikonfirmasi akses tulis |
+| Executive | lintas departemen | Baca + keputusan approval yang ditugaskan |
 | System Admin | lintas departemen | Akun `admin` tersedia |
 | Read-only | flag user, lintas role | Sudah berhasil diuji |
 
@@ -42,8 +42,9 @@ akses tulis seperti System Admin.
 
 Keputusan bisnis yang sudah disepakati:
 
-1. Executive fokus membaca dashboard/laporan dan hanya menyetujui transaksi
-   yang secara eksplisit ditetapkan dalam approval matrix.
+1. Executive fokus membaca dashboard/laporan dan hanya memproses keputusan
+   approval yang secara eksplisit ditugaskan dalam approval matrix. Endpoint
+   perubahan bisnis lainnya ditolak oleh middleware.
 2. Bypass lintas departemen hanya untuk System Admin.
 3. GM fokus review/approval departemennya; batas nominal ditetapkan di approval
    matrix dan tidak di-hardcode.
