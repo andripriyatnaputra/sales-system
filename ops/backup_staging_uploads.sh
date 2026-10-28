@@ -40,6 +40,10 @@ docker run --rm \
   alpine:3.18 \
   sh -c "tar -czf /backup/$archive_name -C /source ."
 
+# The archive is created inside Alpine, whose default umask may be 022.
+# Enforce private permissions from the host-side script as well.
+chmod 600 "$archive_path"
+
 if [[ ! -s "$archive_path" ]]; then
   echo "ERROR: archive upload kosong/gagal ditulis: $archive_path" >&2
   exit 1
