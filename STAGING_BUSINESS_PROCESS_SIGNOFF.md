@@ -34,12 +34,10 @@ proses menyetujuinya.
 
 Pemeriksaan ini bersifat read-only dan tidak mengubah data staging.
 
-## Akun UAT yang disiapkan
+## Akun UAT yang disiapkan dan actor evidence
 
 Akun berikut dibuat langsung di database staging dan tidak disimpan di Git.
 Password bersifat sementara dan harus dihapus/dirotasi setelah UAT selesai.
-
-## Akun yang benar-benar digunakan dalam evidence UAT
 
 | Username | Role/level | Division/scope | Manager | Read-only | Penggunaan evidence |
 |---|---|---|---|---|---|
@@ -90,7 +88,7 @@ diterapkan dan diuji ulang sebelum RC.
 | 5. Pelaksanaan dan serah terima | PO, pekerjaan/barang | BAST Vendor dan BAST Customer dibuat dan diselesaikan | Operations / Project Owner | Kuantitas dan nilai tidak melebihi dokumen sumber; bukti serah terima tersedia | UAT BAST selesai |
 | 6. Penagihan dan penerimaan | META/BAST/invoice source | Invoice dibuat, dikirim, payment schedule dipantau sampai paid | Finance | Invoice tidak ganda; status hanya melalui transisi sah; bukti pembayaran tercatat | UAT Invoice → Paid selesai |
 | 7. Akuntansi dan laporan | Invoice, payment, cost | Jurnal otomatis, GL, AR/AP aging, cash flow, income statement, profitability | Finance | Debit-kredit balance; committed/paid/billed konsisten | Alur jurnal/payment teramati; evidence laporan dan profitability belum lengkap |
-| 8. Monitoring dan audit | Seluruh transaksi | Executive dashboard, audit log, document expiry, dan work queue dipantau | Executive / System Admin / Process Owner | Perubahan penting terlacak; akses read-only tetap read-only | Endpoint utama dan audit integrity lulus |
+| 8. Monitoring dan audit | Seluruh transaksi | Executive dashboard, audit log, document expiry, dan work queue dipantau | Executive / System Admin / Process Owner | Perubahan penting terlacak; akses read-only tetap read-only | Endpoint utama terpantau; audit approval legacy dan live read-only masih pending |
 
 ## Aturan lintas tahap
 
@@ -117,7 +115,7 @@ diterapkan dan diuji ulang sebelum RC.
 | Syarat invoice | Hanya dari META/billing request approved dan sumber serah terima yang lengkap sesuai jenis transaksi | Menunggu Finance |
 | Definisi profitability | Pisahkan committed, accrued/actual, paid, dan billed revenue | Menunggu Finance |
 | Data UAT sebelum pilot | Pertahankan untuk audit atau arsipkan sesuai keputusan pemilik data | Menunggu keputusan |
-| Rotasi/nonaktif akun UAT | Semua akun `codex_*`, maksimal 2 hari kerja setelah UAT/pilot ditutup | Menunggu penetapan System Admin dan Process Owner |
+| Rotasi/nonaktif seluruh akun `codex_*` | Maksimal 2 hari kerja setelah UAT/pilot ditutup | Menunggu penetapan System Admin dan Process Owner |
 | Backup offsite | S3-compatible private storage dengan encryption, versioning/Object Lock | Ditunda; wajib sebelum release candidate/go-live |
 
 ## Baseline rekomendasi untuk sign-off

@@ -17,7 +17,7 @@ Checklist ini adalah syarat **masuk pilot terbatas**, bukan syarat release
 candidate. Syarat selesai pilot dan release candidate dipisahkan di bagian
 exit criteria dan dokumen sign-off.
 
-- [x] CI/CD staging terakhir sukses.
+- [ ] CI/CD untuk commit `ae1d2d3` sudah diverifikasi sukses.
 - [x] Backend health/readiness dan frontend merespons normal.
 - [ ] Role, read-only, approval, audit, dan migration utama telah diuji
       end-to-end; unit/contract test tersedia, tetapi live read-only/cross-

@@ -123,7 +123,7 @@ database sebagai prosedur operasional.
 | 8. Pelaksanaan dan serah terima | Mencatat pelaksanaan, penerimaan barang/jasa, BAST vendor dan customer | BAST Vendor, BAST Customer | Operations / Project Owner | Kuantitas dan nilai sesuai dokumen sumber; bukti serah terima tersedia | UAT alur selesai |
 | 9. Invoice dan payment | Membuat invoice dari sumber yang approved, mengatur termin, mencatat pembayaran | Invoice, payment schedule, status paid | Finance | Invoice tidak ganda; sumber dan transisi status sah; bukti pembayaran tersedia | UAT alur selesai; perlu sign-off Finance |
 | 10. Akuntansi | Membentuk jurnal dan memperbarui GL berdasarkan transaksi | Jurnal, GL, AR/AP | Finance | Debit-kredit balance; audit trail lengkap | UAT alur selesai; perlu rekonsiliasi bisnis |
-| 11. Laporan dan monitoring | Meninjau cash flow, income statement, AR/AP aging, profitability, dashboard, dan audit log | Laporan manajemen dan work queue | Finance / Executive / System Admin | Angka dapat direkonsiliasi ke transaksi sumber; read-only tidak dapat menulis | UAT teknis lulus; perlu sign-off laporan |
+| 11. Laporan dan monitoring | Meninjau cash flow, income statement, AR/AP aging, profitability, dashboard, dan audit log | Laporan manajemen dan work queue | Finance / Executive / System Admin | Angka dapat direkonsiliasi ke transaksi sumber; read-only tidak dapat menulis | Evidence laporan dan profitability belum lengkap; perlu sign-off Finance |
 
 ## 5. Peran dan tanggung jawab
 
@@ -352,7 +352,7 @@ Pilot dapat direkomendasikan selesai apabila:
 | Definisi profitability | Pisahkan committed, accrued/actual, paid, dan billed revenue | Finance | Pending |
 | Durasi pilot | Rekomendasi 5-10 hari kerja setelah seluruh peserta siap | Process Owner | Pending |
 | Retensi data pilot | Pertahankan sebagai evidence selama pilot, lalu arsipkan dengan persetujuan | Pemilik data/IT | Pending |
-| Rotasi/nonaktif akun UAT | Maksimal 2 hari kerja setelah pilot/UAT ditutup; System Admin sebagai pelaksana dan Process Owner sebagai pemberi persetujuan | System Admin/Process Owner | Pending |
+| Rotasi/nonaktif seluruh akun `codex_*` | Maksimal 2 hari kerja setelah pilot/UAT ditutup; System Admin sebagai pelaksana dan Process Owner sebagai pemberi persetujuan | System Admin/Process Owner | Pending |
 | Backup offsite | Private encrypted storage, versioning, dan restore test | IT/Manajemen | Ditunda; wajib sebelum RC/go-live |
 | Keputusan setelah pilot | Lanjut hardening, release candidate, atau perbaikan ulang | Steering Committee | Pending |
 
