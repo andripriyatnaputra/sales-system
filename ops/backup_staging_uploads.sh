@@ -4,6 +4,7 @@
 # Run on the staging server, not from the development workstation.
 
 set -euo pipefail
+umask 077
 
 UPLOAD_VOLUME="${STAGING_UPLOAD_VOLUME:-sales-staging_uploads_staging}"
 BACKUP_DIR="${STAGING_UPLOAD_BACKUP_DIR:-/var/backups/sales-staging-uploads}"

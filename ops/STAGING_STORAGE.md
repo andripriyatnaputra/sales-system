@@ -31,12 +31,15 @@ container. Penghapusan volume akan menghapus file upload staging.
 Jalankan di server staging sebagai user yang boleh menjalankan Docker:
 
 ```bash
+export STAGING_DB_BACKUP_DIR=/var/backups/sales-staging-db
 export STAGING_UPLOAD_BACKUP_DIR=/var/backups/sales-staging-uploads
-./ops/backup_staging_uploads.sh
+./ops/backup_staging_all.sh
 ```
 
-Script membuat tier `daily`, `weekly`, dan `monthly`, menyimpan checksum
-SHA-256, lalu menerapkan retensi 7/5/12. Backup ini masih lokal di server;
+Runner menjalankan backup database lebih dahulu, lalu upload. Masing-masing
+script membuat tier `daily`, `weekly`, dan `monthly`, menyimpan checksum
+SHA-256, lalu menerapkan retensi 7/5/12. Lock mencegah dua backup berjalan
+bersamaan. Permission file backup dibuat private (`umask 077`). Backup ini masih lokal di server;
 sesuai kebijakan umum, salin ke lokasi offsite yang sudah disetujui sebelum
 dianggap sebagai backup pemulihan bencana.
 
@@ -47,18 +50,10 @@ export STAGING_DB_BACKUP_DIR=/var/backups/sales-staging-db
 ./ops/backup_staging_db.sh
 ```
 
-Urutan cron yang disarankan: database lebih dahulu, lalu upload beberapa menit
-setelahnya. Contoh:
+Contoh cron tunggal yang menjaga urutan database lalu upload:
 
 ```cron
-0 2 * * * STAGING_DB_BACKUP_DIR=/var/backups/sales-staging-db /home/it/sales-system-staging/ops/backup_staging_db.sh >> /var/log/sales-staging-db-backup.log 2>&1
-30 2 * * * STAGING_UPLOAD_BACKUP_DIR=/var/backups/sales-staging-uploads /home/it/sales-system-staging/ops/backup_staging_uploads.sh >> /var/log/sales-staging-uploads-backup.log 2>&1
-```
-
-Contoh cron harian pukul 02:30:
-
-```cron
-30 2 * * * STAGING_UPLOAD_BACKUP_DIR=/var/backups/sales-staging-uploads /home/it/sales-system-staging/ops/backup_staging_uploads.sh >> /var/log/sales-staging-uploads-backup.log 2>&1
+0 2 * * * STAGING_DB_BACKUP_DIR=/var/backups/sales-staging-db STAGING_UPLOAD_BACKUP_DIR=/var/backups/sales-staging-uploads /home/it/sales-system-staging/ops/backup_staging_all.sh >> /var/log/sales-staging-backup.log 2>&1
 ```
 
 Sesuaikan path dan user server. Jangan menaruh secret di script atau commit

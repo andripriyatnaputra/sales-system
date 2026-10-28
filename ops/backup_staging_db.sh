@@ -3,6 +3,7 @@
 # Run on the staging server, not from the development workstation.
 
 set -euo pipefail
+umask 077
 
 COMPOSE_FILE="${STAGING_COMPOSE_FILE:-docker-compose.staging-server.yml}"
 COMPOSE_PROJECT="${STAGING_COMPOSE_PROJECT:-sales-staging}"

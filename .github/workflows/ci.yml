@@ -228,7 +228,7 @@ jobs:
           host: ${{ secrets.STAGING_SSH_HOST }}
           username: ${{ secrets.STAGING_SSH_USER }}
           key: ${{ secrets.STAGING_SSH_KEY }}
-          source: "ops/backup_staging_uploads.sh,ops/test_restore_staging_uploads.sh,ops/backup_staging_db.sh,ops/test_restore_staging_db.sh"
+          source: "ops/backup_staging_all.sh,ops/backup_staging_uploads.sh,ops/test_restore_staging_uploads.sh,ops/backup_staging_db.sh,ops/test_restore_staging_db.sh"
           target: "~/sales-system-staging"
           strip_components: 1
           overwrite: true
