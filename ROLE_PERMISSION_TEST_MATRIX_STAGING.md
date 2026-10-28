@@ -84,6 +84,13 @@ termin pembayaran `25` menjadi `due`, kemudian BAST Vendor `BASTV-0009` dan
 BAST Customer `BASTC-0012` berstatus `complete`. Audit integritas setelah UAT
 tetap menghasilkan `0 violations`.
 
+UAT Finance juga selesai: termin `25` menjadi `paid`, Invoice `INV-0012`
+bertransisi `draft → sent → paid`, jurnal otomatis untuk pembayaran termin dan
+Invoice terbentuk dengan debit-kredit seimbang, dan endpoint profitability,
+AR/AP aging, journal entries, serta executive dashboard merespons `200`.
+Profitability project UAT terhitung committed `80.000.000`, actual paid
+`80.000.000`, dan billed revenue `141.350.000`.
+
 ## Temuan dan keputusan
 
 Role `executive` menggunakan `legacy_role = 'admin'` untuk kompatibilitas
