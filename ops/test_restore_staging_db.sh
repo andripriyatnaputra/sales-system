@@ -30,17 +30,23 @@ docker run -d --name "$CONTAINER_NAME" \
   -e POSTGRES_DB="$DB_NAME" \
   postgres:15 >/dev/null
 
-echo "[$(date -Iseconds)] Menunggu PostgreSQL restore test siap..."
+echo "[$(date -Iseconds)] Menunggu database PostgreSQL restore test siap..."
+database_ready=false
 for i in $(seq 1 30); do
-  if docker exec "$CONTAINER_NAME" pg_isready -U "$DB_USER" >/dev/null 2>&1; then
+  # pg_isready dapat melaporkan server siap walaupun database target belum
+  # selesai dibuat oleh entrypoint image PostgreSQL. Uji koneksi ke database
+  # target secara langsung agar restore tidak berpacu dengan proses init.
+  if docker exec "$CONTAINER_NAME" psql -U "$DB_USER" -d "$DB_NAME" \
+      -v ON_ERROR_STOP=1 -c 'SELECT 1' >/dev/null 2>&1; then
+    database_ready=true
     break
   fi
   sleep 1
-  if [[ "$i" -eq 30 ]]; then
-    echo "ERROR: PostgreSQL restore test tidak siap setelah 30 detik" >&2
-    exit 1
-  fi
 done
+if [[ "$database_ready" != true ]]; then
+  echo "ERROR: database PostgreSQL restore test tidak siap setelah 30 detik" >&2
+  exit 1
+fi
 
 restore_log="/tmp/staging_db_restore_test_$$.log"
 echo "[$(date -Iseconds)] Restore $BACKUP_FILE ..."

@@ -25,6 +25,8 @@ fi
 timestamp="$(date +%Y%m%d_%H%M%S)"
 day_of_week="$(date +%u)"
 day_of_month="$(date +%d)"
+archive_uid="$(id -u)"
+archive_gid="$(id -g)"
 mkdir -p "$BACKUP_DIR/daily" "$BACKUP_DIR/weekly" "$BACKUP_DIR/monthly"
 
 archive_name="uploads_${timestamp}.tar.gz"
@@ -32,6 +34,7 @@ archive_path="$BACKUP_DIR/daily/$archive_name"
 
 echo "[$(date -Iseconds)] Mulai backup volume $UPLOAD_VOLUME ke $archive_path"
 docker run --rm \
+  --user "$archive_uid:$archive_gid" \
   --mount "type=volume,src=$UPLOAD_VOLUME,dst=/source,readonly" \
   --mount "type=bind,src=$BACKUP_DIR/daily,dst=/backup" \
   alpine:3.18 \
