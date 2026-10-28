@@ -218,7 +218,55 @@ jobs:
             $compose pull
             $compose up -d postgres
             until $compose exec -T postgres pg_isready -U "$POSTGRES_USER_STAGING" -d "$POSTGRES_DB_STAGING"; do sleep 2; done
+            apply_migration() {
+              local migration="$1"
+              local version checksum
+              version="$(basename "$migration" .sql)"
+              checksum="$(sha256sum "$migration" | awk '{print $1}')"
+
+              {
+                cat <<SQL
+            BEGIN;
+            SELECT pg_advisory_xact_lock(hashtext('sales-staging-schema-migrations'));
+            CREATE TABLE IF NOT EXISTS schema_migrations (
+                version TEXT PRIMARY KEY,
+                checksum TEXT NOT NULL,
+                applied_at TIMESTAMPTZ NOT NULL DEFAULT now()
+            );
+            SELECT EXISTS (
+                SELECT 1 FROM schema_migrations WHERE version = :'version'
+            ) AS migration_is_applied \\gset
+            SELECT COALESCE((
+                SELECT checksum = :'checksum'
+                FROM schema_migrations
+                WHERE version = :'version'
+            ), true) AS checksum_is_valid \\gset
+            \\if :checksum_is_valid
+            \\if :migration_is_applied
+            \\echo Skipping already applied migration :version
+            \\else
+            SQL
+                cat "$migration"
+                cat <<SQL
+                INSERT INTO schema_migrations (version, checksum)
+                VALUES (:'version', :'checksum');
+            \\endif
+            \\else
+            \\echo Migration checksum mismatch for :version
+            \\quit 1
+            \\endif
+            COMMIT;
+            SQL
+              } | $compose exec -T postgres psql \
+                -U "$POSTGRES_USER_STAGING" \
+                -d "$POSTGRES_DB_STAGING" \
+                --set ON_ERROR_STOP=1 \
+                --set="version=$version" \
+                --set="checksum=$checksum"
+            }
+
             for migration in \
+              backend/database/migrations/0039_schema_migrations.sql \
               backend/database/migrations/0000_staging_catchup_schema_drift.sql \
               backend/database/migrations/0035_users_email.sql \
               backend/database/migrations/2026-10-27_auth_user_columns.sql \
@@ -228,7 +276,7 @@ jobs:
               backend/database/migrations/0038_one_active_invoice_per_meta.sql
             do
               test -f "$migration"
-              $compose exec -T postgres psql -U "$POSTGRES_USER_STAGING" -d "$POSTGRES_DB_STAGING" --set ON_ERROR_STOP=1 < "$migration"
+              apply_migration "$migration"
             done
             $compose up -d backend frontend
 
