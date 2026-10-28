@@ -200,6 +200,17 @@ jobs:
           strip_components: 2
           overwrite: true
 
+      - name: Upload staging integrity audit
+        uses: appleboy/scp-action@v1.0.0
+        with:
+          host: ${{ secrets.STAGING_SSH_HOST }}
+          username: ${{ secrets.STAGING_SSH_USER }}
+          key: ${{ secrets.STAGING_SSH_KEY }}
+          source: "ops/audit_staging_integrity.sql"
+          target: "~/sales-system-staging"
+          strip_components: 1
+          overwrite: true
+
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1.2.5
         with:
@@ -279,6 +290,11 @@ jobs:
               test -f "$migration"
               apply_migration "$migration"
             done
+            test -f audit_staging_integrity.sql
+            $compose exec -T postgres psql \
+              -U "$POSTGRES_USER_STAGING" \
+              -d "$POSTGRES_DB_STAGING" \
+              --set ON_ERROR_STOP=1 < audit_staging_integrity.sql
             $compose up -d backend frontend
 
       - name: Health check
