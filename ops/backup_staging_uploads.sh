@@ -25,20 +25,20 @@ fi
 timestamp="$(date +%Y%m%d_%H%M%S)"
 day_of_week="$(date +%u)"
 day_of_month="$(date +%d)"
-archive_uid="$(id -u)"
-archive_gid="$(id -g)"
 mkdir -p "$BACKUP_DIR/daily" "$BACKUP_DIR/weekly" "$BACKUP_DIR/monthly"
 
 archive_name="uploads_${timestamp}.tar.gz"
 archive_path="$BACKUP_DIR/daily/$archive_name"
 
 echo "[$(date -Iseconds)] Mulai backup volume $UPLOAD_VOLUME ke $archive_path"
+# Read the volume as root inside the disposable container because application
+# uploads may be owned by root with restrictive permissions. The archive bytes
+# are streamed to the host, so the host-side umask and chmod keep the archive
+# private to the backup user.
 docker run --rm \
-  --user "$archive_uid:$archive_gid" \
   --mount "type=volume,src=$UPLOAD_VOLUME,dst=/source,readonly" \
-  --mount "type=bind,src=$BACKUP_DIR/daily,dst=/backup" \
   alpine:3.18 \
-  sh -c "tar -czf /backup/$archive_name -C /source ."
+  sh -c "tar -czf - -C /source ." > "$archive_path"
 
 # The archive is created inside Alpine, whose default umask may be 022.
 # Enforce private permissions from the host-side script as well.
