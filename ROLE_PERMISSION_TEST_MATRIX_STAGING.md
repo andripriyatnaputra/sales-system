@@ -78,6 +78,12 @@ staging. UAT lanjutan membuat META `17`, menyelesaikan approval request `47`,
 melihat status META langsung menjadi `approved`, lalu membuat Invoice `INV-0012`
 tanpa membuka detail META terlebih dahulu.
 
+UAT berikutnya juga selesai untuk alur procurement dan serah terima: `PR-0028`
+disetujui Manager Operations lalu GM Operations, `PO-0020` disetujui Executive,
+termin pembayaran `25` menjadi `due`, kemudian BAST Vendor `BASTV-0009` dan
+BAST Customer `BASTC-0012` berstatus `complete`. Audit integritas setelah UAT
+tetap menghasilkan `0 violations`.
+
 ## Temuan dan keputusan
 
 Role `executive` menggunakan `legacy_role = 'admin'` untuk kompatibilitas
