@@ -39,6 +39,11 @@ function getCsrfToken(): string | null {
   return getCookie("sales_csrf");
 }
 
+function getCsrfHeaders(): Record<string, string> {
+  const csrfToken = getCsrfToken();
+  return csrfToken ? { "X-CSRF-Token": csrfToken } : {};
+}
+
 // --- INTERNAL REQUEST WRAPPER ---
 async function request<T>(
   method: HttpMethod,
@@ -52,12 +57,10 @@ async function request<T>(
     "Content-Type": "application/json",
   };
   if (method !== "GET" && method !== "DELETE" && url !== "/login") {
-    const csrfToken = getCsrfToken();
-    if (csrfToken) headers["X-CSRF-Token"] = csrfToken;
+    Object.assign(headers, getCsrfHeaders());
   }
   if (method === "DELETE") {
-    const csrfToken = getCsrfToken();
-    if (csrfToken) headers["X-CSRF-Token"] = csrfToken;
+    Object.assign(headers, getCsrfHeaders());
   }
 
   const res = await fetch(`${API_BASE}${url}`, {
@@ -148,6 +151,7 @@ export async function login(
 export async function logout() {
   await fetch(`${API_BASE}/logout`, {
     method: "POST",
+    headers: getCsrfHeaders(),
     credentials: "include",
   }).catch(() => undefined);
   clearToken();
@@ -338,7 +342,11 @@ export async function apiUploadWorkRequestAttachment(workRequestId: number, file
 
   const res = await fetch(`${API_BASE}/work-requests/${workRequestId}/attachments`, {
     method: "POST",
-    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    headers: {
+      ...getCsrfHeaders(),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    credentials: "include",
     body: form,
   });
 
@@ -685,7 +693,11 @@ export async function apiUploadPaymentProof(poId: number | string, scheduleId: n
 
   const res = await fetch(`${API_BASE}/purchase-orders/${poId}/payment-schedules/${scheduleId}/proof`, {
     method: "POST",
-    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    headers: {
+      ...getCsrfHeaders(),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    credentials: "include",
     body: form,
   });
 
@@ -936,7 +948,11 @@ export async function apiUploadProjectDocument(
 
   const res = await fetch(`${API_BASE}/projects/${projectId}/documents`, {
     method: "POST",
-    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    headers: {
+      ...getCsrfHeaders(),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    credentials: "include",
     body: form,
   });
 
@@ -996,7 +1012,11 @@ export async function apiUploadPresalesDocument(
 
   const res = await fetch(`${API_BASE}/projects/${projectId}/presales-documents`, {
     method: "POST",
-    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    headers: {
+      ...getCsrfHeaders(),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    credentials: "include",
     body: form,
   });
 
