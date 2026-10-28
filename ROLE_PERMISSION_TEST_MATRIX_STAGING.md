@@ -73,10 +73,10 @@ dummy baru: `META-0016` dibuat oleh `codex_ops_staff`, disetujui berurutan oleh
 `codex_ops_manager` dan `codex_finance_manager` pada approval request `46`,
 lalu menghasilkan Invoice `INV-0011` berstatus `draft`.
 
-Catatan hardening: setelah approval final, status META masih perlu disinkronkan
-melalui pemanggilan detail META sebelum Invoice dapat dibuat. Alur UI saat ini
-berhasil setelah detail dibuka, tetapi ketergantungan tersembunyi ini harus
-dihilangkan sebelum Mini ERP dianggap siap operasional.
+Hardening approval sudah diterapkan pada commit `97dcb49` dan terverifikasi di
+staging. UAT lanjutan membuat META `17`, menyelesaikan approval request `47`,
+melihat status META langsung menjadi `approved`, lalu membuat Invoice `INV-0012`
+tanpa membuka detail META terlebih dahulu.
 
 ## Temuan dan keputusan
 
