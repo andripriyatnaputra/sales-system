@@ -59,6 +59,14 @@ func CreateBASTCustomer(c *gin.Context) {
 	}
 	defer tx.Rollback(ctx)
 
+	// Lock the SO parent before calculating delivered quantities. This
+	// serializes concurrent BAST submissions for the same SO, including
+	// submissions that contain different SO items.
+	if err := tx.QueryRow(ctx, `SELECT id FROM sales_orders WHERE id = $1 FOR UPDATE`, body.SalesOrderID).Scan(&soExists); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "sales_order tidak ditemukan"})
+		return
+	}
+
 	var bastID int64
 	err = tx.QueryRow(ctx, `
 		INSERT INTO bast_customer (bast_number, sales_order_id, delivered_by, delivered_date, status, customer_signatory, notes)
@@ -77,7 +85,13 @@ func CreateBASTCustomer(c *gin.Context) {
 		return
 	}
 
+	seenSOItems := make(map[int64]struct{}, len(body.Items))
 	for _, it := range body.Items {
+		if _, duplicate := seenSOItems[it.SalesOrderItemID]; duplicate {
+			c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("sales_order_item_id %d tidak boleh muncul lebih dari sekali", it.SalesOrderItemID)})
+			return
+		}
+		seenSOItems[it.SalesOrderItemID] = struct{}{}
 		if it.QtyDelivered <= 0 {
 			c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("qty_delivered untuk item %d harus lebih besar dari 0", it.SalesOrderItemID)})
 			return

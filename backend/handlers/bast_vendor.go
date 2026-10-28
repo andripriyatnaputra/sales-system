@@ -64,6 +64,19 @@ func CreateBASTVendor(c *gin.Context) {
 	}
 	defer tx.Rollback(ctx)
 
+	// Lock the PO parent before calculating received quantities. This serializes
+	// concurrent BAST submissions for the same PO, including submissions that
+	// contain different PO items.
+	var lockedPOStatus string
+	if err := tx.QueryRow(ctx, `SELECT status FROM purchase_orders WHERE id = $1 FOR UPDATE`, body.PurchaseOrderID).Scan(&lockedPOStatus); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "purchase_order tidak ditemukan"})
+		return
+	}
+	if lockedPOStatus != "approved" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "purchase_order belum approved (status saat ini: " + lockedPOStatus + ")"})
+		return
+	}
+
 	var bastID int64
 	err = tx.QueryRow(ctx, `
 		INSERT INTO bast_vendor (bast_number, purchase_order_id, received_by, received_date, status, notes)
@@ -82,7 +95,13 @@ func CreateBASTVendor(c *gin.Context) {
 		return
 	}
 
+	seenPOItems := make(map[int64]struct{}, len(body.Items))
 	for _, it := range body.Items {
+		if _, duplicate := seenPOItems[it.PurchaseOrderItemID]; duplicate {
+			c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("purchase_order_item_id %d tidak boleh muncul lebih dari sekali", it.PurchaseOrderItemID)})
+			return
+		}
+		seenPOItems[it.PurchaseOrderItemID] = struct{}{}
 		if it.QtyReceived <= 0 {
 			c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("qty_received untuk item %d harus lebih besar dari 0", it.PurchaseOrderItemID)})
 			return

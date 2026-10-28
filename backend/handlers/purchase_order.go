@@ -69,7 +69,7 @@ func CreatePurchaseOrder(c *gin.Context) {
 	defer tx.Rollback(ctx)
 
 	var prStatus string
-	if err := tx.QueryRow(ctx, `SELECT status FROM purchase_requests WHERE id = $1`, body.PurchaseRequestID).Scan(&prStatus); err != nil {
+	if err := tx.QueryRow(ctx, `SELECT status FROM purchase_requests WHERE id = $1 FOR UPDATE`, body.PurchaseRequestID).Scan(&prStatus); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "purchase_request tidak ditemukan"})
 		return
 	}
@@ -97,20 +97,41 @@ func CreatePurchaseOrder(c *gin.Context) {
 
 	poNumber := fmt.Sprintf("PO-%04d", poID)
 	total := 0.0
+	seenPRItems := make(map[int64]struct{}, len(body.Items))
 
 	for _, it := range body.Items {
+		if _, duplicate := seenPRItems[it.PurchaseRequestItemID]; duplicate {
+			c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("purchase_request_item_id %d tidak boleh muncul lebih dari sekali", it.PurchaseRequestItemID)})
+			return
+		}
+		seenPRItems[it.PurchaseRequestItemID] = struct{}{}
+		if it.UnitCost <= 0 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("unit_cost untuk item %d harus lebih besar dari 0", it.PurchaseRequestItemID)})
+			return
+		}
+		if it.Qty != nil && *it.Qty <= 0 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("qty untuk item %d harus lebih besar dari 0", it.PurchaseRequestItemID)})
+			return
+		}
+
 		var pri models.PurchaseRequestItem
 		err := tx.QueryRow(ctx, `
 			SELECT id, purchase_request_id, item_name, unit, qty FROM purchase_request_items
 			WHERE id = $1 AND purchase_request_id = $2
+			FOR UPDATE
 		`, it.PurchaseRequestItemID, body.PurchaseRequestID).Scan(&pri.ID, &pri.PurchaseRequestID, &pri.ItemName, &pri.Unit, &pri.Qty)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("purchase_request_item_id %d tidak ditemukan di PR ini", it.PurchaseRequestItemID)})
 			return
 		}
 
+		if pri.Qty <= 0 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("qty PR untuk item '%s' harus lebih besar dari 0", pri.ItemName)})
+			return
+		}
+
 		qty := pri.Qty
-		if it.Qty != nil && *it.Qty > 0 {
+		if it.Qty != nil {
 			qty = *it.Qty
 		}
 
@@ -370,23 +391,53 @@ func CreatePaymentSchedule(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "percentage harus lebih besar dari 0 dan maksimal 100"})
 		return
 	}
-	var poExists bool
-	if err := database.Pool.QueryRow(c, `SELECT EXISTS (SELECT 1 FROM purchase_orders WHERE id = $1)`, poID).Scan(&poExists); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "gagal memvalidasi Purchase Order"})
+	ctx := c.Request.Context()
+	tx, err := database.Pool.Begin(ctx)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "db transaction error"})
 		return
 	}
-	if !poExists {
+	defer tx.Rollback(ctx)
+
+	var poTotal float64
+	if err := tx.QueryRow(ctx, `SELECT total_value FROM purchase_orders WHERE id = $1 FOR UPDATE`, poID).Scan(&poTotal); err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "purchase order tidak ditemukan"})
 		return
 	}
 
+	var existingAmount, existingPercentage float64
+	if err := tx.QueryRow(ctx, `
+		SELECT COALESCE(SUM(amount), 0), COALESCE(SUM(percentage), 0)
+		FROM payment_schedules
+		WHERE parent_type = 'vendor_po' AND parent_id = $1
+	`, poID).Scan(&existingAmount, &existingPercentage); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "gagal menghitung total termin Purchase Order"})
+		return
+	}
+	if existingAmount+body.Amount > poTotal+0.005 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("total termin melebihi nilai PO: existing %g, baru %g, nilai PO %g", existingAmount, body.Amount, poTotal)})
+		return
+	}
+	if body.Percentage != nil && existingPercentage+*body.Percentage > 100.005 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("total persentase termin melebihi 100%%: existing %g, baru %g", existingPercentage, *body.Percentage)})
+		return
+	}
+
 	var id int64
-	err = database.Pool.QueryRow(c, `
+	err = tx.QueryRow(ctx, `
 		INSERT INTO payment_schedules (parent_type, parent_id, sequence, trigger_description, percentage, amount, due_date)
 		VALUES ('vendor_po', $1, $2, $3, $4, $5, $6::date)
 		RETURNING id
 	`, poID, body.Sequence, body.TriggerDescription, body.Percentage, body.Amount, body.DueDate).Scan(&id)
 	if err != nil {
+		if isDuplicateKeyErr(err) {
+			c.JSON(http.StatusConflict, gin.H{"error": "sequence termin sudah digunakan untuk Purchase Order ini"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	if err := tx.Commit(ctx); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -444,9 +495,13 @@ func UpdatePaymentSchedule(c *gin.Context) {
 	var oldStatus, parentType string
 	var parentID int64
 	var oldAmount float64
+	var oldPercentage *float64
 	if err := tx.QueryRow(ctx, `
-		SELECT status, parent_type, parent_id, amount FROM payment_schedules WHERE id = $1 FOR UPDATE
-	`, scheduleID).Scan(&oldStatus, &parentType, &parentID, &oldAmount); err != nil {
+		SELECT status, parent_type, parent_id, amount, percentage
+		FROM payment_schedules
+		WHERE id = $1
+		FOR UPDATE
+	`, scheduleID).Scan(&oldStatus, &parentType, &parentID, &oldAmount, &oldPercentage); err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "payment schedule tidak ditemukan"})
 		return
 	}
@@ -457,6 +512,35 @@ func UpdatePaymentSchedule(c *gin.Context) {
 	finalAmount := oldAmount
 	if body.Amount != nil {
 		finalAmount = *body.Amount
+	}
+	if parentType == "vendor_po" {
+		var poTotal float64
+		if err := tx.QueryRow(ctx, `SELECT total_value FROM purchase_orders WHERE id = $1 FOR UPDATE`, parentID).Scan(&poTotal); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Purchase Order parent tidak ditemukan"})
+			return
+		}
+
+		var otherAmount, otherPercentage float64
+		if err := tx.QueryRow(ctx, `
+			SELECT COALESCE(SUM(amount), 0), COALESCE(SUM(percentage), 0)
+			FROM payment_schedules
+			WHERE parent_type = 'vendor_po' AND parent_id = $1 AND id <> $2
+		`, parentID, scheduleID).Scan(&otherAmount, &otherPercentage); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "gagal menghitung total termin Purchase Order"})
+			return
+		}
+		if otherAmount+finalAmount > poTotal+0.005 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("total termin melebihi nilai PO: existing %g, baru %g, nilai PO %g", otherAmount, finalAmount, poTotal)})
+			return
+		}
+		finalPercentage := oldPercentage
+		if body.Percentage != nil {
+			finalPercentage = body.Percentage
+		}
+		if finalPercentage != nil && otherPercentage+*finalPercentage > 100.005 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("total persentase termin melebihi 100%%: existing %g, baru %g", otherPercentage, *finalPercentage)})
+			return
+		}
 	}
 
 	_, err = tx.Exec(ctx, `

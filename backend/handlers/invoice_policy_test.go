@@ -65,3 +65,29 @@ func TestPaymentScheduleAllowedTransitions(t *testing.T) {
 		})
 	}
 }
+
+func TestValidateInvoiceDates(t *testing.T) {
+	tests := []struct {
+		name    string
+		issue   string
+		due     string
+		wantErr bool
+	}{
+		{name: "both dates omitted", wantErr: false},
+		{name: "valid dates", issue: "2026-10-01", due: "2026-10-31", wantErr: false},
+		{name: "same date is valid", issue: "2026-10-01", due: "2026-10-01", wantErr: false},
+		{name: "due date before issue date", issue: "2026-10-31", due: "2026-10-01", wantErr: true},
+		{name: "invalid issue date", issue: "01-10-2026", due: "2026-10-31", wantErr: true},
+		{name: "invalid due date", issue: "2026-10-01", due: "31-10-2026", wantErr: true},
+		{name: "issue date only", issue: "2026-10-01", wantErr: false},
+		{name: "due date only", due: "2026-10-31", wantErr: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if err := validateInvoiceDates(tt.issue, tt.due); (err != nil) != tt.wantErr {
+				t.Fatalf("validateInvoiceDates(%q, %q) error = %v, wantErr %v", tt.issue, tt.due, err, tt.wantErr)
+			}
+		})
+	}
+}

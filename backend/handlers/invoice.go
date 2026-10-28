@@ -32,12 +32,28 @@ func CreateInvoice(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "billing_request_id wajib diisi"})
 		return
 	}
+	if body.TaxAmount < 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "tax_amount tidak boleh negatif"})
+		return
+	}
+	if err := validateInvoiceDates(body.IssueDate, body.DueDate); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx := c.Request.Context()
+	tx, err := database.Pool.Begin(ctx)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "db transaction error"})
+		return
+	}
+	defer tx.Rollback(ctx)
 
 	var brStatus string
 	var salesOrderID int64
 	var amount float64
-	if err := database.Pool.QueryRow(c, `
-		SELECT status, sales_order_id, amount FROM billing_requests WHERE id = $1
+	if err := tx.QueryRow(ctx, `
+		SELECT status, sales_order_id, amount FROM billing_requests WHERE id = $1 FOR UPDATE
 	`, body.BillingRequestID).Scan(&brStatus, &salesOrderID, &amount); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "billing_request (META) tidak ditemukan"})
 		return
@@ -52,7 +68,7 @@ func CreateInvoice(c *gin.Context) {
 	// boleh diduplikasi. Guard ini memberi pesan yang jelas; partial unique
 	// index di database menjadi pengaman terakhir terhadap race condition.
 	var existingInvoiceID int64
-	err := database.Pool.QueryRow(c, `
+	err = tx.QueryRow(ctx, `
 		SELECT COALESCE((
 			SELECT id
 			FROM invoices
@@ -71,7 +87,7 @@ func CreateInvoice(c *gin.Context) {
 	}
 
 	var invID int64
-	err = database.Pool.QueryRow(c, `
+	err = tx.QueryRow(ctx, `
 		INSERT INTO invoices (invoice_number, billing_request_id, sales_order_id, amount, tax_amount, created_by, issue_date, due_date, notes)
 		VALUES ('', $1, $2, $3, $4, $5, NULLIF($6,'')::date, NULLIF($7,'')::date, NULLIF($8, ''))
 		RETURNING id
@@ -86,8 +102,12 @@ func CreateInvoice(c *gin.Context) {
 	}
 
 	invoiceNumber := fmt.Sprintf("INV-%04d", invID)
-	_, err = database.Pool.Exec(c, `UPDATE invoices SET invoice_number = $1 WHERE id = $2`, invoiceNumber, invID)
+	_, err = tx.Exec(ctx, `UPDATE invoices SET invoice_number = $1 WHERE id = $2`, invoiceNumber, invID)
 	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	if err := tx.Commit(ctx); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -95,6 +115,28 @@ func CreateInvoice(c *gin.Context) {
 	LogAudit(c, c.GetInt64("user_id"), "create", "invoice", strconv.FormatInt(invID, 10), invoiceNumber, body)
 
 	c.JSON(http.StatusCreated, gin.H{"id": invID, "invoice_number": invoiceNumber})
+}
+
+func validateInvoiceDates(issueDate, dueDate string) error {
+	var issue, due *time.Time
+	if issueDate != "" {
+		parsed, err := time.Parse("2006-01-02", issueDate)
+		if err != nil {
+			return fmt.Errorf("issue_date harus berformat YYYY-MM-DD")
+		}
+		issue = &parsed
+	}
+	if dueDate != "" {
+		parsed, err := time.Parse("2006-01-02", dueDate)
+		if err != nil {
+			return fmt.Errorf("due_date harus berformat YYYY-MM-DD")
+		}
+		due = &parsed
+	}
+	if issue != nil && due != nil && due.Before(*issue) {
+		return fmt.Errorf("due_date tidak boleh sebelum issue_date")
+	}
+	return nil
 }
 
 func scanInvoice(row interface{ Scan(...interface{}) error }) (*models.Invoice, error) {
