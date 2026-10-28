@@ -1,7 +1,7 @@
 # Tindak Lanjut Review Business Analyst — Staging
 
-Tanggal: 2026-10-28  
-Branch: `staging`  
+Tanggal: 2026-10-28
+Branch: `staging`
 Status: **open — belum menjadi sign-off atau release candidate**
 
 Dokumen ini memetakan review Business Analyst terhadap evidence yang tersedia.
