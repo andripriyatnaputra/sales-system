@@ -247,8 +247,12 @@ jobs:
             set +a
             POSTGRES_USER_STAGING="${POSTGRES_USER_STAGING:-sales_staging}"
             POSTGRES_DB_STAGING="${POSTGRES_DB_STAGING:-salesdb_staging}"
+            UPLOAD_VOLUME="sales-staging_uploads_staging"
             compose="docker compose -f docker-compose.staging-server.yml -p sales-staging"
             $compose pull
+            if ! docker volume inspect "$UPLOAD_VOLUME" >/dev/null 2>&1; then
+              docker volume create "$UPLOAD_VOLUME" >/dev/null
+            fi
             $compose up -d postgres
             until $compose exec -T postgres pg_isready -U "$POSTGRES_USER_STAGING" -d "$POSTGRES_DB_STAGING"; do sleep 2; done
             chmod +x migrate_staging_uploads.sh

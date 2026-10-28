@@ -75,6 +75,8 @@ services:
 volumes:
   postgres_data_staging:
   uploads_staging:
+    # Volume dibuat oleh deployment script sebelum Compose dijalankan.
+    external: true
     # Nama eksplisit agar backup/restore selalu menunjuk volume yang sama.
     name: sales-staging_uploads_staging
 
