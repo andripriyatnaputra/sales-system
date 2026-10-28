@@ -1,7 +1,7 @@
 # Mini ERP Staging — Katalog Fitur dan Peta Proses End-to-End
 
-Tanggal: 2026-10-28  
-Branch: `staging`  
+Tanggal: 2026-10-28
+Branch: `staging`
 Audience: Business Analyst, Process Owner, Finance, Operations, Procurement,
 Sales, Product & Development, System Admin, dan manajemen
 
