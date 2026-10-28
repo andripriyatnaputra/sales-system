@@ -66,6 +66,12 @@ sesuai versi OS-nya).
 
 ## Backup offsite
 
+**Status: ditunda atas keputusan tim (2026-10-28).** Infrastruktur offsite
+belum tersedia, jadi backup staging/produksi saat ini baru terlindungi di host
+lokal. Penundaan ini tidak menghalangi pengembangan dan UAT staging, tetapi
+backup belum memenuhi pemulihan bencana dan wajib diselesaikan sebelum
+release candidate/go-live.
+
 Fase 0 poin 3 (dari roadmap awal) secara eksplisit minta backup TIDAK BOLEH
 cuma tersimpan di host yang sama dengan DB produksi — kalau host itu
 bermasalah, backup lokal ikut hilang. `ops/backup_production_db.sh` punya

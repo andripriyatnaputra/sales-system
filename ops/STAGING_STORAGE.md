@@ -9,6 +9,13 @@ Backup database dan backup upload harus dijalankan sebagai dua artefak yang
 berpasangan. Database menyimpan metadata `file_path`, sedangkan file fisiknya
 ada di named volume.
 
+> **Catatan ditunda (2026-10-28):** lokasi backup offsite belum tersedia dan
+> konfigurasi sengaja ditunda. Backup lokal cukup untuk melanjutkan development
+> dan UAT staging, tetapi belum memenuhi pemulihan bencana apabila host server
+> rusak. Storage offsite terpisah (disarankan S3-compatible private bucket
+> dengan encryption, versioning/Object Lock, dan akun khusus backup) tetap
+> wajib sebelum release candidate/go-live.
+
 ## Dampak deployment
 
 Workflow staging mengunggah dan menjalankan `migrate_staging_uploads.sh` sebelum
