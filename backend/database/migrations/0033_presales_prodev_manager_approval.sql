@@ -3,8 +3,8 @@
 -- manager langsungnya (approver_type='requester_manager', resolve dari
 -- users.manager_id si requester) dulu sebelum status jadi 'submitted' dan
 -- ikut dihitung ke overall_status. Kalau requester tidak punya manager_id,
--- SubmitForApproval auto-skip step ini (approved langsung) -- perilaku
--- existing, bukan baru.
+-- SubmitForApproval menolak submission secara fail-closed; tidak ada step yang
+-- di-skip atau approval otomatis.
 --
 -- Scope SENGAJA cuma bagian ProDev (boq_status) -- bukan Operations/
 -- Procurement/Finance juga -- sesuai kasus konkret yang dilaporkan user

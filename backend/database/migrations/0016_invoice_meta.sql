@@ -55,5 +55,5 @@ CREATE INDEX IF NOT EXISTS idx_invoices_so ON invoices(sales_order_id);
 -- CATATAN: sengaja TIDAK seed approval_matrices utk entity_type
 -- 'billing_request' -- threshold nilai & approver REAL belum dikonfirmasi
 -- user (sama pola dgn presales_price_approval/purchase_request/purchase_order
--- sebelum threshold-nya dikonfirmasi). Tanpa matrix rule, submission
--- auto-approved sesuai fallback desain Approval Engine.
+-- sebelum threshold-nya dikonfirmasi). Tanpa matrix rule, submission harus
+-- ditolak fail-closed sesuai kebijakan Approval Engine.

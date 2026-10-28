@@ -10,8 +10,8 @@ Status: draft untuk konfirmasi pemilik proses bisnis
 Keputusan teknis saat ini: **staging dapat digunakan untuk melanjutkan UAT dan
 persiapan pilot, tetapi belum menjadi release candidate atau go-live**.
 Application/migration changes yang dipakai staging sudah berada di branch
-`staging`/`origin/staging`; perubahan dokumentasi dan evidence terbaru masih
-menunggu commit. File `.env.staging` dan data UAT sengaja tetap berada di server
+`staging`/`origin/staging`; follow-up dokumentasi ini harus dipersist ke Git
+sebelum dianggap selesai. File `.env.staging` dan data UAT sengaja tetap berada di server
 dan tidak masuk Git. Penahan RC/go-live saat ini adalah sign-off bisnis,
 evidence pilot yang lengkap, rekonsiliasi storage, dan backup offsite.
 
@@ -29,8 +29,8 @@ proses menyetujuinya.
   `/api/approval-matrices` tanpa autentikasi: `401`.
 - Akun UAT baru berhasil login dengan status `200`; akun read-only berhasil
   membaca project (`200`) dan ditolak saat membuat customer (`403`).
-- Audit integritas database setelah provisioning akun: seluruh pemeriksaan
-  menghasilkan `0 violations`.
+- Audit transaksi setelah provisioning akun menghasilkan `0 violations`; audit
+  approval terbaru menemukan satu request legacy tanpa step dan masih terbuka.
 
 Pemeriksaan ini bersifat read-only dan tidak mengubah data staging.
 
@@ -166,7 +166,9 @@ menggunakan prefix `UAT-` pada nomor dokumennya. Rangkaian tersebut harus
 diperlakukan sebagai evidence UAT historis, bukan data pilot. Semua data pilot
 baru wajib memakai prefix `PILOT-2026`.
 
-Audit integritas setelah rangkaian UAT tetap menghasilkan `0 violations`.
+Audit transaksi setelah rangkaian UAT menghasilkan `0 violations`. Audit
+approval tambahan menemukan request legacy `34` (`META-0012`) tanpa step;
+temuan ini belum didisposisikan.
 
 Backup offsite ditunda atas keputusan tim. Staging tetap dapat dipakai untuk
 pengembangan dan UAT, tetapi belum boleh diperlakukan sebagai release
@@ -198,7 +200,8 @@ Staging belum dinyatakan release candidate sampai seluruh item berikut terpenuhi
 - [ ] Batas nominal dan pengecualian disetujui.
 - [ ] UAT UI dan API untuk setiap role selesai.
 - [ ] Alur normal dan minimal satu skenario penolakan/rollback diuji.
-- [ ] Audit integrity menghasilkan `0 violations` setelah UAT terakhir.
+- [ ] Transaction integrity checks menghasilkan `0 violations` dan seluruh
+      temuan approval legacy telah didisposisikan setelah UAT terakhir.
 - [ ] Backup database dan upload lokal berhasil serta restore teruji.
 - [ ] Backup offsite terenkripsi tersedia dan restore dari salinan offsite
       berhasil.

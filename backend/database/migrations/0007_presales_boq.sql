@@ -48,7 +48,7 @@ CREATE INDEX IF NOT EXISTS idx_presales_analyses_project ON presales_analyses(pr
 -- CATATAN: sengaja TIDAK seed approval_matrices untuk entity_type
 -- 'presales_price_approval' di sini -- threshold nilai & role approver harga jual
 -- final BELUM dikonfirmasi user. Sesuai desain Approval Engine (langkah 3), kalau
--- tidak ada matrix rule yang cocok, approval_request otomatis 'approved' tanpa
--- steps. Artinya: gate 4-bagian (BoQ/install/vendor cost/PnL wajib submitted)
--- TETAP AKTIF, tapi approval berjenjang atas harga belum benar-benar mengunci
--- sampai matrix rule realnya diisi lewat migrasi terpisah.
+-- tidak ada matrix rule yang cocok, submission wajib ditolak (fail-closed),
+-- bukan otomatis 'approved'. Gate 4-bagian (BoQ/install/vendor cost/PnL wajib
+-- submitted) TETAP AKTIF, dan approval berjenjang atas harga baru berjalan
+-- setelah matrix rule bisnis yang disahkan tersedia.

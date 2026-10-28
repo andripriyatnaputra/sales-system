@@ -58,7 +58,8 @@ penetapan `manager_id` wajib diselesaikan sebelum uji end-to-end Mini ERP.
 - PostgreSQL dan backend sehat; frontend merespons `200`.
 - Endpoint utama merespons `200` dengan konteks System Admin.
 - Write request dari akun read-only dan Executive ditolak `403` sesuai kebijakan.
-- Audit integritas transaksi menghasilkan `0 violations` pada seluruh pemeriksaan.
+- Audit transaksi menghasilkan `0 violations`; audit approval legacy dicatat
+  terpisah dan masih memiliki request `34` tanpa step.
 - Mapping manager akun dummy telah diterapkan melalui API admin dan diverifikasi:
   `codex_ops_unassigned` → `codex_ops_manager`, `codex_ops_gm` → `codex_exec`,
   `codex_finance_manager` → `codex_exec`.
@@ -81,8 +82,9 @@ tanpa membuka detail META terlebih dahulu.
 UAT berikutnya juga selesai untuk alur procurement dan serah terima: `PR-0028`
 disetujui Manager Operations lalu GM Operations, `PO-0020` disetujui Executive,
 termin pembayaran `25` menjadi `due`, kemudian BAST Vendor `BASTV-0009` dan
-BAST Customer `BASTC-0012` berstatus `complete`. Audit integritas setelah UAT
-tetap menghasilkan `0 violations`.
+BAST Customer `BASTC-0012` berstatus `complete`. Audit transaksi setelah UAT
+menghasilkan `0 violations`; request approval legacy `34` tanpa step tetap
+menjadi temuan terbuka.
 
 UAT Finance juga selesai: termin `25` menjadi `paid`, Invoice `INV-0012`
 bertransisi `draft → sent → paid`, jurnal otomatis untuk pembayaran termin dan

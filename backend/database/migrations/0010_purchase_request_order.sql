@@ -93,4 +93,5 @@ CREATE INDEX IF NOT EXISTS idx_purchase_requests_so ON purchase_requests(sales_o
 -- CATATAN: sengaja TIDAK seed approval_matrices untuk entity_type
 -- 'purchase_request' / 'purchase_order' -- threshold nilai & role approver REAL
 -- belum dikonfirmasi user (sama seperti presales_price_approval di langkah 5).
--- Tanpa matrix rule, keduanya auto-approved sesuai desain fallback Approval Engine.
+-- Tanpa matrix rule, submission keduanya harus ditolak fail-closed oleh Approval
+-- Engine; tidak boleh ada fallback auto-approval.

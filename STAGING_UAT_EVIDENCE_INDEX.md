@@ -119,7 +119,8 @@ auto-approval.
 
 | Kontrol | Status | Evidence yang diperlukan |
 |---|---|---|
-| Audit integrity | `0 violations` pada pemeriksaan terakhir | File output/query bertanggal |
+| Transaction integrity | `0 violations` pada pemeriksaan terakhir | File output/query bertanggal |
+| Approval integrity | **1 legacy violation**: request `34` approved tanpa step | Disposition pemilik data dan audit ulang |
 | Health/readiness | Lulus pada deployment CI | Log job atau output health check |
 | Backup database | Lulus eksekusi `2026-10-28 19:34 WIB` | `salesdb_staging_20261028_193448.sql.gz`, checksum, log |
 | Backup upload | Lulus eksekusi `2026-10-28 19:34 WIB` | `uploads_20261028_193448.tar.gz`, checksum, log |

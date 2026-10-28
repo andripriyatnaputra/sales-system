@@ -20,7 +20,8 @@ exit criteria dan dokumen sign-off.
 - [x] CI/CD staging terakhir sukses.
 - [x] Backend health/readiness dan frontend merespons normal.
 - [x] Role, read-only, approval, audit, dan migration utama telah diuji.
-- [x] Runbook/script backup database, upload, dan restore tersedia.
+- [x] Runbook/script backup database, upload, dan restore tersedia; bukti
+      eksekusi dicatat terpisah dan rekonsiliasi metadata-file masih wajib.
 - [x] Backup database dan upload lokal terakhir berhasil dibuat pada
   2026-10-28 19:34 WIB.
 - [x] Restore test database dan archive upload disposable berhasil pada

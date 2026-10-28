@@ -172,7 +172,8 @@ UAT end-to-end telah menghasilkan bukti teknis berikut pada data dummy staging:
 - Project berhasil melalui alur Quotation sampai Win.
 - Invalid input ditolak dengan `400` tanpa data parsial.
 - User read-only dapat membaca dan operasi write ditolak dengan `403`.
-- Audit integrity terakhir menghasilkan `0 violations`.
+- Transaction integrity checks terakhir menghasilkan `0 violations`; audit
+  approval menemukan satu request legacy tanpa step dan masih terbuka.
 - Upload, download, dan penghapusan dokumen telah diuji berhasil setelah
   perbaikan CSRF/configuration.
 
@@ -299,7 +300,8 @@ Pilot dapat direkomendasikan selesai apabila:
 - Process Owner menyetujui alur dan pembagian tanggung jawab;
 - approval matrix dan pengecualian bisnis telah disahkan;
 - angka invoice, payment, jurnal, AR/AP, dan profitability dapat direkonsiliasi;
-- audit integrity tetap menghasilkan `0 violations`;
+- transaction integrity checks tetap menghasilkan `0 violations` dan tidak ada
+  temuan approval legacy yang belum didisposisikan;
 - backup lokal dan restore teruji;
 - keputusan retensi/arsip data pilot telah dibuat;
 - risiko backup offsite telah ditutup atau diterima secara formal untuk tahap
