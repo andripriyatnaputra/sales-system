@@ -19,7 +19,9 @@ exit criteria dan dokumen sign-off.
 
 - [x] CI/CD staging terakhir sukses.
 - [x] Backend health/readiness dan frontend merespons normal.
-- [x] Role, read-only, approval, audit, dan migration utama telah diuji.
+- [ ] Role, read-only, approval, audit, dan migration utama telah diuji
+      end-to-end; unit/contract test tersedia, tetapi live read-only/cross-
+      division masih pending dan audit approval masih memiliki temuan legacy.
 - [x] Runbook/script backup database, upload, dan restore tersedia; bukti
       eksekusi dicatat terpisah dan rekonsiliasi metadata-file masih wajib.
 - [x] Backup database dan upload lokal terakhir berhasil dibuat pada
@@ -55,8 +57,8 @@ exit criteria dan dokumen sign-off.
 5. Jangan menghapus data pilot selama periode pengamatan tanpa persetujuan
    Process Owner.
 6. Password akun dummy tidak boleh dimasukkan ke Git atau dokumen repository.
-7. Akun `codex_*_uat` hanya untuk UAT dan tidak digunakan sebagai akun
-   operasional pilot; pilot memakai akun individual dengan role minimum.
+7. Semua akun yang diawali `codex_` hanya untuk UAT dan tidak digunakan sebagai
+   akun operasional pilot; pilot memakai akun individual dengan role minimum.
 
 ## Skenario acceptance pilot
 
@@ -70,6 +72,8 @@ exit criteria dan dokumen sign-off.
 - [ ] Upload, download, expiry, dan penghapusan dokumen sesuai hak akses.
 - [ ] Read-only dapat membaca tetapi seluruh perubahan data ditolak `403`.
 - [ ] Invalid input dan rejection tidak menghasilkan data parsial.
+- [ ] Rekonsiliasi metadata-file staging dan production selesai sebelum pilot
+  dikaitkan dengan rencana merge atau RC.
 
 ## Monitoring selama pilot
 

@@ -41,33 +41,43 @@ Password bersifat sementara dan harus dihapus/dirotasi setelah UAT selesai.
 
 ## Akun yang benar-benar digunakan dalam evidence UAT
 
-| Username | Role/level | Division/scope | Manager | Penggunaan evidence |
-|---|---|---|---|---|
-| `codex_sales_staff_uat` | IT Solutions Staff | Sales / IT Solutions | `codex_sales_manager_uat` | Membuat project `622` dan SO `SO-0036` |
-| `codex_sales_manager_uat` | IT Solutions Manager | Sales / IT Solutions | `codex_exec` | UAT role Sales Manager |
-| `codex_sales_readonly_uat` | IT Solutions Staff, read-only | Sales / IT Solutions | - | Smoke test read-only |
-| `codex_prodev_staff_uat` | Network Solutions Staff | Product & Development | `codex_prodev_manager_uat` | Requester approval `50` |
-| `codex_prodev_manager_uat` | Network Solutions Manager | Product & Development | `codex_exec` | Approver request `50` |
-| `codex_ops_staff` | Implementations Staff | Operations / Implementations | `codex_ops_manager` | Requester META/PR dan actor BAST |
-| `codex_ops_manager` | Implementations Manager | Operations / Implementations | `codex_ops_gm` | Approver request `46`/`47`/`48` |
-| `codex_ops_gm` | Operations GM | Operations | `codex_exec` | Approver step `48` |
-| `codex_procurement_manager` | Procurement Manager | Procurement | `codex_exec` | Pembuat PO `20` |
-| `codex_finance_manager` | Finance Manager | Finance | `codex_exec` | Pembuat Invoice `11`/`12` |
-| `codex_finance_uat` | Finance Staff | Finance | `codex_exec` | Requester approval harga `51` |
-| `codex_exec` | Executive | Lintas departemen | - | Approver request `49` dan `51` |
+| Username | Role/level | Division/scope | Manager | Read-only | Penggunaan evidence |
+|---|---|---|---|---|---|
+| `codex_sales_staff_uat` | IT Solutions Staff | Sales / IT Solutions | `codex_sales_manager_uat` | Tidak | Membuat project `622` dan SO `SO-0036` |
+| `codex_sales_manager_uat` | IT Solutions Manager | Sales / IT Solutions | `codex_exec` | Tidak | UAT role Sales Manager |
+| `codex_sales_readonly_uat` | IT Solutions Staff | Sales / IT Solutions | - | Ya | Smoke test read-only |
+| `codex_prodev_staff_uat` | Network Solutions Staff | Product & Development | `codex_prodev_manager_uat` | Tidak | Requester approval `50` |
+| `codex_prodev_manager_uat` | Network Solutions Manager | Product & Development | `codex_exec` | Tidak | Approver request `50` |
+| `codex_ops_staff` | Implementations Staff | Operations / Implementations | `codex_ops_manager` | Tidak | Requester META/PR dan actor BAST |
+| `codex_ops_manager` | Implementations Manager | Operations / Implementations | `codex_ops_gm` | Tidak | Approver request `46`/`47`/`48` |
+| `codex_ops_gm` | Operations GM | Operations | `codex_exec` | Tidak | Approver step `48` |
+| `codex_procurement_manager` | Procurement Manager | Procurement | `codex_exec` | Tidak | Pembuat PO `20` |
+| `codex_finance_manager` | Finance Manager | Finance | `codex_exec` | Tidak | Pembuat Invoice `11`/`12` |
+| `codex_finance_uat` | Finance Staff | Finance | `codex_exec` | Tidak | Requester approval harga `51` |
+| `codex_exec` | Executive | Lintas departemen | - | Tidak | Approver request `49` dan `51` |
 
-`codex_ops_uat`, `codex_ops_unassigned`, dan `codex_procurement_uat` tersedia
-di staging tetapi tidak terlihat sebagai actor pada rangkaian evidence yang
-dirujuk di atas. Akun `codex_*_uat` adalah akun UAT sementara, bukan akun
-operasional pilot.
+Tabel ini adalah daftar canonical actor; tabel akun lama yang sebelumnya
+terduplikasi dihapus. Akun tambahan `codex_ops_uat`, `codex_ops_unassigned`, dan
+`codex_procurement_uat` tersedia di staging tetapi belum menjadi actor evidence
+utama.
 
-| Username | Role | Division | Manager | Read-only |
-|---|---|---|---|---|
-| `codex_sales_staff_uat` | Sales IT Solutions - Staff | IT Solutions | `codex_sales_manager_uat` | Tidak |
-| `codex_sales_manager_uat` | Sales IT Solutions - Manager | IT Solutions | `codex_exec` | Tidak |
-| `codex_prodev_staff_uat` | Network Solutions - Staff | Product & Development | `codex_prodev_manager_uat` | Tidak |
-| `codex_prodev_manager_uat` | Network Solutions - Manager | Product & Development | `codex_exec` | Tidak |
-| `codex_sales_readonly_uat` | Sales IT Solutions - Staff | IT Solutions | - | Ya |
+Aturan rotasi/nonaktif berlaku untuk **seluruh username yang diawali `codex_`**,
+baik memiliki suffix `_uat` maupun tidak. Tidak boleh ada akun `codex_*` yang
+ditinggalkan sebagai akun operasional pilot.
+
+### Catatan struktur manager dan Executive
+
+Saat ini `codex_sales_manager_uat`, `codex_prodev_manager_uat`,
+`codex_procurement_manager`, `codex_finance_manager`, dan `codex_ops_gm`
+memiliki `codex_exec` sebagai `manager_id`. Karena itu, rule
+`requester_manager` dapat membuat Executive menjadi approver untuk submission
+manager tersebut. Approval `49` dan `51` adalah contoh aktual.
+
+Ini bukan bypass teknis, tetapi **belum dapat dianggap sesuai baseline bisnis**
+“Executive hanya bila ditugaskan matrix”. Manajemen harus memutuskan apakah
+Executive memang menjadi approver semua request dari level manager, atau perlu
+dibuat struktur manager/role approver yang lebih spesifik. Keputusan ini wajib
+diterapkan dan diuji ulang sebelum RC.
 
 ## Alur utama
 
@@ -79,7 +89,7 @@ operasional pilot.
 | 4. Pengadaan | Kebutuhan project yang disetujui | Purchase Request dibuat, disetujui, lalu Purchase Order diterbitkan | Operations / Procurement | PR dan PO memiliki project, vendor, nilai, dan approval yang sah | UAT PR → PO selesai |
 | 5. Pelaksanaan dan serah terima | PO, pekerjaan/barang | BAST Vendor dan BAST Customer dibuat dan diselesaikan | Operations / Project Owner | Kuantitas dan nilai tidak melebihi dokumen sumber; bukti serah terima tersedia | UAT BAST selesai |
 | 6. Penagihan dan penerimaan | META/BAST/invoice source | Invoice dibuat, dikirim, payment schedule dipantau sampai paid | Finance | Invoice tidak ganda; status hanya melalui transisi sah; bukti pembayaran tercatat | UAT Invoice → Paid selesai |
-| 7. Akuntansi dan laporan | Invoice, payment, cost | Jurnal otomatis, GL, AR/AP aging, cash flow, income statement, profitability | Finance | Debit-kredit balance; committed/paid/billed konsisten | UAT finance dan profitability selesai |
+| 7. Akuntansi dan laporan | Invoice, payment, cost | Jurnal otomatis, GL, AR/AP aging, cash flow, income statement, profitability | Finance | Debit-kredit balance; committed/paid/billed konsisten | Alur jurnal/payment teramati; evidence laporan dan profitability belum lengkap |
 | 8. Monitoring dan audit | Seluruh transaksi | Executive dashboard, audit log, document expiry, dan work queue dipantau | Executive / System Admin / Process Owner | Perubahan penting terlacak; akses read-only tetap read-only | Endpoint utama dan audit integrity lulus |
 
 ## Aturan lintas tahap
@@ -103,11 +113,11 @@ operasional pilot.
 |---|---|---|
 | Pemilik proses tiap tahap | Mengikuti kolom Pemilik proses di atas | Menunggu konfirmasi |
 | Batas nominal approval | Dikelola di Approval Matrix, tidak hardcode | Menunggu angka bisnis |
-| Urutan approval | Manager → GM sesuai unit; Executive hanya jika ditugaskan matrix | Menunggu konfirmasi |
+| Urutan approval | Manager → GM sesuai unit; Executive hanya jika ditugaskan matrix | Menunggu keputusan apakah manager saat ini boleh bermuara ke Executive |
 | Syarat invoice | Hanya dari META/billing request approved dan sumber serah terima yang lengkap sesuai jenis transaksi | Menunggu Finance |
 | Definisi profitability | Pisahkan committed, accrued/actual, paid, dan billed revenue | Menunggu Finance |
 | Data UAT sebelum pilot | Pertahankan untuk audit atau arsipkan sesuai keputusan pemilik data | Menunggu keputusan |
-| Rotasi/nonaktif akun UAT | Maksimal 2 hari kerja setelah UAT/pilot ditutup | Menunggu penetapan System Admin dan Process Owner |
+| Rotasi/nonaktif akun UAT | Semua akun `codex_*`, maksimal 2 hari kerja setelah UAT/pilot ditutup | Menunggu penetapan System Admin dan Process Owner |
 | Backup offsite | S3-compatible private storage dengan encryption, versioning/Object Lock | Ditunda; wajib sebelum release candidate/go-live |
 
 ## Baseline rekomendasi untuk sign-off
@@ -156,10 +166,12 @@ request `46`/`47`, PR `PR-0028`, PO `PO-0020`, approval `48`/`49`, BAST Vendor
 `BASTV-0009`, BAST Customer `BASTC-0012`, Invoice `INV-0011`/`INV-0012`, payment
 schedule `25`, dan jurnal `JE-0028` sampai `JE-0031`.
 
-Approval harga request `51` bukan bypass Executive: matrix yang digunakan adalah
+Approval harga request `51` bukan bypass teknis Executive: matrix yang digunakan adalah
 `presales_price_approval` dengan tipe `requester_manager`, requester-nya
 `codex_finance_uat`, dan manager yang terdaftar adalah `codex_exec`. Hal ini
-tetap harus dikonfirmasi sebagai keputusan bisnis final.
+tetap harus dikonfirmasi sebagai keputusan bisnis final. Pola manager yang
+bermuara ke `codex_exec` berlaku lebih luas pada akun UAT dan menjadi penahan
+keputusan rute approval, bukan sekadar catatan evidence.
 
 Rangkaian project `610` dibuat sebelum aturan prefix pilot ditetapkan dan tidak
 menggunakan prefix `UAT-` pada nomor dokumennya. Rangkaian tersebut harus
@@ -168,7 +180,18 @@ baru wajib memakai prefix `PILOT-2026`.
 
 Audit transaksi setelah rangkaian UAT menghasilkan `0 violations`. Audit
 approval tambahan menemukan request legacy `34` (`META-0012`) tanpa step;
-temuan ini belum didisposisikan.
+temuan ini belum didisposisikan. Selain disposition, perlu dibuktikan tanggal
+pembuatan request `34` terhadap commit/tanggal penerapan fail-closed, agar dapat
+dipastikan apakah ini data lama sebelum hardening atau indikasi celah aktif.
+
+Restore upload staging juga menemukan dua metadata project `618` yang tidak
+memiliki file fisik. Dua file hilang bertimestamp sekitar Agustus 2026,
+sedangkan file yang masih ada bertimestamp 27 Oktober 2026. Pola ini konsisten
+dengan hipotesis perubahan storage, tetapi belum membuktikan root cause.
+Sebelum merge ke production, IT wajib menjalankan rekonsiliasi metadata-file
+read-only di production dan melaporkan jumlah metadata, jumlah file fisik,
+missing path, orphan file, serta rentang waktu upload. Restore archive yang
+hanya berisi satu file juga belum membuktikan cakupan seluruh 468 project.
 
 Backup offsite ditunda atas keputusan tim. Staging tetap dapat dipakai untuk
 pengembangan dan UAT, tetapi belum boleh diperlakukan sebagai release
@@ -206,8 +229,10 @@ Staging belum dinyatakan release candidate sampai seluruh item berikut terpenuhi
 - [ ] Backup offsite terenkripsi tersedia dan restore dari salinan offsite
       berhasil.
 - [ ] Checklist pilot, monitoring, dan rollback disetujui.
-- [ ] Akun `codex_*_uat` dirotasi atau dinonaktifkan setelah UAT sesuai
+- [ ] Seluruh akun `codex_*` dirotasi atau dinonaktifkan setelah UAT sesuai
       keputusan System Admin/Process Owner.
+- [ ] Rekonsiliasi metadata-file staging dan production selesai tanpa temuan
+      yang belum didisposisikan.
 
 ## Referensi
 
@@ -215,4 +240,5 @@ Staging belum dinyatakan release candidate sampai seluruh item berikut terpenuhi
 - [STAGING_UAT_EVIDENCE_INDEX.md](STAGING_UAT_EVIDENCE_INDEX.md)
 - [ROLE_PERMISSION_TEST_MATRIX_STAGING.md](ROLE_PERMISSION_TEST_MATRIX_STAGING.md)
 - [ops/STAGING_STORAGE.md](ops/STAGING_STORAGE.md)
+- [ops/UPLOAD_METADATA_RECONCILIATION.md](ops/UPLOAD_METADATA_RECONCILIATION.md)
 - [DEPLOYMENT.md](DEPLOYMENT.md)

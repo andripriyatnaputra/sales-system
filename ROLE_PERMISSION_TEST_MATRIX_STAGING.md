@@ -63,6 +63,13 @@ penetapan `manager_id` wajib diselesaikan sebelum uji end-to-end Mini ERP.
 - Mapping manager akun dummy telah diterapkan melalui API admin dan diverifikasi:
   `codex_ops_unassigned` → `codex_ops_manager`, `codex_ops_gm` → `codex_exec`,
   `codex_finance_manager` → `codex_exec`.
+- Cakupan rotasi/nonaktif berlaku untuk seluruh akun dengan prefix `codex_`,
+  termasuk actor tanpa suffix `_uat` seperti `codex_ops_staff` dan
+  `codex_exec`.
+- Struktur manager staging saat ini membuat beberapa role manager/GM bermuara
+  ke `codex_exec`; ini membuat rule `requester_manager` mengarahkan approval
+  manager ke Executive. Bukan bypass teknis, tetapi keputusan rute ini belum
+  disahkan manajemen dan harus diputuskan sebelum RC.
 - Approval pending existing milik `dani.swandani` tidak disentuh; akun tersebut
   bukan data UAT.
 

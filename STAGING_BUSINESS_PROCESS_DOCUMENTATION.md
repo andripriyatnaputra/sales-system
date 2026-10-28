@@ -29,8 +29,9 @@ disahkan oleh pemilik proses.
 - CI/CD staging terakhir berhasil: build, test, typecheck, deploy SSH, dan
   health check.
 - Backend health/readiness dan frontend staging telah diverifikasi.
-- Role, read-only, approval, audit integrity, migration, dan penyimpanan
-  dokumen telah diuji pada staging.
+- Baseline role, approval, audit integrity, migration, dan penyimpanan dokumen
+  telah diuji pada staging; live read-only endpoint-by-endpoint dan cross-
+  division evidence masih pending.
 - Perubahan belum digabungkan ke `main`/production.
 - Runbook backup database/upload lokal dan restore test tersedia; eksekusi
   terakhir berhasil secara teknis, tetapi rekonsiliasi metadata-file masih
@@ -220,11 +221,16 @@ Detail status rangkaian Operations/Finance:
   untuk seluruh operasi POST/PUT/DELETE.
 - Audit approval menemukan satu request legacy `34` (`META-0012`, project `610`)
   berstatus approved tanpa approval step. Request UAT terbaru memiliki step yang
-  sesuai, tetapi data legacy ini perlu disposition sebelum klaim integritas
-  approval dinyatakan bersih.
+  sesuai, tetapi data legacy ini perlu root-cause berdasarkan waktu/commit dan
+  disposition sebelum klaim integritas approval dinyatakan bersih.
 - Bukti eksekusi backup lokal dan restore database/upload tersedia di index
   evidence, tetapi belum dapat dinyatakan lengkap sampai dua file metadata
-  project `618` direkonsiliasi dengan volume.
+  project `618` direkonsiliasi dengan volume. Karena archive hanya memulihkan
+  satu file dari 468 project, cakupan backup upload juga belum terbukti.
+- Risiko kehilangan file dapat merembet ke production. Sebelum merge, IT wajib
+  menjalankan rekonsiliasi metadata-file production secara read-only dan
+  menyimpan output jumlah metadata, file fisik, missing path, orphan file, dan
+  rentang waktu upload.
 
 ## 8. Kebutuhan pilot terbatas
 
@@ -246,10 +252,11 @@ mendekati pekerjaan sehari-hari. Pilot bukan cutover production.
 
 Nama peserta, akun, dan periode harus disetujui oleh masing-masing Process
 Owner. Akun dummy UAT hanya digunakan untuk pengujian; password tidak boleh
-dimasukkan ke Git atau deck. Akun `codex_*_uat` tidak digunakan sebagai akun
-operasional pilot; pilot harus memakai akun individual dengan role minimum yang
-ditetapkan Process Owner. Setelah UAT/pilot selesai, akun dummy harus dirotasi
-atau dinonaktifkan sesuai keputusan pemilik sistem.
+dimasukkan ke Git atau deck. Semua akun yang diawali `codex_`, termasuk yang
+tidak memiliki suffix `_uat`, tidak digunakan sebagai akun operasional pilot.
+Pilot harus memakai akun individual dengan role minimum yang ditetapkan Process
+Owner. Setelah UAT/pilot selesai, seluruh akun `codex_*` harus dirotasi atau
+dinonaktifkan sesuai keputusan pemilik sistem.
 
 ### 8.3 Skenario minimum
 

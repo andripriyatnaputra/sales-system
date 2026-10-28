@@ -81,5 +81,8 @@ hasil restore teknis.
 - Jangan menghapus metadata atau mengubah data project `618` tanpa keputusan
   pemilik data.
 - Setelah keputusan perbaikan, jalankan backup ulang dan rekonsiliasi ulang.
+- Jalankan audit read-only pada staging dan production mengikuti
+  [ops/UPLOAD_METADATA_RECONCILIATION.md](ops/UPLOAD_METADATA_RECONCILIATION.md).
+  Hasil production wajib tersedia sebelum merge yang memengaruhi storage/upload.
 - Backup offsite dan restore dari offsite tetap wajib sebelum release candidate
   atau go-live.

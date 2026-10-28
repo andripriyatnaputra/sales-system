@@ -103,3 +103,12 @@ Setelah deployment pertama:
 4. Jalankan backup dan uji restore archive.
 
 File upload tidak di-commit ke Git dan tidak disimpan di image Docker.
+
+## Rekonsiliasi metadata dan file
+
+Restore archive yang dapat diekstrak tanpa error belum membuktikan semua file
+terpulihkan. Untuk membandingkan metadata database dengan file fisik pada
+staging maupun production, gunakan runbook read-only
+[UPLOAD_METADATA_RECONCILIATION.md](UPLOAD_METADATA_RECONCILIATION.md). Audit
+production wajib dilakukan sebelum merge yang mengubah storage, upload, CSRF,
+deployment volume, atau backup.

@@ -73,13 +73,17 @@ Unit test untuk mapping policy error tersedia di
 untuk tiga skenario negatif tersebut masih harus dilampirkan sebagai evidence
 staging sebelum sign-off.
 
-Audit read-only terbaru menemukan satu data legacy yang harus didisposisikan:
+Audit approval terbaru menemukan satu data legacy yang harus dianalisis dan
+didisposisikan:
 approval request `34` (`META-0012`, project `610`) berstatus `approved` tetapi
 memiliki `0` step. Sepuluh approval approved lainnya memiliki step yang
 approved, dan satu approval pending memiliki step pending. Temuan `34` tidak
 dibuat oleh UAT terbaru dan tidak boleh diubah tanpa keputusan pemilik data;
 namun temuan ini menahan klaim bahwa seluruh data historis sudah bebas dari
-auto-approval.
+auto-approval. Sebelum ditutup, `created_at` request harus dibandingkan dengan
+commit/tanggal penerapan fail-closed untuk membuktikan root cause. Hardening
+fail-closed terdokumentasi pada commit `97dcb49` (`2026-10-28 15:04 WIB`), tetapi
+waktu deployment efektif dan `created_at` request `34` masih harus dicocokkan.
 
 ### 3.2 Pemeriksaan hardcode approval
 
@@ -120,13 +124,13 @@ auto-approval.
 | Kontrol | Status | Evidence yang diperlukan |
 |---|---|---|
 | Transaction integrity | `0 violations` pada pemeriksaan terakhir | File output/query bertanggal |
-| Approval integrity | **1 legacy violation**: request `34` approved tanpa step | Disposition pemilik data dan audit ulang |
+| Approval integrity | **1 legacy violation**: request `34` approved tanpa step | Root cause berdasarkan `created_at` vs commit fail-closed, disposition pemilik data, dan audit ulang |
 | Health/readiness | Lulus pada deployment CI | Log job atau output health check |
 | Backup database | Lulus eksekusi `2026-10-28 19:34 WIB` | `salesdb_staging_20261028_193448.sql.gz`, checksum, log |
 | Backup upload | Lulus eksekusi `2026-10-28 19:34 WIB` | `uploads_20261028_193448.tar.gz`, checksum, log |
 | Restore database | Lulus test disposable `2026-10-28 19:35 WIB` | SQL restore tanpa error; users 39, customers 85, projects 468 |
 | Restore upload | Lulus test disposable `2026-10-28 19:35 WIB` | Archive dapat dipulihkan; 1 file terextract |
-| Rekonsiliasi metadata-file | **Gagal / terbuka** | Database mereferensikan 3 dokumen project `618`, archive hanya berisi 1 file PDF; 2 file DOC/DOCX tidak ada di archive |
+| Rekonsiliasi metadata-file | **Gagal / terbuka** | Database mereferensikan 3 dokumen project `618`, archive hanya berisi 1 file PDF; 2 file DOC/DOCX tidak ada di archive. Cakupan archive juga belum merepresentasikan 468 project |
 | Backup offsite | Ditunda | Risk acceptance atau bukti backup offsite sebelum RC/go-live |
 
 Log lengkap backup, restore, dan temuan rekonsiliasi tersedia di
@@ -135,6 +139,12 @@ Log lengkap backup, restore, dan temuan rekonsiliasi tersedia di
 Rangkaian project `610` tidak memakai prefix UAT eksplisit. Itu adalah evidence
 UAT historis, bukan data pilot. Prefix `PILOT-2026` wajib digunakan untuk data
 pilot baru.
+
+Risiko storage tidak dibatasi ke staging. Sebelum merge ke production, IT wajib
+menjalankan rekonsiliasi read-only metadata-file pada production dengan output
+bertanggal yang mencakup jumlah metadata, file fisik, missing path, orphan file,
+dan cakupan seluruh project. Tidak ada hasil production yang tersedia dalam
+index ini saat ini.
 
 ## 4. Aturan evidence
 
