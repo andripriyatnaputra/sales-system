@@ -5,6 +5,10 @@ Staging menyimpan upload aplikasi di Docker named volume
 Database tetap memakai `postgres_data_staging`. Keduanya sengaja dipisahkan:
 backup database tidak otomatis membawa file upload.
 
+Backup database dan backup upload harus dijalankan sebagai dua artefak yang
+berpasangan. Database menyimpan metadata `file_path`, sedangkan file fisiknya
+ada di named volume.
+
 ## Dampak deployment
 
 Workflow staging mengunggah dan menjalankan `migrate_staging_uploads.sh` sebelum
@@ -36,6 +40,21 @@ SHA-256, lalu menerapkan retensi 7/5/12. Backup ini masih lokal di server;
 sesuai kebijakan umum, salin ke lokasi offsite yang sudah disetujui sebelum
 dianggap sebagai backup pemulihan bencana.
 
+Backup database staging dijalankan terpisah dari container PostgreSQL staging:
+
+```bash
+export STAGING_DB_BACKUP_DIR=/var/backups/sales-staging-db
+./ops/backup_staging_db.sh
+```
+
+Urutan cron yang disarankan: database lebih dahulu, lalu upload beberapa menit
+setelahnya. Contoh:
+
+```cron
+0 2 * * * STAGING_DB_BACKUP_DIR=/var/backups/sales-staging-db /home/it/sales-system-staging/ops/backup_staging_db.sh >> /var/log/sales-staging-db-backup.log 2>&1
+30 2 * * * STAGING_UPLOAD_BACKUP_DIR=/var/backups/sales-staging-uploads /home/it/sales-system-staging/ops/backup_staging_uploads.sh >> /var/log/sales-staging-uploads-backup.log 2>&1
+```
+
 Contoh cron harian pukul 02:30:
 
 ```cron
@@ -59,6 +78,17 @@ menghasilkan jumlah file yang dipulihkan tanpa error tar. Untuk pemulihan
 operasional, database harus dipulihkan dari backup database yang cocok dengan
 rentang waktu archive upload; metadata `file_path` di database adalah sumber
 referensi file.
+
+Uji restore database staging secara terisolasi:
+
+```bash
+./ops/test_restore_staging_db.sh \
+  /var/backups/sales-staging-db/daily/salesdb_staging_<timestamp>.sql.gz
+```
+
+Script ini membuat container PostgreSQL disposable, menjalankan restore, dan
+menghapus container tersebut setelah selesai. Tidak menyentuh database
+staging yang aktif.
 
 ## Verifikasi aplikasi
 
