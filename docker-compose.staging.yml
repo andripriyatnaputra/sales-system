@@ -28,11 +28,14 @@ services:
       - postgres-staging
     environment:
       APP_PORT: 8081
+      UPLOAD_DIR: /app/uploads
       DB_DSN: postgres://${POSTGRES_USER_STAGING:-sales_staging}:${POSTGRES_PASSWORD_STAGING:?POSTGRES_PASSWORD_STAGING is required}@postgres-staging:5432/${POSTGRES_DB_STAGING:-salesdb_staging}?sslmode=disable
       JWT_SECRET: ${JWT_SECRET_STAGING}
       AUTH_COOKIE_SECURE: ${AUTH_COOKIE_SECURE_STAGING:-false}
     ports:
       - "8091:8081"   # beda dari produksi/lokal existing (8081)
+    volumes:
+      - uploads_staging:/app/uploads
     networks:
       - sales-net-staging
 
@@ -56,6 +59,8 @@ services:
 
 volumes:
   postgres_data_staging:
+  uploads_staging:
+    name: sales-system-staging-uploads
 
 networks:
   sales-net-staging:

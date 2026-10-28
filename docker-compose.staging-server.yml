@@ -42,11 +42,14 @@ services:
                         # frontend/next.config.mjs (committed di git) hardcode proxy ke "http://backend:8081",
                         # dievaluasi saat BUILD TIME jadi tidak bisa dioverride via env runtime. Host-side
                         # tetap dibedakan lewat port mapping di bawah (8091), bukan lewat APP_PORT ini.
+      UPLOAD_DIR: /app/uploads
       DB_DSN: postgres://${POSTGRES_USER_STAGING:-sales_staging}:${POSTGRES_PASSWORD_STAGING}@postgres:5432/${POSTGRES_DB_STAGING:-salesdb_staging}?sslmode=disable
       JWT_SECRET: ${JWT_SECRET_STAGING}
       AUTH_COOKIE_SECURE: ${AUTH_COOKIE_SECURE_STAGING}
     ports:
       - "8091:8081"   # host 8091 (beda dari production 8081) -> container 8081 (sama internal, lihat komentar di atas)
+    volumes:
+      - uploads_staging:/app/uploads
     networks:
       - sales-staging-net
     healthcheck:
@@ -71,6 +74,9 @@ services:
 
 volumes:
   postgres_data_staging:
+  uploads_staging:
+    # Nama eksplisit agar backup/restore selalu menunjuk volume yang sama.
+    name: sales-staging_uploads_staging
 
 networks:
   sales-staging-net:

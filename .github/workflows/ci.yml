@@ -211,6 +211,28 @@ jobs:
           strip_components: 1
           overwrite: true
 
+      - name: Upload staging storage migration script
+        uses: appleboy/scp-action@v1.0.0
+        with:
+          host: ${{ secrets.STAGING_SSH_HOST }}
+          username: ${{ secrets.STAGING_SSH_USER }}
+          key: ${{ secrets.STAGING_SSH_KEY }}
+          source: "ops/migrate_staging_uploads.sh"
+          target: "~/sales-system-staging"
+          strip_components: 1
+          overwrite: true
+
+      - name: Upload staging storage backup scripts
+        uses: appleboy/scp-action@v1.0.0
+        with:
+          host: ${{ secrets.STAGING_SSH_HOST }}
+          username: ${{ secrets.STAGING_SSH_USER }}
+          key: ${{ secrets.STAGING_SSH_KEY }}
+          source: "ops/backup_staging_uploads.sh,ops/test_restore_staging_uploads.sh"
+          target: "~/sales-system-staging"
+          strip_components: 1
+          overwrite: true
+
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1.2.5
         with:
@@ -229,6 +251,8 @@ jobs:
             $compose pull
             $compose up -d postgres
             until $compose exec -T postgres pg_isready -U "$POSTGRES_USER_STAGING" -d "$POSTGRES_DB_STAGING"; do sleep 2; done
+            chmod +x migrate_staging_uploads.sh
+            ./migrate_staging_uploads.sh
             apply_migration() {
               local migration="$1"
               local version checksum

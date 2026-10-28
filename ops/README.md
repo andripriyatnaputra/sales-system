@@ -1,5 +1,9 @@
 # Fase 0 — Backup & Safety Protocol
 
+> Runbook storage upload staging ada di [STAGING_STORAGE.md](STAGING_STORAGE.md).
+> Itu mencakup named volume, migrasi file saat deployment, backup, dan uji
+> restore upload. Jangan mencampur volume upload staging dengan backup produksi.
+
 Runbook ini untuk dijalankan MANUAL oleh siapa pun yang punya akses SSH ke
 server produksi (`202.50.203.136`) — bukan dari sandbox development. Semua
 script di folder ini murni file, tidak ada yang otomatis tereksekusi.
