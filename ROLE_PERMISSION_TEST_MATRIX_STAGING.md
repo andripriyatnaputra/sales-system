@@ -10,10 +10,10 @@ dianggap sebagai aturan final Mini ERP.
 
 | Role/level | Sumber | Status pengujian |
 | --- | --- | --- |
-| Staff | org unit | Belum dibuat akun test khusus |
-| Manager | org unit | Belum dibuat akun test khusus |
-| GM | departemen tertentu | Belum dibuat akun test khusus |
-| Executive | lintas departemen | Baca + keputusan approval yang ditugaskan |
+| Staff | org unit | Akun UAT `codex_ops_staff` tersedia |
+| Manager | org unit | Akun UAT `codex_ops_manager` tersedia |
+| GM | departemen tertentu | Akun UAT `codex_ops_gm` tersedia |
+| Executive | lintas departemen | Akun UAT `codex_exec`; baca + keputusan approval yang ditugaskan |
 | System Admin | lintas departemen | Akun `admin` tersedia |
 | Read-only | flag user, lintas role | Sudah berhasil diuji |
 
@@ -52,6 +52,31 @@ threshold bisnis secara otomatis; setiap rule harus disahkan pemilik proses.
 Approval request yang sudah dibuat harus selalu memiliki minimal satu step
 `pending` sampai approver yang sah mengambil keputusan. Konfigurasi matrix dan
 penetapan `manager_id` wajib diselesaikan sebelum uji end-to-end Mini ERP.
+
+## Preflight UAT staging — 2026-10-28
+
+- PostgreSQL dan backend sehat; frontend merespons `200`.
+- Endpoint utama merespons `200` dengan konteks System Admin.
+- Write request dari akun read-only dan Executive ditolak `403` sesuai kebijakan.
+- Audit integritas transaksi menghasilkan `0 violations` pada seluruh pemeriksaan.
+- Mapping manager akun dummy telah diterapkan melalui API admin dan diverifikasi:
+  `codex_ops_unassigned` → `codex_ops_manager`, `codex_ops_gm` → `codex_exec`,
+  `codex_finance_manager` → `codex_exec`.
+- Approval pending existing milik `dani.swandani` tidak disentuh; akun tersebut
+  bukan data UAT.
+
+Preflight teknis selesai. UAT berikutnya harus membuat transaksi dummy baru
+dan tidak mengubah approval pending atau transaksi existing.
+
+UAT pertama sudah dijalankan pada alur META → approval → Invoice dengan data
+dummy baru: `META-0016` dibuat oleh `codex_ops_staff`, disetujui berurutan oleh
+`codex_ops_manager` dan `codex_finance_manager` pada approval request `46`,
+lalu menghasilkan Invoice `INV-0011` berstatus `draft`.
+
+Catatan hardening: setelah approval final, status META masih perlu disinkronkan
+melalui pemanggilan detail META sebelum Invoice dapat dibuat. Alur UI saat ini
+berhasil setelah detail dibuka, tetapi ketergantungan tersembunyi ini harus
+dihilangkan sebelum Mini ERP dianggap siap operasional.
 
 ## Temuan dan keputusan
 

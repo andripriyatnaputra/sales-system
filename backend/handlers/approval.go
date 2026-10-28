@@ -425,6 +425,18 @@ func ActOnNextStep(ctx context.Context, approvalRequestID int64, actorUserID int
 		return nil, err
 	}
 
+	// Keep the owning document in sync immediately when the approval request
+	// reaches a terminal state. Detail endpoints still retain their lazy-sync
+	// fallback for older data, but a caller should not need to open the detail
+	// page before the next workflow step (for example, creating an Invoice).
+	if newRequestStatus == "approved" || newRequestStatus == "rejected" {
+		if err := syncApprovalEntityStatus(ctx, ar.EntityType, ar.EntityID, newRequestStatus, approvalRequestID); err != nil {
+			// The approval decision is already committed. Keep it visible and let
+			// the existing detail-endpoint fallback repair the owning document.
+			fmt.Printf("warning: failed to sync approval entity status: %v\n", err)
+		}
+	}
+
 	entityLabel := ""
 	if ar.EntityLabel != nil {
 		entityLabel = *ar.EntityLabel
@@ -435,6 +447,55 @@ func ActOnNextStep(ctx context.Context, approvalRequestID int64, actorUserID int
 	})
 
 	return GetApprovalRequest(ctx, approvalRequestID)
+}
+
+// syncApprovalEntityStatus removes the hidden dependency between a finalized
+// approval and opening the owning document detail page. It is intentionally
+// limited to entities whose lifecycle status directly mirrors the approval
+// request status. Presales has additional section-specific transitions and
+// continues to use its existing lazy-sync logic.
+func syncApprovalEntityStatus(ctx context.Context, entityType, entityID, status string, approvalRequestID int64) error {
+	if status != "approved" && status != "rejected" {
+		return nil
+	}
+
+	id, err := strconv.ParseInt(entityID, 10, 64)
+	if err != nil {
+		return fmt.Errorf("invalid approval entity id %q: %w", entityID, err)
+	}
+
+	var query string
+	switch entityType {
+	case "billing_request":
+		query = `
+			UPDATE billing_requests
+			   SET status = $1,
+			       approved_at = CASE WHEN $1 = 'approved' AND approved_at IS NULL THEN NOW() ELSE approved_at END,
+			       updated_at = NOW()
+			 WHERE id = $2 AND approval_request_id = $3 AND status = 'pending_approval'
+		`
+	case "purchase_request":
+		query = `
+			UPDATE purchase_requests
+			   SET status = $1,
+			       approved_at = CASE WHEN $1 = 'approved' AND approved_at IS NULL THEN NOW() ELSE approved_at END,
+			       updated_at = NOW()
+			 WHERE id = $2 AND approval_request_id = $3 AND status = 'pending_approval'
+		`
+	case "purchase_order":
+		query = `
+			UPDATE purchase_orders
+			   SET status = $1,
+			       approved_at = CASE WHEN $1 = 'approved' AND approved_at IS NULL THEN NOW() ELSE approved_at END,
+			       updated_at = NOW()
+			 WHERE id = $2 AND approval_request_id = $3 AND status = 'pending_approval'
+		`
+	default:
+		return nil
+	}
+
+	_, err = database.Pool.Exec(ctx, query, status, id, approvalRequestID)
+	return err
 }
 
 // ===== HTTP handlers =====
