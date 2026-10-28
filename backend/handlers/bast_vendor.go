@@ -83,12 +83,36 @@ func CreateBASTVendor(c *gin.Context) {
 	}
 
 	for _, it := range body.Items {
-		var poi models.PurchaseOrderItem
+		if it.QtyReceived <= 0 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("qty_received untuk item %d harus lebih besar dari 0", it.PurchaseOrderItemID)})
+			return
+		}
+
+		var orderedQty, receivedQty float64
 		err := tx.QueryRow(ctx, `
-			SELECT id FROM purchase_order_items WHERE id = $1 AND purchase_order_id = $2
-		`, it.PurchaseOrderItemID, body.PurchaseOrderID).Scan(&poi.ID)
+			SELECT qty
+			FROM purchase_order_items
+			WHERE id = $1 AND purchase_order_id = $2
+			FOR UPDATE
+		`, it.PurchaseOrderItemID, body.PurchaseOrderID).Scan(&orderedQty)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("purchase_order_item_id %d tidak ditemukan di PO ini", it.PurchaseOrderItemID)})
+			return
+		}
+		err = tx.QueryRow(ctx, `
+			SELECT COALESCE(SUM(qty_received), 0)
+			FROM bast_vendor_items
+			WHERE purchase_order_item_id = $1
+		`, it.PurchaseOrderItemID).Scan(&receivedQty)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "gagal menghitung qty BAST Vendor existing"})
+			return
+		}
+		if receivedQty+it.QtyReceived > orderedQty {
+			c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf(
+				"qty diterima melebihi qty PO untuk item %d: sudah diterima %g, qty PO %g, sisa %g",
+				it.PurchaseOrderItemID, receivedQty, orderedQty, orderedQty-receivedQty,
+			)})
 			return
 		}
 		_, err = tx.Exec(ctx, `

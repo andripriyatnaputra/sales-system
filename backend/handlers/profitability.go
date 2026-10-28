@@ -10,7 +10,7 @@ import (
 )
 
 // profitabilityBaseQuery: rumus rollup Target/Committed/Actual Paid/Revenue
-// Realized/Additional Costs, SATU tempat dipakai 2 endpoint (per-project &
+// Plan Realized/Billed Revenue/Additional Costs, SATU tempat dipakai 2 endpoint (per-project &
 // lintas-project) supaya tidak disalin. JOIN sales_orders (inner) otomatis
 // membatasi ke project yang sudah Win, sama pola dgn work_queue.go's
 // postpo_incomplete. Committed cuma hitung PO status='approved' -- draft/
@@ -20,7 +20,8 @@ func profitabilityBaseQuery(extraWhere string) string {
 		SELECT p.id, p.project_code, p.description, COALESCE(cu.name,''),
 		       COALESCE(rev.target, 0), COALESCE(po_sum.committed, 0),
 		       COALESCE(paid_sum.actual_paid, 0), COALESCE(rev.realized, 0),
-		       COALESCE(ac.additional_costs, 0), COALESCE(labor.labor_cost, 0)
+		       COALESCE(invoice_sum.billed_revenue, 0), COALESCE(ac.additional_costs, 0),
+		       COALESCE(labor.labor_cost, 0)
 		FROM projects p
 		JOIN sales_orders so ON so.project_id = p.id
 		LEFT JOIN customers cu ON cu.id = p.customer_id
@@ -43,6 +44,12 @@ func profitabilityBaseQuery(extraWhere string) string {
 			GROUP BY pr.sales_order_id
 		) paid_sum ON paid_sum.sales_order_id = so.id
 		LEFT JOIN (
+			SELECT sales_order_id, SUM(amount) AS billed_revenue
+			FROM invoices
+			WHERE status IN ('sent', 'paid')
+			GROUP BY sales_order_id
+		) invoice_sum ON invoice_sum.sales_order_id = so.id
+		LEFT JOIN (
 			SELECT project_id, SUM(amount) AS additional_costs
 			FROM project_additional_costs GROUP BY project_id
 		) ac ON ac.project_id = p.id
@@ -57,11 +64,13 @@ func profitabilityBaseQuery(extraWhere string) string {
 func scanProfitability(row interface{ Scan(...interface{}) error }) (*models.ProjectProfitability, error) {
 	var pp models.ProjectProfitability
 	err := row.Scan(&pp.ProjectID, &pp.ProjectCode, &pp.Description, &pp.CustomerName,
-		&pp.Target, &pp.Committed, &pp.ActualPaid, &pp.RevenueRealized, &pp.AdditionalCosts, &pp.LaborCost)
+		&pp.Target, &pp.Committed, &pp.ActualPaid, &pp.RevenueRealized, &pp.BilledRevenue,
+		&pp.AdditionalCosts, &pp.LaborCost)
 	if err != nil {
 		return nil, err
 	}
 	pp.RealMargin = pp.RevenueRealized - pp.ActualPaid - pp.AdditionalCosts - pp.LaborCost
+	pp.BilledMargin = pp.BilledRevenue - pp.ActualPaid - pp.AdditionalCosts - pp.LaborCost
 	return &pp, nil
 }
 
@@ -85,7 +94,7 @@ func GetProjectProfitability(c *gin.Context) {
 // atas (paling butuh perhatian dulu).
 func ListProjectProfitability(c *gin.Context) {
 	query := profitabilityBaseQuery("") + `
-		ORDER BY (COALESCE(rev.realized,0) - COALESCE(paid_sum.actual_paid,0) - COALESCE(ac.additional_costs,0) - COALESCE(labor.labor_cost,0)) ASC
+		ORDER BY (COALESCE(invoice_sum.billed_revenue,0) - COALESCE(paid_sum.actual_paid,0) - COALESCE(ac.additional_costs,0) - COALESCE(labor.labor_cost,0)) ASC
 	`
 
 	rows, err := database.Pool.Query(c, query)

@@ -51,8 +51,16 @@ func CreateBASTCustomer(c *gin.Context) {
 		return
 	}
 
+	ctx := c.Request.Context()
+	tx, err := database.Pool.Begin(ctx)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "db transaction error"})
+		return
+	}
+	defer tx.Rollback(ctx)
+
 	var bastID int64
-	err := database.Pool.QueryRow(c, `
+	err = tx.QueryRow(ctx, `
 		INSERT INTO bast_customer (bast_number, sales_order_id, delivered_by, delivered_date, status, customer_signatory, notes)
 		VALUES ('', $1, $2, COALESCE(NULLIF($3, '')::date, CURRENT_DATE), $4, NULLIF($5, ''), NULLIF($6, ''))
 		RETURNING id
@@ -63,22 +71,46 @@ func CreateBASTCustomer(c *gin.Context) {
 	}
 
 	bastNumber := fmt.Sprintf("BASTC-%04d", bastID)
-	_, err = database.Pool.Exec(c, `UPDATE bast_customer SET bast_number = $1 WHERE id = $2`, bastNumber, bastID)
+	_, err = tx.Exec(ctx, `UPDATE bast_customer SET bast_number = $1 WHERE id = $2`, bastNumber, bastID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
 	for _, it := range body.Items {
-		var soi int64
-		err := database.Pool.QueryRow(c, `
-			SELECT id FROM sales_order_items WHERE id = $1 AND sales_order_id = $2
-		`, it.SalesOrderItemID, body.SalesOrderID).Scan(&soi)
+		if it.QtyDelivered <= 0 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("qty_delivered untuk item %d harus lebih besar dari 0", it.SalesOrderItemID)})
+			return
+		}
+
+		var orderedQty, deliveredQty float64
+		err := tx.QueryRow(ctx, `
+			SELECT qty
+			FROM sales_order_items
+			WHERE id = $1 AND sales_order_id = $2
+			FOR UPDATE
+		`, it.SalesOrderItemID, body.SalesOrderID).Scan(&orderedQty)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("sales_order_item_id %d tidak ditemukan di SO ini", it.SalesOrderItemID)})
 			return
 		}
-		_, err = database.Pool.Exec(c, `
+		err = tx.QueryRow(ctx, `
+			SELECT COALESCE(SUM(qty_delivered), 0)
+			FROM bast_customer_items
+			WHERE sales_order_item_id = $1
+		`, it.SalesOrderItemID).Scan(&deliveredQty)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "gagal menghitung qty BAST Customer existing"})
+			return
+		}
+		if deliveredQty+it.QtyDelivered > orderedQty {
+			c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf(
+				"qty diserahkan melebihi qty SO untuk item %d: sudah diserahkan %g, qty SO %g, sisa %g",
+				it.SalesOrderItemID, deliveredQty, orderedQty, orderedQty-deliveredQty,
+			)})
+			return
+		}
+		_, err = tx.Exec(ctx, `
 			INSERT INTO bast_customer_items (bast_customer_id, sales_order_item_id, qty_delivered, notes)
 			VALUES ($1, $2, $3, $4)
 		`, bastID, it.SalesOrderItemID, it.QtyDelivered, it.Notes)
@@ -86,6 +118,10 @@ func CreateBASTCustomer(c *gin.Context) {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
+	}
+	if err := tx.Commit(ctx); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
 	}
 
 	LogAudit(c, c.GetInt64("user_id"), "create", "bast_customer", strconv.FormatInt(bastID, 10), bastNumber, body)

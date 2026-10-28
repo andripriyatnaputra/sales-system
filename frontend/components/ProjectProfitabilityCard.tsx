@@ -21,9 +21,11 @@ type Profitability = {
   committed: number;
   actual_paid: number;
   revenue_realized: number;
+  billed_revenue: number;
   additional_costs: number;
   labor_cost: number;
   real_margin: number;
+  billed_margin: number;
 };
 
 type AdditionalCost = {
@@ -160,7 +162,7 @@ export function ProjectProfitabilityCard({ projectId }: { projectId: number | st
         </p>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-8 gap-3">
         <div>
           <div className="text-xs text-muted-foreground">Target</div>
           <div className="font-semibold">{formatIDR(profitability.target)}</div>
@@ -174,8 +176,12 @@ export function ProjectProfitabilityCard({ projectId }: { projectId: number | st
           <div className="font-semibold">{formatIDR(profitability.actual_paid)}</div>
         </div>
         <div>
-          <div className="text-xs text-muted-foreground">Revenue Realized</div>
+          <div className="text-xs text-muted-foreground">Plan Realized</div>
           <div className="font-semibold">{formatIDR(profitability.revenue_realized)}</div>
+        </div>
+        <div>
+          <div className="text-xs text-muted-foreground">Billed Revenue</div>
+          <div className="font-semibold">{formatIDR(profitability.billed_revenue)}</div>
         </div>
         <div>
           <div className="text-xs text-muted-foreground">Labor Cost</div>
@@ -185,6 +191,12 @@ export function ProjectProfitabilityCard({ projectId }: { projectId: number | st
           <div className="text-xs text-muted-foreground">Real Margin</div>
           <div className={`font-semibold ${marginPositive ? "text-green-600" : "text-red-600"}`}>
             {formatIDR(profitability.real_margin)}
+          </div>
+        </div>
+        <div>
+          <div className="text-xs text-muted-foreground">Billed Margin</div>
+          <div className={`font-semibold ${profitability.billed_margin >= 0 ? "text-green-600" : "text-red-600"}`}>
+            {formatIDR(profitability.billed_margin)}
           </div>
         </div>
       </div>

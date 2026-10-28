@@ -362,6 +362,23 @@ func CreatePaymentSchedule(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "sequence wajib diisi"})
 		return
 	}
+	if body.Sequence < 1 || body.Amount <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "sequence dan amount harus lebih besar dari 0"})
+		return
+	}
+	if body.Percentage != nil && (*body.Percentage <= 0 || *body.Percentage > 100) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "percentage harus lebih besar dari 0 dan maksimal 100"})
+		return
+	}
+	var poExists bool
+	if err := database.Pool.QueryRow(c, `SELECT EXISTS (SELECT 1 FROM purchase_orders WHERE id = $1)`, poID).Scan(&poExists); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "gagal memvalidasi Purchase Order"})
+		return
+	}
+	if !poExists {
+		c.JSON(http.StatusNotFound, gin.H{"error": "purchase order tidak ditemukan"})
+		return
+	}
 
 	var id int64
 	err = database.Pool.QueryRow(c, `
@@ -398,6 +415,14 @@ func UpdatePaymentSchedule(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid body"})
 		return
 	}
+	if body.Percentage != nil && (*body.Percentage <= 0 || *body.Percentage > 100) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "percentage harus lebih besar dari 0 dan maksimal 100"})
+		return
+	}
+	if body.Amount != nil && *body.Amount <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "amount harus lebih besar dari 0"})
+		return
+	}
 	if body.Status != nil && *body.Status != "pending" && *body.Status != "due" && *body.Status != "paid" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid status"})
 		return
@@ -423,6 +448,10 @@ func UpdatePaymentSchedule(c *gin.Context) {
 		SELECT status, parent_type, parent_id, amount FROM payment_schedules WHERE id = $1 FOR UPDATE
 	`, scheduleID).Scan(&oldStatus, &parentType, &parentID, &oldAmount); err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "payment schedule tidak ditemukan"})
+		return
+	}
+	if body.Status != nil && !paymentScheduleStatusTransitionAllowed(oldStatus, *body.Status) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("transisi status termin dari '%s' ke '%s' tidak diizinkan", oldStatus, *body.Status)})
 		return
 	}
 	finalAmount := oldAmount
@@ -483,6 +512,16 @@ func UpdatePaymentSchedule(c *gin.Context) {
 	LogAudit(c, c.GetInt64("user_id"), "update", "payment_schedule", scheduleID, "", body)
 
 	c.JSON(http.StatusOK, gin.H{"status": "updated"})
+}
+
+var paymentScheduleAllowedTransitions = map[string]map[string]bool{
+	"pending": {"pending": true, "due": true},
+	"due":     {"due": true, "paid": true},
+	"paid":    {"paid": true},
+}
+
+func paymentScheduleStatusTransitionAllowed(from, to string) bool {
+	return paymentScheduleAllowedTransitions[from][to]
 }
 
 func DeletePaymentSchedule(c *gin.Context) {

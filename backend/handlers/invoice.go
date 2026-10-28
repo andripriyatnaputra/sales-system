@@ -47,13 +47,40 @@ func CreateInvoice(c *gin.Context) {
 		return
 	}
 
-	var invID int64
+	// Satu META hanya boleh memiliki satu Invoice aktif. Invoice yang
+	// dibatalkan boleh diterbitkan ulang, tetapi Invoice draft/sent/paid tidak
+	// boleh diduplikasi. Guard ini memberi pesan yang jelas; partial unique
+	// index di database menjadi pengaman terakhir terhadap race condition.
+	var existingInvoiceID int64
 	err := database.Pool.QueryRow(c, `
+		SELECT COALESCE((
+			SELECT id
+			FROM invoices
+			WHERE billing_request_id = $1 AND status <> 'cancelled'
+			ORDER BY id
+			LIMIT 1
+		), 0)
+	`, body.BillingRequestID).Scan(&existingInvoiceID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "gagal memeriksa Invoice existing"})
+		return
+	}
+	if existingInvoiceID > 0 {
+		c.JSON(http.StatusConflict, gin.H{"error": "META sudah memiliki Invoice aktif", "invoice_id": existingInvoiceID})
+		return
+	}
+
+	var invID int64
+	err = database.Pool.QueryRow(c, `
 		INSERT INTO invoices (invoice_number, billing_request_id, sales_order_id, amount, tax_amount, created_by, issue_date, due_date, notes)
 		VALUES ('', $1, $2, $3, $4, $5, NULLIF($6,'')::date, NULLIF($7,'')::date, NULLIF($8, ''))
 		RETURNING id
 	`, body.BillingRequestID, salesOrderID, amount, body.TaxAmount, c.GetInt64("user_id"), body.IssueDate, body.DueDate, body.Notes).Scan(&invID)
 	if err != nil {
+		if isDuplicateKeyErr(err) {
+			c.JSON(http.StatusConflict, gin.H{"error": "META sudah memiliki Invoice aktif"})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}

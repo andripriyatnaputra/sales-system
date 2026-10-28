@@ -34,6 +34,8 @@ services:
   frontend-staging:
     build:
       context: ./frontend
+      args:
+        API_PROXY_TARGET: http://backend-staging:8081
     container_name: sales-system-staging-frontend
     restart: unless-stopped
     depends_on:

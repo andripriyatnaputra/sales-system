@@ -14,9 +14,11 @@ type ProfitabilityRow = {
   committed: number;
   actual_paid: number;
   revenue_realized: number;
+  billed_revenue: number;
   additional_costs: number;
   labor_cost: number;
   real_margin: number;
+  billed_margin: number;
 };
 
 export default function ProjectProfitabilityPage() {
@@ -54,7 +56,7 @@ export default function ProjectProfitabilityPage() {
         <div>
           <h2 className="text-xl font-semibold">Project Profitability</h2>
           <p className="text-sm text-muted-foreground">
-            Target vs Committed vs Actual Paid vs Revenue Realized vs Real Margin, diurutkan dari margin terkecil.
+            Target, komitmen, pembayaran, realisasi plan, dan billed margin per project.
           </p>
         </div>
         <input
@@ -74,16 +76,18 @@ export default function ProjectProfitabilityPage() {
               <th className="px-3 py-2 text-right">Target</th>
               <th className="px-3 py-2 text-right">Committed</th>
               <th className="px-3 py-2 text-right">Actual Paid</th>
-              <th className="px-3 py-2 text-right">Revenue Realized</th>
+              <th className="px-3 py-2 text-right">Plan Realized</th>
+              <th className="px-3 py-2 text-right">Billed Revenue</th>
               <th className="px-3 py-2 text-right">Labor Cost</th>
               <th className="px-3 py-2 text-right">Real Margin</th>
+              <th className="px-3 py-2 text-right">Billed Margin</th>
               <th className="px-3 py-2 text-right">Actions</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={9} className="p-4 text-center">
+                <td colSpan={11} className="p-4 text-center">
                   Loading...
                 </td>
               </tr>
@@ -105,6 +109,7 @@ export default function ProjectProfitabilityPage() {
                   <td className="px-3 py-2 text-right">{formatIDR(r.committed)}</td>
                   <td className="px-3 py-2 text-right">{formatIDR(r.actual_paid)}</td>
                   <td className="px-3 py-2 text-right">{formatIDR(r.revenue_realized)}</td>
+                  <td className="px-3 py-2 text-right">{formatIDR(r.billed_revenue)}</td>
                   <td className="px-3 py-2 text-right">{formatIDR(r.labor_cost)}</td>
                   <td
                     className={`px-3 py-2 text-right font-medium ${
@@ -112,6 +117,13 @@ export default function ProjectProfitabilityPage() {
                     }`}
                   >
                     {formatIDR(r.real_margin)}
+                  </td>
+                  <td
+                    className={`px-3 py-2 text-right font-medium ${
+                      r.billed_margin >= 0 ? "text-green-600" : "text-red-600"
+                    }`}
+                  >
+                    {formatIDR(r.billed_margin)}
                   </td>
                   <td className="px-3 py-2 text-right">
                     <Link href={`/projects/${r.project_id}`} className="text-blue-600 hover:underline">

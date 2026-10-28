@@ -224,7 +224,8 @@ jobs:
               backend/database/migrations/2026-10-27_auth_user_columns.sql \
               backend/database/migrations/2026-10-27_archive_entities.sql \
               backend/database/migrations/2026-10-27_audit_logs.sql \
-              backend/database/migrations/0037_approval_matrix_permissions.sql
+              backend/database/migrations/0037_approval_matrix_permissions.sql \
+              backend/database/migrations/0038_one_active_invoice_per_meta.sql
             do
               test -f "$migration"
               $compose exec -T postgres psql -U "$POSTGRES_USER_STAGING" -d "$POSTGRES_DB_STAGING" --set ON_ERROR_STOP=1 < "$migration"
