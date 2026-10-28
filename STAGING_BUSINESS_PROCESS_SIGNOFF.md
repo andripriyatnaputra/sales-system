@@ -2,6 +2,8 @@
 
 Dokumen handoff proses bisnis untuk Business Analyst tersedia di
 [STAGING_BUSINESS_PROCESS_DOCUMENTATION.md](STAGING_BUSINESS_PROCESS_DOCUMENTATION.md).
+Katalog fitur teknis dan peta modul tersedia di
+[STAGING_FEATURE_CATALOG.md](STAGING_FEATURE_CATALOG.md).
 
 Tanggal draft: 2026-10-28  
 Branch: `staging`  

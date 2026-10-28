@@ -17,6 +17,9 @@ Dokumen ini disiapkan sebagai bahan untuk:
 - penyusunan skenario pilot terbatas;
 - pencatatan gap antara proses bisnis yang disepakati dan perilaku aplikasi.
 
+Katalog lengkap fitur UI/API, modul, relasi data, kontrol, status, dan skenario
+pilot tersedia di [STAGING_FEATURE_CATALOG.md](STAGING_FEATURE_CATALOG.md).
+
 Dokumen ini **belum merupakan SOP final** dan belum menjadi persetujuan
 go-live. Aturan nominal, nama Process Owner, dan pengecualian bisnis tetap harus
 disahkan oleh pemilik proses.
