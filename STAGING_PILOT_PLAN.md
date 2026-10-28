@@ -1,5 +1,8 @@
 # Staging Pilot Plan
 
+Dokumentasi proses bisnis dan bahan handoff Business Analyst tersedia di
+[STAGING_BUSINESS_PROCESS_DOCUMENTATION.md](STAGING_BUSINESS_PROCESS_DOCUMENTATION.md).
+
 Tanggal: 2026-10-28  
 Branch: `staging`  
 Status: rancangan pilot terbatas
@@ -10,10 +13,20 @@ tidak boleh menggunakan data production.
 
 ## Entry criteria
 
+Checklist ini adalah syarat **masuk pilot terbatas**, bukan syarat release
+candidate. Syarat selesai pilot dan release candidate dipisahkan di bagian
+exit criteria dan dokumen sign-off.
+
 - [x] CI/CD staging terakhir sukses.
 - [x] Backend health/readiness dan frontend merespons normal.
 - [x] Role, read-only, approval, audit, dan migration utama telah diuji.
-- [x] Backup lokal database/upload dan restore test tersedia.
+- [x] Runbook/script backup database, upload, dan restore tersedia.
+- [x] Backup database dan upload lokal terakhir berhasil dibuat pada
+  2026-10-28 19:34 WIB.
+- [x] Restore test database dan archive upload disposable berhasil pada
+  2026-10-28 19:35 WIB.
+- [ ] Rekonsiliasi metadata dokumen dengan file upload selesai tanpa file
+  referensi yang hilang.
 - [ ] Pemilik proses dan approval limit menandatangani matriks bisnis.
 - [ ] Daftar peserta pilot dan periode pilot disetujui.
 - [ ] Risiko backup offsite dicatat sebagai risk acceptance sementara.
@@ -41,6 +54,8 @@ tidak boleh menggunakan data production.
 5. Jangan menghapus data pilot selama periode pengamatan tanpa persetujuan
    Process Owner.
 6. Password akun dummy tidak boleh dimasukkan ke Git atau dokumen repository.
+7. Akun `codex_*_uat` hanya untuk UAT dan tidak digunakan sebagai akun
+   operasional pilot; pilot memakai akun individual dengan role minimum.
 
 ## Skenario acceptance pilot
 

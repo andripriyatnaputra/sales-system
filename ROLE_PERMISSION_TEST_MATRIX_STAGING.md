@@ -121,3 +121,66 @@ Keputusan bisnis yang sudah disepakati:
 
 Setiap skenario diuji pada UI dan API langsung. UI boleh menyembunyikan tombol,
 tetapi `403` dari backend tetap menjadi kriteria keamanan utama.
+
+## Export akun dan permission yang dipakai evidence UAT — 2026-10-28
+
+| Akun | Role/level | Division/scope | Manager | Permission eksplisit |
+|---|---|---|---|---|
+| `codex_ops_staff` | Implementations Staff | Operations / Implementations | `codex_ops_manager` | - |
+| `codex_ops_manager` | Implementations Manager | Operations / Implementations | `codex_ops_gm` | - |
+| `codex_ops_gm` | Operations GM | Operations | `codex_exec` | - |
+| `codex_procurement_manager` | Procurement Manager | Procurement | `codex_exec` | `vendors.manage` |
+| `codex_finance_manager` | Finance Manager | Finance | `codex_exec` | - |
+| `codex_finance_uat` | Finance Staff | Finance | `codex_exec` | - |
+| `codex_exec` | Executive | Lintas departemen | - | - |
+| `codex_sales_staff_uat` | IT Solutions Staff | Sales / IT Solutions | `codex_sales_manager_uat` | `sales_orders.manage` |
+| `codex_sales_manager_uat` | IT Solutions Manager | Sales / IT Solutions | `codex_exec` | `sales_orders.manage` |
+| `codex_prodev_staff_uat` | Network Solutions Staff | Product & Development | `codex_prodev_manager_uat` | - |
+| `codex_prodev_manager_uat` | Network Solutions Manager | Product & Development | `codex_exec` | - |
+| `codex_sales_readonly_uat` | IT Solutions Staff, read-only | Sales / IT Solutions | - | `sales_orders.manage` pada role, tetapi seluruh write diblokir oleh `read_only` |
+| `admin` | System Admin | Lintas departemen | - | `approval.matrix.manage`, `audit.view`, `roles.manage`, `sales_orders.manage`, `users.manage`, `vendors.manage` |
+
+Daftar ini membedakan akun yang benar-benar menjadi actor evidence dari akun
+yang hanya diprovisioning untuk UAT. `codex_ops_uat`,
+`codex_ops_unassigned`, dan `codex_procurement_uat` tersedia tetapi belum
+menjadi actor pada evidence utama.
+
+## Matriks kontrol lintas division
+
+| Area/endpoint | Pemilik write | Expected lintas division | Bukti/status |
+|---|---|---|---|
+| Customer/project core | Sales atau System Admin | Role non-Sales ditolak `403` untuk write di luar scope | Code gate + UAT Sales; perlu evidence per role |
+| Presales ProDev/BoQ | Product & Development | Sales/Operations/Procurement/Finance ditolak `403` untuk field ProDev | Sales mendapat `403` saat membuat BoQ; coverage role lain masih perlu dilampirkan |
+| Presales Operations | Operations | Departemen lain ditolak `403` | Code gate `requireDepartment`; live evidence belum lengkap |
+| Presales Procurement | Procurement | Departemen lain ditolak `403` | Code gate `requireDepartment`; live evidence belum lengkap |
+| Presales Finance/harga | Finance | Departemen lain ditolak `403` | Code gate `requireDepartment`; live evidence belum lengkap |
+| PR/BAST/META | Operations | Non-Operations ditolak `403` untuk write | Code gate + UAT Operations; evidence endpoint belum lengkap |
+| PO/vendor | Procurement | Non-Procurement ditolak `403` untuk write | Code gate/permission; evidence endpoint belum lengkap |
+| Invoice/GL/COA/cost | Finance | Non-Finance ditolak `403` untuk write | Code gate; evidence endpoint belum lengkap |
+| Approval matrix/user/role/audit | System Admin | Non-System Admin ditolak `403` | `RequirePermission` dan unit test; live matrix belum lengkap |
+| Executive | Baca + approval yang ditugaskan | Business mutation ditolak `403`; approval assigned diperbolehkan | Unit test `executive_read_only_test.go`; live endpoint evidence belum lengkap |
+
+## Lokasi kontrol di kode
+
+- Middleware global read-only: `backend/routes/routes.go` pada protected group
+  dan `backend/middleware/read_only.go`. Semua route protected melewati kontrol
+  ini; GET/HEAD/OPTIONS tetap read-only, method lain ditolak untuk akun
+  `read_only`.
+- Executive write guard: `backend/middleware/executive_read_only.go`; hanya
+  keputusan approval pada route yang ditugaskan yang menjadi pengecualian.
+- Permission claims: `backend/middleware/permission.go` dan
+  `backend/middleware/jwt.go`.
+- Department gates: `backend/handlers/presales.go`,
+  `purchase_request.go`, `purchase_order.go`, `billing_request.go`,
+  `invoice.go`, `bast_vendor.go`, `bast_customer.go`, `coa.go`, dan
+  `journal_entry.go`.
+- Matrix dan approval resolution: `backend/handlers/approval.go` dan
+  `backend/handlers/approval_matrix.go`; nominal dan approver diambil dari
+  tabel `approval_matrices`, bukan dari nilai hidden di frontend.
+
+Contract test `backend/middleware/read_only_test.go` sekarang mencakup seluruh
+kelas mutation protected route tanpa menyentuh database. Coverage live
+endpoint-by-endpoint untuk akun read-only dan seluruh kombinasi lintas division
+masih merupakan evidence yang harus dilengkapi sebelum sign-off. Unit test
+middleware membuktikan guard global, tetapi tidak menggantikan evidence request
+aktual per endpoint.

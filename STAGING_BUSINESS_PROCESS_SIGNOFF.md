@@ -1,13 +1,19 @@
 # Staging Business Process Sign-off
 
+Dokumen handoff proses bisnis untuk Business Analyst tersedia di
+[STAGING_BUSINESS_PROCESS_DOCUMENTATION.md](STAGING_BUSINESS_PROCESS_DOCUMENTATION.md).
+
 Tanggal draft: 2026-10-28  
 Branch: `staging`  
 Status: draft untuk konfirmasi pemilik proses bisnis
 
-Keputusan teknis saat ini: **staging siap untuk melanjutkan UAT/pilot
-terbatas, tetapi belum menjadi release candidate atau go-live**. Penyebabnya
-adalah sign-off bisnis, persistensi perubahan ke Git, dan backup offsite yang
-belum selesai.
+Keputusan teknis saat ini: **staging dapat digunakan untuk melanjutkan UAT dan
+persiapan pilot, tetapi belum menjadi release candidate atau go-live**.
+Application/migration changes yang dipakai staging sudah berada di branch
+`staging`/`origin/staging`; perubahan dokumentasi dan evidence terbaru masih
+menunggu commit. File `.env.staging` dan data UAT sengaja tetap berada di server
+dan tidak masuk Git. Penahan RC/go-live saat ini adalah sign-off bisnis,
+evidence pilot yang lengkap, rekonsiliasi storage, dan backup offsite.
 
 Dokumen ini menjadi checklist proses Mini ERP dari awal sales sampai laporan
 keuangan. Dokumen ini belum mengubah aturan aplikasi. Nama approver dan batas
@@ -32,6 +38,28 @@ Pemeriksaan ini bersifat read-only dan tidak mengubah data staging.
 
 Akun berikut dibuat langsung di database staging dan tidak disimpan di Git.
 Password bersifat sementara dan harus dihapus/dirotasi setelah UAT selesai.
+
+## Akun yang benar-benar digunakan dalam evidence UAT
+
+| Username | Role/level | Division/scope | Manager | Penggunaan evidence |
+|---|---|---|---|---|
+| `codex_sales_staff_uat` | IT Solutions Staff | Sales / IT Solutions | `codex_sales_manager_uat` | Membuat project `622` dan SO `SO-0036` |
+| `codex_sales_manager_uat` | IT Solutions Manager | Sales / IT Solutions | `codex_exec` | UAT role Sales Manager |
+| `codex_sales_readonly_uat` | IT Solutions Staff, read-only | Sales / IT Solutions | - | Smoke test read-only |
+| `codex_prodev_staff_uat` | Network Solutions Staff | Product & Development | `codex_prodev_manager_uat` | Requester approval `50` |
+| `codex_prodev_manager_uat` | Network Solutions Manager | Product & Development | `codex_exec` | Approver request `50` |
+| `codex_ops_staff` | Implementations Staff | Operations / Implementations | `codex_ops_manager` | Requester META/PR dan actor BAST |
+| `codex_ops_manager` | Implementations Manager | Operations / Implementations | `codex_ops_gm` | Approver request `46`/`47`/`48` |
+| `codex_ops_gm` | Operations GM | Operations | `codex_exec` | Approver step `48` |
+| `codex_procurement_manager` | Procurement Manager | Procurement | `codex_exec` | Pembuat PO `20` |
+| `codex_finance_manager` | Finance Manager | Finance | `codex_exec` | Pembuat Invoice `11`/`12` |
+| `codex_finance_uat` | Finance Staff | Finance | `codex_exec` | Requester approval harga `51` |
+| `codex_exec` | Executive | Lintas departemen | - | Approver request `49` dan `51` |
+
+`codex_ops_uat`, `codex_ops_unassigned`, dan `codex_procurement_uat` tersedia
+di staging tetapi tidak terlihat sebagai actor pada rangkaian evidence yang
+dirujuk di atas. Akun `codex_*_uat` adalah akun UAT sementara, bukan akun
+operasional pilot.
 
 | Username | Role | Division | Manager | Read-only |
 |---|---|---|---|---|
@@ -79,6 +107,7 @@ Password bersifat sementara dan harus dihapus/dirotasi setelah UAT selesai.
 | Syarat invoice | Hanya dari META/billing request approved dan sumber serah terima yang lengkap sesuai jenis transaksi | Menunggu Finance |
 | Definisi profitability | Pisahkan committed, accrued/actual, paid, dan billed revenue | Menunggu Finance |
 | Data UAT sebelum pilot | Pertahankan untuk audit atau arsipkan sesuai keputusan pemilik data | Menunggu keputusan |
+| Rotasi/nonaktif akun UAT | Maksimal 2 hari kerja setelah UAT/pilot ditutup | Menunggu penetapan System Admin dan Process Owner |
 | Backup offsite | S3-compatible private storage dengan encryption, versioning/Object Lock | Ditunda; wajib sebelum release candidate/go-live |
 
 ## Baseline rekomendasi untuk sign-off
@@ -106,21 +135,38 @@ Jangan memakai customer, project, atau transaksi operasional yang sudah ada.
 |---|---|---|---|
 | S1 | Sales membuat customer baru | Customer tersimpan tanpa duplikat dan terlihat sesuai division | Lulus — customer `92` |
 | S2 | Sales membuat project dari customer | Project memiliki owner, division, status awal, dan dapat dicari | Lulus — project `622` / `PRJ-ITS-2026-0060` |
-| S3 | Sales mengisi pipeline dan dokumen project | Status pipeline berubah sah; dokumen dapat di-upload/download; audit tercatat | Sebagian — gate project selesai; upload belum diuji |
+| S3 | Sales mengisi pipeline dan dokumen project | Status pipeline berubah sah; dokumen dapat di-upload/download; audit tercatat | Lulus — gate project selesai; upload, download, dan hapus dokumen berhasil diuji |
 | S4 | Sales menandai dokumen lengkap | Project masuk ke gate Prodev; user tanpa hak tidak dapat mengubah gate | Lulus — stage maju ke Presales |
-| S5 | Product & Development mengisi analisis dan BoQ | Hanya bagian yang berwenang yang dapat mengubah; histori BoQ tercatat | Lulus sebagian — BoQ `19` dan approval manager `50` selesai |
+| S5 | Product & Development mengisi analisis dan BoQ | Hanya bagian yang berwenang yang dapat mengubah; histori BoQ tercatat | Lulus sebagian — BoQ `19`, seluruh status presales submitted, dan approval `50` selesai; histori/versioning BoQ serta pembatasan edit per bagian belum memiliki evidence lengkap |
 | S6 | Role lintas departemen mencoba mengubah BoQ/presales | Backend menolak dengan `403` bila tidak memiliki scope/permission | Lulus — Sales mendapat `403` saat membuat BoQ |
 | S7 | Project ditutup sebagai Won sesuai proses | Sales Order terbentuk otomatis; tidak ada pembuatan Sales Order manual ganda | Lulus — `SO-0036`, satu item BoQ |
 | S8 | Sales menambahkan Customer PO | Customer PO terhubung ke Sales Order dan nilai tervalidasi | Lulus — Customer PO `5`, total `160.000.000` |
-| S9 | User read-only mengakses seluruh alur | GET berhasil sesuai scope; POST/PUT/DELETE ditolak `403` | Lulus smoke test |
+| S9 | User read-only mengakses seluruh alur | GET berhasil sesuai scope; POST/PUT/DELETE ditolak `403` | Lulus smoke test; uji endpoint-by-endpoint masih terbuka |
 | S10 | Penolakan/invalid input | Nilai negatif, project/customer tidak sah, atau transisi status ilegal ditolak tanpa data parsial | Lulus — pipeline invalid ditolak `400`, project tetap `Closed/Win` |
 
-UAT berjalan pada project `622` dengan customer `92`. Approval ProDev request
-`50` sudah disetujui oleh `codex_prodev_manager_uat`. Keempat bagian presales
-sudah submitted dan approval harga request `51` sudah disetujui oleh
-`codex_exec`. Project berhasil melalui Quotation → Win, membentuk `SO-0036`,
-dan menerima Customer PO `5`. Audit integritas setelah Customer PO tetap
-menghasilkan `0 violations`.
+UAT Sales/Presales berjalan pada project `622` dengan customer `92`. Approval
+ProDev request `50` sudah disetujui oleh `codex_prodev_manager_uat`. Keempat
+bagian presales sudah submitted dan approval harga request `51` sudah disetujui
+oleh `codex_exec`. Project berhasil melalui Quotation → Win, membentuk `SO-0036`,
+dan menerima Customer PO `5`.
+
+UAT Operations/Finance berjalan terpisah pada project `610` / `PRJ-ITS-2026-0056`
+dengan Sales Order `SO-0031`. Evidence-nya meliputi META `16`/`17`, approval
+request `46`/`47`, PR `PR-0028`, PO `PO-0020`, approval `48`/`49`, BAST Vendor
+`BASTV-0009`, BAST Customer `BASTC-0012`, Invoice `INV-0011`/`INV-0012`, payment
+schedule `25`, dan jurnal `JE-0028` sampai `JE-0031`.
+
+Approval harga request `51` bukan bypass Executive: matrix yang digunakan adalah
+`presales_price_approval` dengan tipe `requester_manager`, requester-nya
+`codex_finance_uat`, dan manager yang terdaftar adalah `codex_exec`. Hal ini
+tetap harus dikonfirmasi sebagai keputusan bisnis final.
+
+Rangkaian project `610` dibuat sebelum aturan prefix pilot ditetapkan dan tidak
+menggunakan prefix `UAT-` pada nomor dokumennya. Rangkaian tersebut harus
+diperlakukan sebagai evidence UAT historis, bukan data pilot. Semua data pilot
+baru wajib memakai prefix `PILOT-2026`.
+
+Audit integritas setelah rangkaian UAT tetap menghasilkan `0 violations`.
 
 Backup offsite ditunda atas keputusan tim. Staging tetap dapat dipakai untuk
 pengembangan dan UAT, tetapi belum boleh diperlakukan sebagai release
@@ -130,9 +176,23 @@ Kriteria lulus tahap ini: seluruh skenario S1–S10 memiliki bukti screenshot/AP
 response, tidak ada data parsial, dan audit log dapat ditelusuri berdasarkan
 user serta project UAT.
 
-## Exit criteria Release Candidate
+## Gate pilot dan release candidate
 
-Staging belum dinyatakan siap pilot sampai seluruh item berikut terpenuhi:
+### Syarat masuk pilot terbatas
+
+Staging boleh digunakan untuk persiapan pilot setelah Process Owner, peserta,
+periode, approval baseline, data prefix, monitoring, dan risk acceptance backup
+offsite disetujui. Syarat ini berbeda dari syarat release candidate.
+
+### Syarat selesai pilot
+
+Pilot selesai setelah seluruh skenario pilot memiliki evidence, tidak ada defect
+Sev-1/Sev-2 terbuka, laporan direkonsiliasi, dan Process Owner menandatangani
+hasilnya.
+
+### Syarat release candidate
+
+Staging belum dinyatakan release candidate sampai seluruh item berikut terpenuhi:
 
 - [ ] Pemilik proses dan approver disahkan.
 - [ ] Batas nominal dan pengecualian disetujui.
@@ -143,10 +203,13 @@ Staging belum dinyatakan siap pilot sampai seluruh item berikut terpenuhi:
 - [ ] Backup offsite terenkripsi tersedia dan restore dari salinan offsite
       berhasil.
 - [ ] Checklist pilot, monitoring, dan rollback disetujui.
+- [ ] Akun `codex_*_uat` dirotasi atau dinonaktifkan setelah UAT sesuai
+      keputusan System Admin/Process Owner.
 
 ## Referensi
 
 - [REVIEW_STAGING_2026-10-26.md](REVIEW_STAGING_2026-10-26.md)
+- [STAGING_UAT_EVIDENCE_INDEX.md](STAGING_UAT_EVIDENCE_INDEX.md)
 - [ROLE_PERMISSION_TEST_MATRIX_STAGING.md](ROLE_PERMISSION_TEST_MATRIX_STAGING.md)
 - [ops/STAGING_STORAGE.md](ops/STAGING_STORAGE.md)
 - [DEPLOYMENT.md](DEPLOYMENT.md)

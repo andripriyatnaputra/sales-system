@@ -90,4 +90,27 @@ FROM (
     HAVING COUNT(*) > 1
 ) violations;
 
+SELECT 'approval_requests.approved_without_approved_steps' AS check_name, COUNT(*)::bigint AS violations
+FROM approval_requests ar
+WHERE ar.status = 'approved'
+  AND (
+      NOT EXISTS (
+          SELECT 1 FROM approval_steps s
+          WHERE s.approval_request_id = ar.id
+      )
+      OR EXISTS (
+          SELECT 1 FROM approval_steps s
+          WHERE s.approval_request_id = ar.id
+            AND s.status <> 'approved'
+      )
+  );
+
+SELECT 'approval_requests.pending_without_steps' AS check_name, COUNT(*)::bigint AS violations
+FROM approval_requests ar
+WHERE ar.status = 'pending'
+  AND NOT EXISTS (
+      SELECT 1 FROM approval_steps s
+      WHERE s.approval_request_id = ar.id
+  );
+
 COMMIT;
